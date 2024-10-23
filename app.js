@@ -7,6 +7,7 @@ const morgan = require("morgan");
 const helmet = require("helmet");
 const cors = require("cors");
 const cookie = require("cookie-parser");
+const errorhandler = require("./controller/errorhandler");
 // MUST MIDDLEWARES
 app.enable("trust proxy");
 // FOR SHARING DATA WITH OTHER WEBSITES
