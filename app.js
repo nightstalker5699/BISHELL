@@ -3,6 +3,7 @@ const morgan = require("morgan");
 const AppError = require("./utils/appError");
 const globalErrorHandler = require("./controllers/errorController");
 const app = express();
+const userRouter = require(`${__dirname}/routes/userRoutes.js`);
 const fs = require("fs");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
@@ -55,7 +56,7 @@ app.use((req, res, next) => {
 });
 
 //Middleware mounting
-//app.use(`/api/v1/users`, userRouter);
+app.use(`/api/users`, userRouter);
 
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
