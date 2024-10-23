@@ -37,14 +37,7 @@ app.use(mongoSanitize()); // Middleware to sanitize the input data
 app.use(xss()); // Middleware to prevent XSS attacks
 
 app.use(hpp({
-  whitelist: [
-    'duration',
-    'ratingsQuantity',
-    'ratingsAverage',
-    'maxGroupSize',
-    'difficulty',
-    'price'
-  ]
+  whitelist: []
 })); // Middleware to prevent parameter pollution
 
 app.use(express.static(`${__dirname}/public`)); // Middleware to serve static files
