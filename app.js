@@ -1,31 +1,67 @@
 const express = require("express");
-
-const app = express();
-const path = require("path");
-const fs = require("fs");
 const morgan = require("morgan");
+const AppError = require("./utils/appError");
+const globalErrorHandler = require("./controllers/errorController");
+const app = express();
+const userRouter = require(`${__dirname}/routes/userRoutes.js`);
+const fs = require("fs");
+const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
+const xss = require("xss-clean");
+const mongoSanitize = require("express-mongo-sanitize");
+const hpp = require("hpp");
 const cors = require("cors");
-const cookie = require("cookie-parser");
-const errorhandler = require("./controller/errorhandler");
-// MUST MIDDLEWARES
+const cookieParser = require("cookie-parser");
 app.enable("trust proxy");
-// FOR SHARING DATA WITH OTHER WEBSITES
+
+// Global middlewares
 app.use(cors());
-// FOR ALLOWING COMPLEX REQUESTS
+
 app.options("*", cors());
-// FOR IMG ACCESSING
-app.use(express.static(path.join(__dirname, "static")));
-// DEFENSE HEADERS
+
 app.use(helmet());
-// DEV LOGGING
+
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const limiter = rateLimit({
+  max: 1000,
+  windowMs: 60 * 60 * 1000,
+  message: "Too many requests from this IP, please try again in an hour!",
+});
 
-// app.use(errorhandler)
+app.use("api", limiter);
+
+app.use(
+  express.json({
+    limit: "10kb",
+  })
+); // Middleware to parse the body of the request
+app.use(cookieParser());
+app.use(mongoSanitize()); // Middleware to sanitize the input data
+
+app.use(xss()); // Middleware to prevent XSS attacks
+
+app.use(
+  hpp({
+    whitelist: [],
+  })
+); // Middleware to prevent parameter pollution
+
+app.use(express.static(`${__dirname}/public`)); // Middleware to serve static files
+app.use((req, res, next) => {
+  req.requestTime = new Date().toISOString();
+  next();
+});
+
+//Middleware mounting
+app.use(`/api/users`, userRouter);
+
+app.all("*", (req, res, next) => {
+  next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+});
+
+app.use(globalErrorHandler);
 
 module.exports = app;
