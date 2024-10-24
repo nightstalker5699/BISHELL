@@ -12,6 +12,25 @@ exports.createOne = (Model) =>
     });
   });
 
+exports.updateOne = (Model) =>
+  catchAsync(async (req, res, next) => {
+    const doc = await Model.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!doc) {
+      return next(new AppError(`There's no document with this ID`, 404));
+    }
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        data: doc,
+      },
+    });
+  });
+
 exports.deleteOne = (Model) =>
   catchAsync(async (req, res, next) => {
     const doc = await Model.findByIdAndDelete(req.params.id);
@@ -26,17 +45,33 @@ exports.deleteOne = (Model) =>
     });
   });
 
-  exports.getAll = (Model) => catchAsync(async (req, res, next) => {
-
-  
-    const doc = await Model.find()
+exports.getAll = (Model) =>
+  catchAsync(async (req, res, next) => {
+    const doc = await Model.find().select('-passwordResetToken -passwordResetTokenExpires -passwordChangedAt');
     // Send the Response
     res.status(200).json({
-      status: 'success',
+      status: "success",
       requestedAt: req.requestTime,
       results: doc.length,
       data: {
         doc: doc,
+      },
+    });
+  });
+
+exports.getOne = (Model, populateOptions) =>
+  catchAsync(async (req, res, next) => {
+    let query = Model.findById(req.params.id).select('-passwordResetToken -passwordResetTokenExpires -passwordChangedAt');
+    if (populateOptions) query = query.populate(populateOptions);
+    const doc = await query;
+
+    if (!doc) {
+      return next(new AppError(`There's no documents with this ID`, 404));
+    }
+    res.status(200).json({
+      status: "success",
+      data: {
+        data: doc,
       },
     });
   });
