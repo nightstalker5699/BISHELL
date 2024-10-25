@@ -6,10 +6,13 @@ const userSchema = new mongoose.Schema({
   username: {
     type: String,
     required: [true, "A user must have a username"],
-  },
-  nickname: {
-    type: String,
-    required: [true, "A user must have a nickname"],
+    unique: true,
+    validate: {
+      validator: function (v) {
+        return /^[a-zA-Z0-9]+$/.test(v);
+      },
+      message: "Username can only contain letters and numbers, no spaces."
+    }
   },
   email: {
     type: String,
