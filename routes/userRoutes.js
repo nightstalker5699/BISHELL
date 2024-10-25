@@ -13,13 +13,17 @@ router.get(
   userController.getUser
 );
 
-router.patch("/updateMyPassword",authController.protect, authController.updatePassword);
+router.patch(
+  "/updateMyPassword",
+  authController.protect,
+  authController.updatePassword
+);
 
 router.post(`/signup`, authController.signup);
 router.post(`/login`, authController.login);
 router.route(`/forgotPassword`).post(authController.forgotPassword);
-router.route(`/resetPassword/:zp`).patch(authController.resetPassword);
+router.route(`/resetPassword/:token`).patch(authController.resetPassword);
 
-router.route(`/`).get(authController.protect,userController.getAllUsers);
+router.route(`/`).get(authController.protect, userController.getAllUsers);
 
 module.exports = router;

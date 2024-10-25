@@ -22,7 +22,7 @@ logSchema.statics.calcuPoints = async function (userId) {
     { $match: { userId: userId } },
     { $group: { _id: userId, points: { $sum: "$point" } } },
   ]);
-  await User.findOneAndUpdate(
+  await User.updateOne(
     { _id: userId },
     {
       points: totalPoints[0].points,
@@ -36,7 +36,7 @@ logSchema.post("save", function () {
 
 logSchema.pre(/^findOneAnd/, async function (next) {
   // create a field that have the document after deleteing it
-  this.r = await this.findOne();
+  this.r = await this.model.findOne();
   next();
 });
 

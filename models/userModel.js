@@ -65,12 +65,19 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  rank: {
+    type: Number,
+  },
+});
+
+userSchema.index({
+  rank: 1,
 });
 
 userSchema.pre("save", async function (next) {
   // Only run this function if password was actually modified
   if (!this.isModified("password")) return next();
-  if (this.isModified("points")) this.q = this;
+  if (this.isModified("points")) this.q = this.findOne();
   // hash the password with cost of 12
   this.password = await bcrypt.hash(this.password, 12);
   // delete the confirm field
@@ -84,10 +91,6 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-userSchema.post("save", async function (next) {
-  console.log(this.q);
-  // next();
-});
 userSchema.methods.correctPassword = async function (
   candidatePassword,
   userPassword
@@ -116,6 +119,16 @@ userSchema.methods.createPasswordResetToken = function () {
   this.passwordResetTokenExpires = Date.now() + 10 * 60 * 1000;
   return resetToken;
 };
+
+userSchema.post("updateOne", async function (next) {
+  const users = await this.model.find().sort({ points: -1 });
+  await Promise.all(
+    users.map((users, index) => {
+      users.rank = index + 1;
+      return users.save({ validateBeforeSave: false });
+    })
+  );
+});
 
 const User = mongoose.model("User", userSchema);
 

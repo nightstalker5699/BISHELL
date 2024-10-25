@@ -3,8 +3,11 @@ const Point = require("../models/pointModel");
 const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const factory = require("./handlerFactory");
-exports.getLeaderBoard = catchAsync((req, res, next) => {
-  const users = User.find({ role: "student" }).sort({ "points.score": 1 });
+exports.getLeaderBoard = catchAsync(async (req, res, next) => {
+  const users = await User.find({ role: "student" }).sort({ rank: 1 });
+  res
+    .status(200)
+    .json({ status: "success", results: users.length, data: users });
 });
 
 exports.createLog = catchAsync(async (req, res, next) => {
@@ -18,8 +21,8 @@ exports.createLog = catchAsync(async (req, res, next) => {
     log,
   });
 });
-exports.getMyLogs = catchAsync(async (req, res, next) => {
-  const logs = await Point.find({ userId: req.user.id });
+exports.getUserLog = catchAsync(async (req, res, next) => {
+  const logs = await Point.find({ userId: req.params.id });
   res.status(200).json({
     status: "success",
     result: logs.length,
