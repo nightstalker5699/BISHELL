@@ -6,9 +6,10 @@ const pointController = require("../controllers/pointController");
 const router = express.Router();
 
 router.get("/leaderboard", pointController.getLeaderBoard);
+router.route("/user/:id").get(pointController.getUserLog);
 router
   .route("/:id")
-  .get(pointController.getUserLog)
+  .get(pointController.getpoint)
   .patch(authController.protect, pointController.updatepoint)
   .delete(pointController.deletepoint);
 
