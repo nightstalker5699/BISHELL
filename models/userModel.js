@@ -11,8 +11,8 @@ const userSchema = new mongoose.Schema({
       validator: function (v) {
         return /^[a-zA-Z0-9]+$/.test(v);
       },
-      message: "Username can only contain letters and numbers, no spaces."
-    }
+      message: "Username can only contain letters and numbers, no spaces.",
+    },
   },
   email: {
     type: String,
@@ -71,6 +71,8 @@ const userSchema = new mongoose.Schema({
   rank: {
     type: Number,
   },
+  followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 });
 
 userSchema.index({
