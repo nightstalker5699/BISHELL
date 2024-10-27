@@ -11,3 +11,5 @@ exports.getMe = (req, res, next) => {
 };
 
 exports.getUser = factory.getOne(User);
+
+this is new code for the sign up page

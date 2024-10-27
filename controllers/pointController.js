@@ -34,3 +34,7 @@ exports.getAllpoint = factory.getAll(Point);
 exports.deletepoint = factory.deleteOne(Point);
 exports.updatepoint = factory.updateOne(Point);
 exports.getpoint = factory.getOne(Point);
+
+sdjknasd
+jasndjsn
+asjkndjsda
