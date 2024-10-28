@@ -15,6 +15,10 @@ const userSchema = new mongoose.Schema(
         message: "Username can only contain letters and numbers, no spaces.",
       },
     },
+    fullName: {
+      type: String,
+      required: [true, "A user must have a fullName"],
+    },
     email: {
       type: String,
       required: [true, "A user must have an email"],
@@ -28,7 +32,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["student", "doctor", "group-leader", "admin"],
+      enum: ["student", "instructor", "group-leader", "admin"],
       default: "student",
     },
     group: {
@@ -72,6 +76,8 @@ const userSchema = new mongoose.Schema(
     rank: {
       type: Number,
     },
+    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   {
     toJSON: { virtuals: true },

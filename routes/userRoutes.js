@@ -42,6 +42,6 @@ router.post(`/login`, authController.login);
 router.route(`/forgotPassword`).post(authController.forgotPassword);
 router.route(`/resetPassword/:token`).patch(authController.resetPassword);
 
-router.route(`/`).get(authController.protect, userController.getAllUsers);
+router.route(`/`).get(authController.protect,authController.restrictTo('admin') ,userController.getAllUsers);
 
 module.exports = router;

@@ -1,4 +1,5 @@
 const User = require("./../models/userModel");
+const Course = require("./../models/courseModel");
 const catchAsync = require("./../utils/catchAsync");
 const jwt = require("jsonwebtoken");
 const AppError = require("./../utils/appError");
@@ -40,7 +41,7 @@ const createSendToken = (user, statusCode, res) => {
 exports.signup = catchAsync(async (req, res) => {
   const newUser = await User.create({
     username: req.body.username,
-    nickname: req.body.nickname,
+    fullName: req.body.fullName,
     group: req.body.group,
     email: req.body.email,
     photo: req.body.photo,
@@ -49,6 +50,12 @@ exports.signup = catchAsync(async (req, res) => {
     passwordChangedAt: req.body.passwordChangedAt,
   });
 
+  const courses = await Course.find();
+  courses.forEach(async (course) => {
+    course.studentsId.push(newUser._id);
+    await course.save({validateBeforeSave: false});
+  });
+  
   console.log("New User Created:", newUser);
 
   createSendToken(newUser, 201, res);
