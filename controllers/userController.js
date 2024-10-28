@@ -66,40 +66,11 @@ exports.unfollowUser = catchAsync(async (req, res, next) => {
   res.status(200).json({ message: "Unfollowed successfully" });
 });
 
-exports.getFollowers = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.params.id).populate({
-    path: 'followers',
-    select: 'username photo'
-  });
-
-  if (!user) {
-    return next(new AppError('User not found', 404));
-  }
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      followers: user.followers,
-      count: user.followers.length
-    }
-  });
+exports.getFollowers = factory.getOne(User, {
+  path: "followers",
+  select: "username photo",
 });
-
-exports.getFollowing = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.params.id).populate({
-    path: 'following',
-    select: 'username photo'
-  });
-
-  if (!user) {
-    return next(new AppError('User not found', 404));
-  }
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      following: user.following,
-      count: user.following.length
-    }
-  });
+exports.getFollowing = factory.getOne(User, {
+  path: "following",
+  select: "username photo",
 });
