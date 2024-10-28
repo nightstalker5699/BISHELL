@@ -10,7 +10,34 @@ exports.getMe = (req, res, next) => {
   next();
 };
 
-exports.getUser = factory.getOne(User);
+exports.getUser = catchAsync(async (req, res, next) => {
+  const targetUser = await User.findOne({
+    username: req.params.username,
+  }).select(
+    "-passwordResetToken -passwordResetTokenExpires -passwordChangedAt"
+  );
+
+  if (!targetUser) {
+    return next(new AppError("There's no document with this username", 404));
+  }
+
+  let isFollowed = null;
+  // Check if the current user is trying to get their own data
+  if (req.user.username !== req.params.username) {
+    // Check if the current user is following the target user
+    isFollowed = req.user.following.includes(targetUser._id);
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      user: targetUser,
+      isFollowed, // Add the isFollowed field to the response
+    },
+  });
+});
+
+//Follow System
 
 exports.followUser = catchAsync(async (req, res, next) => {
   const userToFollow = await User.findById(req.params.id);
