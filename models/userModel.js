@@ -2,81 +2,89 @@ const crypto = require("crypto");
 const mongoose = require("mongoose");
 const validator = require("validator");
 const bcrypt = require("bcryptjs");
-const userSchema = new mongoose.Schema({
-  username: {
-    type: String,
-    required: [true, "A user must have a username"],
-    unique: true,
-    validate: {
-      validator: function (v) {
-        return /^[a-zA-Z0-9]+$/.test(v);
+const userSchema = new mongoose.Schema(
+  {
+    username: {
+      type: String,
+      required: [true, "A user must have a username"],
+      unique: true,
+      validate: {
+        validator: function (v) {
+          return /^[a-zA-Z0-9]+$/.test(v);
+        },
+        message: "Username can only contain letters and numbers, no spaces.",
       },
-      message: "Username can only contain letters and numbers, no spaces."
-    }
-  },
-  email: {
-    type: String,
-    required: [true, "A user must have an email"],
-    unique: true,
-    lowercase: true,
-    validate: [validator.isEmail, "Please provide a valid email"],
-  },
-  photo: {
-    type: String,
-    default: "default.jpg",
-  },
-  role: {
-    type: String,
-    enum: ["student", "doctor", "group-leader", "admin"],
-    default: "student",
-  },
-  group: {
-    type: String,
-    enum: ["A", "B", "C", "D"],
-    required: [true, "A user must be in a group"],
-  },
-  badges: {
-    type: [String],
-    default: [],
-  },
-  recentNotes: {
-    type: [String],
-    default: [],
-  },
-  password: {
-    type: String,
-    required: [true, "A user must have a password"],
-    minlength: 6,
-    select: false,
-  },
-  passwordConfirm: {
-    type: String,
-    required: [true, "A user must confirm the password"],
-    validate: {
-      validator: function (el) {
-        return el === this.password;
+    },
+    email: {
+      type: String,
+      required: [true, "A user must have an email"],
+      unique: true,
+      lowercase: true,
+      validate: [validator.isEmail, "Please provide a valid email"],
+    },
+    photo: {
+      type: String,
+      default: "default.jpg",
+    },
+    role: {
+      type: String,
+      enum: ["student", "doctor", "group-leader", "admin"],
+      default: "student",
+    },
+    group: {
+      type: String,
+      enum: ["A", "B", "C", "D"],
+      required: [true, "A user must be in a group"],
+    },
+    badges: {
+      type: [String],
+      default: [],
+    },
+    recentNotes: {
+      type: [String],
+      default: [],
+    },
+    password: {
+      type: String,
+      required: [true, "A user must have a password"],
+      minlength: 6,
+      select: false,
+    },
+    passwordConfirm: {
+      type: String,
+      required: [true, "A user must confirm the password"],
+      validate: {
+        validator: function (el) {
+          return el === this.password;
+        },
+        message: "Passwords are not the same",
       },
-      message: "Passwords are not the same",
+    },
+    passwordChangedAt: {
+      type: Date,
+    },
+    passwordResetToken: String,
+    passwordResetTokenExpires: Date,
+    points: {
+      type: Number,
+      default: 0,
+    },
+    rank: {
+      type: Number,
     },
   },
-  passwordChangedAt: {
-    type: Date,
-  },
-  passwordResetToken: String,
-  passwordResetTokenExpires: Date,
-  points: {
-    type: Number,
-    default: 0,
-  },
-  rank: {
-    type: Number,
-  },
-});
+  {
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
+);
+rank: 1, userSchema.index({});
 
-userSchema.index({
-  rank: 1,
+userSchema.virtual("toDoList", {
+  ref: "toDoList",
+  foreignField: "userId",
+  localField: "_id",
 });
-
 userSchema.pre("save", async function (next) {
   // Only run this function if password was actually modified
   if (!this.isModified("password")) return next();

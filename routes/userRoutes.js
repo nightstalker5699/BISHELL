@@ -1,7 +1,7 @@
 const express = require("express");
 const userController = require("../controllers/userController");
 const authController = require("./../controllers/authController");
-
+const toDoListRouter = require("./toDoListRoutes");
 const router = express.Router();
 
 // routes
@@ -12,7 +12,7 @@ router.get(
   userController.getMe,
   userController.getUser
 );
-
+router.use("/toDoList", toDoListRouter);
 router.route("/:username").get(authController.protect, userController.getUser);
 router.patch(
   "/updateMyPassword",
