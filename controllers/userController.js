@@ -11,11 +11,8 @@ exports.getMe = (req, res, next) => {
 };
 
 exports.getUser = catchAsync(async (req, res, next) => {
-  const targetUser = await User.findOne({
-    username: req.params.username,
-  }).select(
-    "-passwordResetToken -passwordResetTokenExpires -passwordChangedAt"
-  );
+  const targetUser = await User.findOne({ username: req.params.username })
+    .select("-passwordResetToken -passwordResetTokenExpires -passwordChangedAt");
 
   if (!targetUser) {
     return next(new AppError("There's no document with this username", 404));
@@ -93,11 +90,55 @@ exports.unfollowUser = catchAsync(async (req, res, next) => {
   res.status(200).json({ message: "Unfollowed successfully" });
 });
 
-exports.getFollowers = factory.getOne(User, {
-  path: "followers",
-  select: "username photo",
+exports.getFollowers = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.params.id);
+
+  if (!user) {
+    return next(new AppError('User not found', 404));
+  }
+
+  const page = parseInt(req.query.page) || 1; // Default to page 1
+  const limit = parseInt(req.query.limit) || 20; // Default to 20 users per page
+  const skip = (page - 1) * limit;
+
+  const followers = await User.find({ _id: { $in: user.followers } })
+    .select('username photo')
+    .skip(skip)
+    .limit(limit);
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      followers,
+      totalFollowers: user.followers.length, // Total count of followers
+      totalPages: Math.ceil(user.followers.length / limit),
+    },
+  });
 });
-exports.getFollowing = factory.getOne(User, {
-  path: "following",
-  select: "username photo",
+
+// Updated getFollowing with pagination
+exports.getFollowing = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.params.id);
+
+  if (!user) {
+    return next(new AppError('User not found', 404));
+  }
+
+  const page = parseInt(req.query.page) || 1; // Default to page 1
+  const limit = parseInt(req.query.limit) || 20; // Default to 20 users per page
+  const skip = (page - 1) * limit;
+
+  const following = await User.find({ _id: { $in: user.following } })
+    .select('username photo')
+    .skip(skip)
+    .limit(limit);
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      following,
+      totalFollowing: user.following.length, // Total count of following users
+      totalPages: Math.ceil(user.following.length / limit),
+    },
+  });
 });
