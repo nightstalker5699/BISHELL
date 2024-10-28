@@ -66,6 +66,8 @@ exports.getOne = (Model, populateOptions) =>
     let query = Model.findOne({ username: req.params.username }).select(
       "-passwordResetToken -passwordResetTokenExpires -passwordChangedAt"
     );
+    if (Model.modelname === "User" || req.user.username === req.params.username)
+      query = query.populate("toDoList");
     if (populateOptions) query = query.populate(populateOptions);
     const doc = await query;
 
