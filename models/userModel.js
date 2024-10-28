@@ -78,7 +78,8 @@ const userSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   }
 );
-rank: 1, userSchema.index({});
+
+userSchema.index({ rank: 1 });
 
 userSchema.virtual("toDoList", {
   ref: "toDoList",
