@@ -34,7 +34,6 @@ exports.getUser = catchAsync(async (req, res, next) => {
   });
 });
 
-
 //Follow System
 
 exports.followUser = catchAsync(async (req, res, next) => {
