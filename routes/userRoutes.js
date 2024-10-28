@@ -13,10 +13,22 @@ router.get(
   userController.getUser
 );
 
-router.post("/:id/follow", authController.protect, userController.followUser );
-router.delete("/:id/unfollow", authController.protect, userController.unfollowUser );
-router.get("/:id/followers", authController.protect, userController.getFollowers);
-router.get("/:id/following", authController.protect, userController.getFollowing);
+router.post("/:id/follow", authController.protect, userController.followUser);
+router.delete(
+  "/:id/unfollow",
+  authController.protect,
+  userController.unfollowUser
+);
+router.get(
+  "/:username/followers",
+  authController.protect,
+  userController.getFollowers
+);
+router.get(
+  "/:username/following",
+  authController.protect,
+  userController.getFollowing
+);
 router.route("/:username").get(authController.protect, userController.getUser);
 router.patch(
   "/updateMyPassword",
