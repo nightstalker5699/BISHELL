@@ -72,6 +72,8 @@ const userSchema = new mongoose.Schema(
     rank: {
       type: Number,
     },
+    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   {
     toJSON: { virtuals: true },
