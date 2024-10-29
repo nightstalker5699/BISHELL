@@ -4,18 +4,18 @@ const authController = require("../controllers/authController");
 const pointController = require("../controllers/pointController");
 
 const router = express.Router();
-
+router.use(authController.protect);
 router.get("/leaderboard", pointController.getLeaderBoard);
 router.route("/user/:id").get(pointController.getUserLog);
 router
   .route("/:id")
   .get(pointController.getpoint)
-  .patch(authController.protect, pointController.updatepoint)
-  .delete(pointController.deletepoint);
+  .patch(authController.restrictTo("admin"), pointController.updatepoint)
+  .delete(authController.restrictTo("admin"), pointController.deletepoint);
 
 router
   .route("/")
   .get(pointController.getAllpoint)
-  .post(authController.protect, pointController.createLog);
+  .post(pointController.createLog);
 
 module.exports = router;

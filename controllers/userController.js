@@ -1,4 +1,5 @@
 const User = require("../models/userModel");
+const toDoList = require("../models/toDoListModel");
 const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const factory = require("./handlerFactory");
@@ -11,13 +12,24 @@ exports.getMe = (req, res, next) => {
 };
 
 exports.getUser = catchAsync(async (req, res, next) => {
+  let popOptions;
+  if (req.user.username === req.params.username)
+    popOptions = { path: "toDoList", select: "task isDone" };
   const targetUser = await User.findOne({ username: req.params.username })
-    .select("-passwordResetToken -passwordResetTokenExpires -passwordChangedAt");
+    .populate(popOptions)
+    .select(
+      "-passwordResetToken -passwordResetTokenExpires -passwordChangedAt"
+    );
 
   if (!targetUser) {
     return next(new AppError("There's no document with this username", 404));
   }
-
+  if (
+    targetUser.showToDo === true &&
+    req.user.username !== req.params.username
+  ) {
+    targetUser.toDoList = await toDoList.find({ userId: targetUser._id });
+  }
   let isFollowed = null;
   // Check if the current user is trying to get their own data
   if (req.user.username !== req.params.username) {
@@ -94,7 +106,7 @@ exports.getFollowers = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.params.id);
 
   if (!user) {
-    return next(new AppError('User not found', 404));
+    return next(new AppError("User not found", 404));
   }
 
   const page = parseInt(req.query.page) || 1; // Default to page 1
@@ -102,12 +114,12 @@ exports.getFollowers = catchAsync(async (req, res, next) => {
   const skip = (page - 1) * limit;
 
   const followers = await User.find({ _id: { $in: user.followers } })
-    .select('username photo')
+    .select("username photo")
     .skip(skip)
     .limit(limit);
 
   res.status(200).json({
-    status: 'success',
+    status: "success",
     data: {
       followers,
       totalFollowers: user.followers.length, // Total count of followers
@@ -121,7 +133,7 @@ exports.getFollowing = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.params.id);
 
   if (!user) {
-    return next(new AppError('User not found', 404));
+    return next(new AppError("User not found", 404));
   }
 
   const page = parseInt(req.query.page) || 1; // Default to page 1
@@ -129,12 +141,12 @@ exports.getFollowing = catchAsync(async (req, res, next) => {
   const skip = (page - 1) * limit;
 
   const following = await User.find({ _id: { $in: user.following } })
-    .select('username photo')
+    .select("username photo")
     .skip(skip)
     .limit(limit);
 
   res.status(200).json({
-    status: 'success',
+    status: "success",
     data: {
       following,
       totalFollowing: user.following.length, // Total count of following users
