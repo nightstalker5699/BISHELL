@@ -5,6 +5,7 @@ const globalErrorHandler = require("./controllers/errorController");
 const app = express();
 const userRouter = require(`${__dirname}/routes/userRoutes.js`);
 const pointRouter = require(`${__dirname}/routes/pointRoutes.js`);
+const courseRouter = require(`${__dirname}/routes/courseRoutes.js`);
 const fs = require("fs");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
@@ -34,6 +35,7 @@ const limiter = rateLimit({
 
 app.use("api", limiter);
 
+
 app.use(
   express.json({
     limit: "10kb",
@@ -59,6 +61,7 @@ app.use((req, res, next) => {
 //Middleware mounting
 app.use(`/api/users`, userRouter);
 app.use(`/api/points`, pointRouter);
+app.use(`/api/courses`, courseRouter);
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });

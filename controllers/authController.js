@@ -1,4 +1,5 @@
 const User = require("./../models/userModel");
+const Course = require("./../models/courseModel");
 const catchAsync = require("./../utils/catchAsync");
 const jwt = require("jsonwebtoken");
 const AppError = require("./../utils/appError");
@@ -40,7 +41,7 @@ const createSendToken = (user, statusCode, res) => {
 exports.signup = catchAsync(async (req, res) => {
   const newUser = await User.create({
     username: req.body.username,
-    nickname: req.body.nickname,
+    fullName: req.body.fullName,
     group: req.body.group,
     email: req.body.email,
     photo: req.body.photo,
@@ -49,25 +50,38 @@ exports.signup = catchAsync(async (req, res) => {
     passwordChangedAt: req.body.passwordChangedAt,
   });
 
+  const courses = await Course.find();
+  courses.forEach(async (course) => {
+    course.studentsId.push(newUser._id);
+    await course.save({validateBeforeSave: false});
+  });
+  
   console.log("New User Created:", newUser);
 
   createSendToken(newUser, 201, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
-  const { email, password } = req.body;
+  const { identifier, password } = req.body;
 
-  // 1) Check if email and password exist
-  if (!email || !password) {
-    return next(new AppError("Please provide email and password", 400));
+  // 1) Check if identifier and password exist
+  if (!identifier || !password) {
+    return next(
+      new AppError('Please provide email or username and password', 400)
+    );
   }
 
-  // 2) Check if user exists && password is correct
-  const user = await User.findOne({ email: email }).select("+password");
+  // 2) Check if user exists and password is correct
+  const user = await User.findOne({
+    $or: [{ email: identifier }, { username: identifier }],
+  }).select('+password');
 
   if (!user || !(await user.correctPassword(password, user.password))) {
-    return next(new AppError("Incorrect email or password", 401));
+    return next(
+      new AppError('Incorrect email/username or password', 401)
+    );
   }
+
   // 3) If everything is ok, send token to client
   createSendToken(user, 200, res);
 });
