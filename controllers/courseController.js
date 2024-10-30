@@ -62,10 +62,10 @@ exports.enrollUserInCourse = catchAsync(async (req, res, next) => {
 //get instructor data of the course
 
 exports.getCourse = catchAsync(async (req, res, next) => {
-  const { courseId } = req.params;
+  const { slug } = req.params;
 
   // Find the course by ID and populate the instructorId field
-  const course = await Course.findById(courseId).populate({
+  const course = await Course.findOne({slug}).populate({
     path: 'instructorId',
     select: 'username fullName email role' // Select the fields you want to include
   });
