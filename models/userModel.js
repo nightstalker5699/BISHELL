@@ -92,6 +92,11 @@ userSchema.virtual("toDoList", {
   foreignField: "userId",
   localField: "_id",
 });
+userSchema.virtual("Posts", {
+  ref: "Post",
+  foreignField: "userId",
+  localField: "_id",
+});
 userSchema.pre("save", async function (next) {
   // Only run this function if password was actually modified
   if (!this.isModified("password")) return next();
