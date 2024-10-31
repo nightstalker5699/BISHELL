@@ -4,6 +4,7 @@ const authController = require("../controllers/authController");
 const pointController = require("../controllers/pointController");
 
 const router = express.Router();
+
 router.use(authController.protect);
 router.get("/leaderboard", pointController.getLeaderBoard);
 router.route("/user/:id").get(pointController.getUserLog);

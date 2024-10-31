@@ -17,6 +17,13 @@ exports.getUser = catchAsync(async (req, res, next) => {
     popOptions = { path: "toDoList", select: "task isDone" };
   const targetUser = await User.findOne({ username: req.params.username })
     .populate(popOptions)
+    .populate({
+      path: "Posts",
+      select: "title content likes comments",
+      populate: {
+        path: "comments",
+      },
+    })
     .select(
       "-passwordResetToken -passwordResetTokenExpires -passwordChangedAt"
     );
@@ -36,6 +43,10 @@ exports.getUser = catchAsync(async (req, res, next) => {
     // Check if the current user is following the target user
     isFollowed = req.user.following.includes(targetUser._id);
   }
+  for (i in targetUser.Posts)
+    targetUser.Posts[i].isLiked = targetUser.Posts[i].likes.includes(
+      req.user._id
+    );
 
   res.status(200).json({
     status: "success",
