@@ -5,7 +5,6 @@ const globalErrorHandler = require("./controllers/errorController");
 const app = express();
 const userRouter = require(`${__dirname}/routes/userRoutes.js`);
 const pointRouter = require(`${__dirname}/routes/pointRoutes.js`);
-const postRouter = require(`${__dirname}/routes/postRoutes.js`);
 const fs = require("fs");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
@@ -60,7 +59,6 @@ app.use((req, res, next) => {
 //Middleware mounting
 app.use(`/api/users`, userRouter);
 app.use(`/api/points`, pointRouter);
-app.use("/api/posts", postRouter);
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
