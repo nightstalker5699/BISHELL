@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const User = require("./userModel");
 const catchAsync = require("../utils/catchAsync");
-const logSchema = mongoose.Schema({
+const logSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.ObjectId,
     ref: "User",

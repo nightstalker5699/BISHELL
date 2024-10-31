@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
-
-const postSchema = mongoose.Schema(
+const Comment = require("./commentModel");
+const postSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.ObjectId,
@@ -19,6 +19,12 @@ const postSchema = mongoose.Schema(
     },
     likes: [mongoose.Schema.ObjectId],
     isLiked: Boolean,
+    comments: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: "Comment",
+      },
+    ],
   },
 
   {
@@ -30,7 +36,13 @@ const postSchema = mongoose.Schema(
 postSchema.virtual("likesCount").get(function () {
   return this.likes.length;
 });
+postSchema.pre("findOneAndDelete", async function (next) {
+  this.doc = await this.model.findOne();
+  next();
+});
 
+postSchema.post("findOneAndDelete", async function (next) {
+  await Comment.deleteMany({ postId: this.doc._id });
+});
 const postModel = mongoose.model("Post", postSchema);
-
 module.exports = postModel;

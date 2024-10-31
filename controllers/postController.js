@@ -3,7 +3,7 @@ const catchAsync = require("./../utils/catchAsync");
 const Post = require("./../models/postModel");
 const factory = require("./handlerFactory");
 exports.getPost = catchAsync(async (req, res, next) => {
-  const post = await Post.findById(req.params.id);
+  const post = await Post.findById(req.params.id).populate("comments");
   if (!post) next(new appError("there is no post with this id", 404));
   res.status(200).json({ message: "success", data: post });
 });
@@ -20,11 +20,11 @@ exports.createPost = catchAsync(async (req, res, next) => {
 exports.getAllPost = factory.getAll(Post);
 exports.deletePost = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.id);
-
+  if (!post) return next(new appError("there is no post with that ID", 404));
   if (req.user.role !== "admin" && !post.userId.equals(req.user.id))
     // reject his request
     return next(new appError("you can't delete someone post", 403));
-  await Post.deleteOne({ _id: req.params.id });
+  await Post.findByIdAndDelete(req.params.id);
   res.status(204).json({
     status: "message",
     data: null,

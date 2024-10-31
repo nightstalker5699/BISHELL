@@ -1,5 +1,6 @@
 const authController = require("./../controllers/authController");
 const postController = require("./../controllers/postController");
+const commentRoutes = require("./commentRoutes");
 const express = require("express");
 
 const router = express.Router();
@@ -16,6 +17,7 @@ router
   .patch(postController.updatePost)
   .delete(postController.deletePost);
 
+router.use("/:postId/comments", commentRoutes);
 router.post("/:id/like", postController.likePost);
 router.post("/:id/unlike", postController.unlikePost);
 module.exports = router;

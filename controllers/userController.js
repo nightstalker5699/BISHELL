@@ -17,7 +17,13 @@ exports.getUser = catchAsync(async (req, res, next) => {
     popOptions = { path: "toDoList", select: "task isDone" };
   const targetUser = await User.findOne({ username: req.params.username })
     .populate(popOptions)
-    .populate({ path: "Posts", select: "title content likes" })
+    .populate({
+      path: "Posts",
+      select: "title content likes comments",
+      populate: {
+        path: "comments",
+      },
+    })
     .select(
       "-passwordResetToken -passwordResetTokenExpires -passwordChangedAt"
     );
