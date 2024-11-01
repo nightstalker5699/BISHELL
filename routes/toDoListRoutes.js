@@ -1,5 +1,6 @@
 const express = require("express");
 const userController = require("../controllers/userController");
+const toDoList = require("../models/toDoListModel");
 const authController = require("./../controllers/authController");
 const toDoListController = require("./../controllers/toDoController");
 const router = express.Router();
@@ -12,6 +13,7 @@ router
   .post(toDoListController.createItem);
 router
   .route("/:id")
-  .patch(toDoListController.updateToDoList)
-  .delete(toDoListController.deleteToDoList);
+  .get(toDoListController.getToDoList)
+  .patch(authController.isOwner(toDoList),toDoListController.updateToDoList)
+  .delete(authController.isOwner(toDoList),toDoListController.deleteToDoList);
 module.exports = router;
