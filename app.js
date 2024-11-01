@@ -8,6 +8,7 @@ const pointRouter = require(`${__dirname}/routes/pointRoutes.js`);
 const courseRouter = require(`${__dirname}/routes/courseRoutes.js`);
 const todoRouter = require(`${__dirname}/routes/toDoListRoutes.js`);
 const scheduleRouter = require(`${__dirname}/routes/scheduleRoutes.js`);
+const materialRouter = require("./routes/materialRoutes");
 const fs = require("fs");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
@@ -66,6 +67,8 @@ app.use(`/api/points`, pointRouter);
 app.use(`/api/courses`, courseRouter);
 app.use(`/api/todo`, todoRouter);
 app.use(`/api/schedules`, scheduleRouter);
+app.use(`/api/materials`, materialRouter);
+
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
