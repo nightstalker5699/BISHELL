@@ -4,7 +4,21 @@ const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const factory = require("./handlerFactory");
 const APIFeatures = require("../utils/apiFeatures");
+const multer = require("multer");
+const sharp = require("sharp");
+const appError = require("../utils/appError");
 
+const storage = multer.memoryStorage({});
+
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith("image")) {
+    cb(null, true);
+  } else {
+    cb(new appError("not an image please upload an image", 400), false);
+  }
+};
+
+const uploadImage = multer({ storage, fileFilter });
 exports.getAllUsers = catchAsync(async (req, res, next) => {
   const features = new APIFeatures(User.find(), req.query)
     .filter()
@@ -186,4 +200,20 @@ exports.getFollowing = catchAsync(async (req, res, next) => {
       totalPages: Math.ceil(user.following.length / limit),
     },
   });
+});
+
+exports.uploadProfilePic = uploadImage.single("photo");
+
+exports.resizeProfilePic = catchAsync(async (req, res, next) => {
+  if (!req.file) return next();
+  req.body.photo = `user-${req.body.username}.jpeg`;
+
+  await sharp(req.file.buffer)
+    .resize(500, 500)
+    .toFormat("jpeg")
+    .jpeg({ quality: 90 })
+    .toFile(`static/profilePics/${req.body.photo}`);
+  // if (req.user.photo !== "default.jpg")
+  //   await fs.unlinkSync(`./static/profilePics/${req.user.photo}`);
+  next();
 });
