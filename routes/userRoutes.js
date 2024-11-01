@@ -37,11 +37,22 @@ router.patch(
   authController.protect,
   authController.updatePassword
 );
-router.post(`/signup`, authController.signup);
+router.post(
+  `/signup`,
+  userController.uploadProfilePic,
+  userController.resizeProfilePic,
+  authController.signup
+);
 router.post(`/login`, authController.login);
 router.route(`/forgotPassword`).post(authController.forgotPassword);
 router.route(`/resetPassword/:token`).patch(authController.resetPassword);
 
-router.route(`/`).get(authController.protect,authController.restrictTo('admin') ,userController.getAllUsers);
+router
+  .route(`/`)
+  .get(
+    authController.protect,
+    authController.restrictTo("admin"),
+    userController.getAllUsers
+  );
 
 module.exports = router;
