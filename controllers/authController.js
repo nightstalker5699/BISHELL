@@ -137,6 +137,29 @@ exports.restrictTo = (...roles) => {
   };
 };
 
+exports.isOwner = (Model, idParam = 'id', ownerIdField = 'userId') =>
+  catchAsync(async (req, res, next) => {
+    const resourceId = req.params[idParam];
+
+    if (!resourceId) {
+      return next(new AppError('No resource ID provided', 400));
+    }
+
+    const doc = await Model.findById(resourceId);
+
+    if (!doc) {
+      return next(new AppError('No document found with that ID', 404));
+    }
+
+    if (!doc[ownerIdField].equals(req.user.id)) {
+      return next(
+        new AppError('ما تبطل منيكة', 403)
+      );
+    }
+
+    next();
+  });
+
 exports.forgotPassword = catchAsync(async (req, res, next) => {
   // 1) Get user based on POSTed email
   const user = await User.findOne({ email: req.body.email });
