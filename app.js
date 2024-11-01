@@ -6,7 +6,8 @@ const app = express();
 const userRouter = require(`${__dirname}/routes/userRoutes.js`);
 const pointRouter = require(`${__dirname}/routes/pointRoutes.js`);
 const courseRouter = require(`${__dirname}/routes/courseRoutes.js`);
-const todo = require(`${__dirname}/routes/toDoListRoutes.js`);
+const todoRouter = require(`${__dirname}/routes/toDoListRoutes.js`);
+const scheduleRouter = require(`${__dirname}/routes/scheduleRoutes.js`);
 const fs = require("fs");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
@@ -63,7 +64,8 @@ app.use((req, res, next) => {
 app.use(`/api/users`, userRouter);
 app.use(`/api/points`, pointRouter);
 app.use(`/api/courses`, courseRouter);
-app.use(`/api/todo`, todo);
+app.use(`/api/todo`, todoRouter);
+app.use(`/api/schedules`, scheduleRouter);
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });

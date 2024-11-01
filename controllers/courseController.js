@@ -10,7 +10,7 @@ exports.updateCourse = factory.updateOne(Course, ['studentsId']);
 
 
 // whenever a new course is created all the users have role student will be added automatically
-exports.createCourse = exports.createCourse = catchAsync(async (req, res, next) => {
+exports.createCourse = catchAsync(async (req, res, next) => {
   // Create the course
   const course = await Course.create(req.body);
 
