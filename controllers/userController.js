@@ -1,5 +1,5 @@
 const User = require("../models/userModel");
-const toDoList = require("../models/toDoListModel");
+const toDoListModel = require("../models/toDoListModel");
 const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const factory = require("./handlerFactory");
@@ -14,11 +14,11 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
   const users = await features.query;
 
   res.status(200).json({
-    status: 'success',
+    status: "success",
     results: users.length,
     data: {
-      users
-    }
+      users,
+    },
   });
 });
 
@@ -33,15 +33,16 @@ exports.getUser = catchAsync(async (req, res, next) => {
   const isOwnProfile = user.username === username;
 
   // Select fields to exclude sensitive information
-  const selectFields = '-passwordResetToken -passwordResetTokenExpires -passwordChangedAt';
+  const selectFields =
+    "-passwordResetToken -passwordResetTokenExpires -passwordChangedAt";
 
   // Build the query
   let query = User.findOne({ username }).select(selectFields);
 
   // Populate toDoList if viewing own profile
-  if (isOwnProfile) {
-    query = query.populate({ path: 'toDoList', select: 'task isDone' });
-  }
+  // if (isOwnProfile) {
+  //   query = query.populate({ path: "toDoList", select: "task isDone" });
+  // }
 
   const targetUser = await query;
 
@@ -50,22 +51,21 @@ exports.getUser = catchAsync(async (req, res, next) => {
   }
 
   // Fetch toDoList if allowed and not viewing own profile
-  let toDoList = null;
-  if (!isOwnProfile && targetUser.showToDo) {
-    toDoList = await toDoListModel.find({ userId: targetUser._id });
+
+  if (isOwnProfile || targetUser.showToDo) {
+    targetUser.toDoList = await toDoListModel.find({ userId: targetUser._id });
   }
 
   // Check if the authenticated user is following the target user
   let isFollowed = null;
   if (!isOwnProfile) {
-    isFollowed = user.following.some(id => id.equals(targetUser._id));
+    isFollowed = user.following.some((id) => id.equals(targetUser._id));
   }
 
   res.status(200).json({
-    status: 'success',
+    status: "success",
     data: {
       user: targetUser,
-      toDoList,
       isFollowed,
     },
   });
@@ -134,7 +134,7 @@ exports.getFollowers = catchAsync(async (req, res, next) => {
     return next(new AppError("User not found", 404));
   }
 
-  req.query.fields = 'username,photo';
+  req.query.fields = "username,photo";
   const features = new APIFeatures(
     User.find({ _id: { $in: user.followers } }),
     req.query
@@ -146,11 +146,13 @@ exports.getFollowers = catchAsync(async (req, res, next) => {
   const followers = await features.query;
 
   res.status(200).json({
-    status: 'success',
+    status: "success",
     data: {
       followers,
       totalFollowers: user.followers.length, // Total count of followers
-      totalPages: Math.ceil(user.followers.length / (req.query.limit * 1 || 100)),
+      totalPages: Math.ceil(
+        user.followers.length / (req.query.limit * 1 || 100)
+      ),
     },
   });
 });
@@ -164,7 +166,7 @@ exports.getFollowing = catchAsync(async (req, res, next) => {
     return next(new AppError("User not found", 404));
   }
 
-  req.query.fields = 'username,photo';
+  req.query.fields = "username,photo";
   const features = new APIFeatures(
     User.find({ _id: { $in: user.following } }),
     req.query
@@ -177,7 +179,7 @@ exports.getFollowing = catchAsync(async (req, res, next) => {
   const limit = req.query.limit * 1 || 100; // Add this line
 
   res.status(200).json({
-    status: 'success',
+    status: "success",
     data: {
       following,
       totalFollowing: user.following.length,
