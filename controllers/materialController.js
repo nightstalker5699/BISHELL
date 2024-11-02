@@ -193,7 +193,7 @@ exports.getMaterials = catchAsync(async (req, res, next) => {
   }
 
   const materials = await Material.find(query)
-    .select('name type humanSize path filePath createdAt size parentFolder')
+    .select('name type mimeType humanSize path filePath createdAt size parentFolder')
     .populate('parentFolder', 'name path')
     .sort({ type: -1, name: 1 }); // Sort folders first, then by name
 
