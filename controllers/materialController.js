@@ -1,49 +1,48 @@
-const fs = require("fs");
-const path = require("path");
-const multer = require("multer");
-const Material = require("../models/materialModel");
-const catchAsync = require("../utils/catchAsync");
-const AppError = require("../utils/appError");
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+const Material = require('../models/materialModel');
+const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/appError');
 
 // Set max file size to 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-// Configure storage
-const uploadDir = path.join(__dirname, "../uploads");
+// Configure upload directory
+const uploadDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+// Configure storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
+    cb(null, Date.now() + '-' + file.originalname);
   },
 });
 
 // Multer upload configuration
 const upload = multer({
   storage,
-  limits: {
-    fileSize: MAX_FILE_SIZE,
-  },
+  limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (req, file, cb) => {
     if (file.size > MAX_FILE_SIZE) {
-      cb(new AppError("File too large - max 10MB allowed", 400), false);
+      cb(new AppError('File too large - max 10MB allowed', 400), false);
       return;
     }
     cb(null, true);
   },
-}).single("file");
+}).single('file');
 
 // Handle multer errors
 const handleUpload = (req, res, next) => {
   upload(req, res, (err) => {
     if (err instanceof multer.MulterError) {
-      if (err.code === "LIMIT_FILE_SIZE") {
-        return next(new AppError("File size exceeds 10MB limit", 400));
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return next(new AppError('File size exceeds 10MB limit', 400));
       }
       return next(new AppError(err.message, 400));
     }
@@ -58,15 +57,15 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
 
   // Validate required fields
   if (!course || !name || !type) {
-    return next(new AppError("Missing required fields", 400));
+    return next(new AppError('Missing required fields', 400));
   }
 
   // Trim whitespace
   let trimmedName = name.trim();
-  const trimmedParentPath = parentPath ? parentPath.trim() : "";
+  const trimmedParentPath = parentPath ? parentPath.trim() : '';
 
   // Handle file extension for files
-  if (type === "file") {
+  if (type === 'file') {
     if (!req.file) {
       return next(new AppError("File is required for type 'file'", 400));
     }
@@ -92,11 +91,11 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
   const fullMaterialPath = path.join(uploadDir, normalizedMaterialPath);
 
   // Ensure all parent folders exist in the database and file system
-  const pathSegments = (trimmedParentPath ? trimmedParentPath : "")
-    .split(path.sep)
-    .filter(Boolean);
+  const pathSegments = trimmedParentPath
+    ? trimmedParentPath.split(path.sep).filter(Boolean)
+    : [];
   let parentFolderId = null;
-  let currentPath = "";
+  let currentPath = '';
 
   for (const segment of pathSegments) {
     currentPath = currentPath ? path.join(currentPath, segment) : segment;
@@ -105,10 +104,10 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
     const normalizedCurrentPath = path.normalize(currentPath);
 
     // Check if the folder exists in the database
-    let folder = await Material.findOne({
+    const folder = await Material.findOne({
       course,
       path: normalizedCurrentPath,
-      type: "folder",
+      type: 'folder',
     });
 
     if (!folder) {
@@ -119,7 +118,10 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
     const folderPath = path.join(uploadDir, normalizedCurrentPath);
     if (!fs.existsSync(folderPath)) {
       return next(
-        new AppError(`Folder ${segment} does not exist in the file system`, 400)
+        new AppError(
+          `Folder ${segment} does not exist in the file system`,
+          400
+        )
       );
     }
 
@@ -132,7 +134,7 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
   }
 
   // Move/create file or folder
-  if (type === "file") {
+  if (type === 'file') {
     fs.renameSync(req.file.path, fullMaterialPath);
   } else {
     // For folders, create the directory
@@ -152,7 +154,7 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
   };
 
   // Add file metadata if it's a file
-  if (type === "file") {
+  if (type === 'file') {
     materialData.size = req.file.size;
     materialData.mimeType = req.file.mimetype;
   }
@@ -161,7 +163,7 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
   const material = await Material.create(materialData);
 
   res.status(201).json({
-    status: "success",
+    status: 'success',
     data: { material },
   });
 });
@@ -170,88 +172,105 @@ exports.getMaterials = catchAsync(async (req, res, next) => {
   const { courseId } = req.params;
   const { parentPath } = req.query;
 
-  const normalizedParentPath = parentPath ? path.normalize(parentPath.trim()).replace(/\//g, '\\') : "";
+  const normalizedParentPath = parentPath
+    ? path.normalize(parentPath.trim())
+    : '';
 
-  const query = {
-    course: courseId,
-    path: normalizedParentPath ? {
-      $regex: `^${normalizedParentPath.replace(/\\/g, '\\\\')}\\\\[^\\\\]*$`,
-      $options: 'i'
-    } : {
+  let query = { course: courseId };
+
+  if (normalizedParentPath) {
+    const escapedPath = normalizedParentPath.replace(
+      new RegExp(`\\${path.sep}`, 'g'),
+      `\\\\`
+    );
+    const regexPath = `^${escapedPath}\\\\[^\\\\]*$`;
+    query.path = {
+      $regex: regexPath,
+      $options: 'i',
+    };
+  } else {
+    query.path = {
       $regex: `^[^\\\\]*$`,
-      $options: 'i'
-    }
-  };
+      $options: 'i',
+    };
+  }
 
   const materials = await Material.find(query)
-  .select("name type humanSize path filePath createdAt size parentFolder")
-  .populate('parentFolder', 'name path')  // Add this line
-  .sort({ name: 1 });
+    .select(
+      'name type humanSize path filePath createdAt size parentFolder'
+    )
+    .populate('parentFolder', 'name path')
+    .sort({ name: 1 });
 
-  const transformedMaterials = materials.map(mat => ({
-    ...mat.toObject(), // This will now include virtuals
-    path: mat.path.replace(/\\/g, '/'),
-    filePath: mat.filePath.replace(/\\/g, '/')
+  const transformedMaterials = materials.map((mat) => ({
+    ...mat.toObject(),
+    path: mat.path.replace(new RegExp(`\\${path.sep}`, 'g'), '/'),
+    filePath: mat.filePath.replace(new RegExp(`\\${path.sep}`, 'g'), '/'),
   }));
 
   res.status(200).json({
-    status: "success", 
+    status: 'success',
     data: { materials: transformedMaterials },
   });
 });
 
 exports.updateMaterial = catchAsync(async (req, res, next) => {
-  const material = await Material.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const material = await Material.findByIdAndUpdate(
+    req.params.id,
+    req.body,
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
 
   if (!material) {
-    return next(new AppError("No material found with that ID", 404));
+    return next(new AppError('No material found with that ID', 404));
   }
 
   res.status(200).json({
-    status: "success",
+    status: 'success',
     data: { material },
   });
 });
 
 exports.deleteMaterial = catchAsync(async (req, res, next) => {
-  // First find the material without deleting it
+  // First, find the material without deleting it
   const material = await Material.findById(req.params.id);
 
   if (!material) {
-    return next(new AppError("No material found with that ID", 404));
+    return next(new AppError('No material found with that ID', 404));
   }
 
-  if (material.type === "folder") {
-    // If it's a folder, find and delete all nested materials from database
-    const nestedMaterialsPattern = `^${material.path.replace(
-      /\\/g,
-      "\\\\"
-    )}\\\\`;
+  if (material.type === 'folder') {
+    // Delete all nested materials from the database
+    const escapedPath = material.path.replace(
+      new RegExp(`\\${path.sep}`, 'g'),
+      `\\\\`
+    );
+    const nestedMaterialsPattern = `^${escapedPath}\\\\`;
+
     await Material.deleteMany({
       course: material.course,
       path: {
         $regex: nestedMaterialsPattern,
-        $options: "i",
+        $options: 'i',
       },
     });
   }
 
-  // Delete the material itself from database
+  // Delete the material itself from the database
   await Material.findByIdAndDelete(req.params.id);
 
   // Delete from filesystem
   const filePath = path.resolve(material.filePath);
   if (fs.existsSync(filePath)) {
-    // recursive: true will delete folder contents
-    // force: true ignores errors
+    // Recursive delete for folders
     fs.rmSync(filePath, { recursive: true, force: true });
   }
 
   res.status(204).json({
-    status: "success",
+    status: 'success',
     data: null,
   });
 });
@@ -259,21 +278,21 @@ exports.deleteMaterial = catchAsync(async (req, res, next) => {
 exports.getMaterialFile = catchAsync(async (req, res, next) => {
   const material = await Material.findById(req.params.id);
 
-  if (!material || material.type !== "file") {
-    return next(new AppError("No file found with that ID", 404));
+  if (!material || material.type !== 'file') {
+    return next(new AppError('No file found with that ID', 404));
   }
 
   const filePath = path.resolve(material.filePath);
 
   if (!fs.existsSync(filePath)) {
-    return next(new AppError("File not found", 404));
+    return next(new AppError('File not found', 404));
   }
 
   // Set headers
-  res.setHeader("Content-Type", material.mimeType);
-  res.setHeader("Content-Length", material.size);
+  res.setHeader('Content-Type', material.mimeType);
+  res.setHeader('Content-Length', material.size);
   res.setHeader(
-    "Content-Disposition",
+    'Content-Disposition',
     `attachment; filename="${material.name}"`
   );
 
@@ -281,8 +300,8 @@ exports.getMaterialFile = catchAsync(async (req, res, next) => {
   const stream = fs.createReadStream(filePath);
 
   // Handle stream errors
-  stream.on("error", (error) => {
-    next(new AppError("Error streaming file", 500));
+  stream.on('error', () => {
+    next(new AppError('Error streaming file', 500));
   });
 
   // Pipe stream to response
