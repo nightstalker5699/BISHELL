@@ -14,6 +14,7 @@ router
 
 router
   .route("/:id")
+  .get(materialController.getMaterialFile)
   .patch(materialController.updateMaterial)
   .delete(materialController.deleteMaterial);
 
