@@ -5,7 +5,8 @@ const router = express.Router();
 
 router
   .route("/")
-  .post(materialController.uploadMaterial, materialController.createMaterial);
+  .post(materialController.uploadMaterial, materialController.createMaterial)
+  .get(materialController.getMaterials); // Add .get to handle the new endpoint
 
 router
   .route("/:courseId")
