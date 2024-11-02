@@ -6,15 +6,17 @@ const router = express.Router();
 router
   .route("/")
   .post(materialController.uploadMaterial, materialController.createMaterial)
-  .get(materialController.getMaterials); // Add .get to handle the new endpoint
+  .get(materialController.getMaterials);
 
 router
   .route("/:courseId")
   .get(materialController.getMaterials);
 
+// Add specific download route
+router.route("/download/:id").get(materialController.getMaterialFile);
+
 router
   .route("/:id")
-  .get(materialController.getMaterialFile)
   .patch(materialController.updateMaterial)
   .delete(materialController.deleteMaterial);
 
