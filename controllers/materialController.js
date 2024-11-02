@@ -241,35 +241,51 @@ exports.deleteMaterial = catchAsync(async (req, res, next) => {
   }
 
   if (material.type === 'folder') {
-    // Delete all nested materials from the database
-    const escapedPath = material.path.replace(
-      new RegExp(`\\${path.sep}`, 'g'),
-      `\\\\`
-    );
-    const nestedMaterialsPattern = `^${escapedPath}\\\\`;
+    // Prepare regex pattern to match all nested paths
+    const escapedPath = material.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const nestedPattern = new RegExp(`^${escapedPath}(/|$)`);
 
+    // Find all nested materials
+    const nestedMaterials = await Material.find({
+      course: material.course,
+      path: nestedPattern
+    });
+
+    // Delete all nested materials from filesystem
+    for (const nestedMaterial of nestedMaterials) {
+      const filePath = path.resolve(nestedMaterial.filePath);
+      if (fs.existsSync(filePath)) {
+        if (nestedMaterial.type === 'folder') {
+          fs.rmSync(filePath, { recursive: true, force: true });
+        } else {
+          fs.unlinkSync(filePath);
+        }
+      }
+    }
+
+    // Delete all nested materials from database
     await Material.deleteMany({
       course: material.course,
-      path: {
-        $regex: nestedMaterialsPattern,
-        $options: 'i',
-      },
+      path: nestedPattern
     });
   }
 
-  // Delete the material itself from the database
-  await Material.findByIdAndDelete(req.params.id);
-
-  // Delete from filesystem
+  // Delete the material itself from filesystem
   const filePath = path.resolve(material.filePath);
   if (fs.existsSync(filePath)) {
-    // Recursive delete for folders
-    fs.rmSync(filePath, { recursive: true, force: true });
+    if (material.type === 'folder') {
+      fs.rmSync(filePath, { recursive: true, force: true });
+    } else {
+      fs.unlinkSync(filePath);
+    }
   }
+
+  // Delete the material from database
+  await Material.findByIdAndDelete(req.params.id);
 
   res.status(204).json({
     status: 'success',
-    data: null,
+    data: null
   });
 });
 
