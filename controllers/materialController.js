@@ -172,45 +172,43 @@ exports.getMaterials = catchAsync(async (req, res, next) => {
   const { courseId } = req.params;
   const { parentPath } = req.query;
 
-  const normalizedParentPath = parentPath
-    ? path.normalize(parentPath.trim())
+  // Normalize parent path and convert backslashes to forward slashes
+  const normalizedParentPath = parentPath 
+    ? path.normalize(parentPath.trim()).replace(/\\/g, '/')
     : '';
 
   let query = { course: courseId };
 
   if (normalizedParentPath) {
-    const escapedPath = normalizedParentPath.replace(
-      new RegExp(`\\${path.sep}`, 'g'),
-      `\\\\`
-    );
-    const regexPath = `^${escapedPath}\\\\[^\\\\]*$`;
-    query.path = {
-      $regex: regexPath,
-      $options: 'i',
+    // Match only direct children of the parent path
+    query = {
+      course: courseId,
+      path: new RegExp(`^${normalizedParentPath}/[^/]+$`)
     };
   } else {
+    // Match only top-level files/folders
     query.path = {
-      $regex: `^[^\\\\]*$`,
-      $options: 'i',
+      $regex: '^[^/]+$'
     };
   }
 
   const materials = await Material.find(query)
-    .select(
-      'name type humanSize path filePath createdAt size parentFolder'
-    )
+    .select('name type humanSize path filePath createdAt size parentFolder')
     .populate('parentFolder', 'name path')
-    .sort({ name: 1 });
+    .sort({ type: -1, name: 1 }); // Sort folders first, then by name
 
-  const transformedMaterials = materials.map((mat) => ({
+  const transformedMaterials = materials.map(mat => ({
     ...mat.toObject(),
-    path: mat.path.replace(new RegExp(`\\${path.sep}`, 'g'), '/'),
-    filePath: mat.filePath.replace(new RegExp(`\\${path.sep}`, 'g'), '/'),
+    path: mat.path.replace(/\\/g, '/'),
+    filePath: mat.filePath.replace(/\\/g, '/')
   }));
 
   res.status(200).json({
     status: 'success',
-    data: { materials: transformedMaterials },
+    data: { 
+      materials: transformedMaterials,
+      parentPath: normalizedParentPath
+    }
   });
 });
 
