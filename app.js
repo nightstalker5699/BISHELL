@@ -10,6 +10,7 @@ const todoRouter = require(`${__dirname}/routes/toDoListRoutes.js`);
 const scheduleRouter = require(`${__dirname}/routes/scheduleRoutes.js`);
 const materialRouter = require("./routes/materialRoutes");
 const fs = require("fs");
+const path = require("path");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const xss = require("xss-clean");
@@ -38,7 +39,6 @@ const limiter = rateLimit({
 
 app.use("api", limiter);
 
-
 app.use(
   express.json({
     limit: "10kb",
@@ -55,7 +55,7 @@ app.use(
   })
 ); // Middleware to prevent parameter pollution
 
-app.use(express.static(`${__dirname}/public`)); // Middleware to serve static files
+app.use(express.static(path.join(__dirname, "static"))); // Middleware to serve static files
 app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
   next();
