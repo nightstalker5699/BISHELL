@@ -64,6 +64,8 @@ exports.getUser = catchAsync(async (req, res, next) => {
     return next(new AppError("There's no document with this username", 404));
   }
 
+  const photoUrl = `${req.protocol}://${req.get('host')}/static/profilePics/${targetUser.photo}`;
+  targetUser.photo = photoUrl;
   // Fetch toDoList if allowed and not viewing own profile
 
   if (isOwnProfile || targetUser.showToDo) {
