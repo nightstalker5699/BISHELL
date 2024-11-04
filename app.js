@@ -20,8 +20,10 @@ const mongoSanitize = require("express-mongo-sanitize");
 // const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
+
 app.enable("trust proxy");
 const multiPartParser = multer();
+
 // Global middlewares
 // app.use(cors());
 
@@ -39,31 +41,31 @@ const multiPartParser = multer();
 //   message: "Too many requests from this IP, please try again in an hour!",
 // });
 
-// app.use("api", limiter);
+// app.use("/api", limiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(multiPartParser.any()); // to parse multipart/form data
-// Middleware to parse the body of the request
+app.use(multiPartParser.any()); // To parse multipart/form-data
 app.use(cookieParser());
-app.use(mongoSanitize()); // Middleware to sanitize the input data
+app.use(mongoSanitize()); // Sanitize input data
 
-// app.use(xss()); // Middleware to prevent XSS attacks
+// app.use(xss()); // Prevent XSS attacks
 
 // app.use(
 //   hpp({
 //     whitelist: [],
 //   })
-// ); // Middleware to prevent parameter pollution
+// ); // Prevent HTTP parameter pollution
 
-app.use(express.static(path.join(__dirname, "static"))); // Middleware to serve static files
+app.use(express.static(path.join(__dirname, "static"))); // Serve static files
+
 app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
   next();
 });
 
-//Middleware mounting
+// Route mounting
 app.use(`/api/users`, userRouter);
 app.use(`/api/points`, pointRouter);
 app.use(`/api/courses`, courseRouter);
