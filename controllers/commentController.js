@@ -20,7 +20,7 @@ exports.addComment = catchAsync(async (req, res, next) => {
       comment,
       user: {
         username: req.user.username,
-        // photo:req.user.photo
+        photo: req.user.photo,
       },
     },
   });
