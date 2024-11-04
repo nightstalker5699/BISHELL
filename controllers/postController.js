@@ -3,7 +3,13 @@ const catchAsync = require("./../utils/catchAsync");
 const Post = require("./../models/postModel");
 const factory = require("./handlerFactory");
 exports.getPost = catchAsync(async (req, res, next) => {
-  const post = await Post.findById(req.params.id).populate("comments");
+  const post = await Post.findById(req.params.id).populate({
+    path: "comments",
+    populate: {
+      path: "userId",
+      select: "username photo",
+    },
+  });
   if (!post) next(new appError("there is no post with this id", 404));
   res.status(200).json({ message: "success", data: post });
 });
