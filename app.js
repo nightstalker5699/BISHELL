@@ -17,7 +17,7 @@ const rateLimit = require("express-rate-limit");
 const xss = require("xss-clean");
 const mongoSanitize = require("express-mongo-sanitize");
 // const hpp = require("hpp");
-// const cors = require("cors");
+const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
 
@@ -25,9 +25,14 @@ app.enable("trust proxy");
 const multiPartParser = multer();
 
 // Global middlewares
-// app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  allowedHeaders: '*',
+  credentials: true
+}));
 
-// app.options("*", cors());
+app.options("*", cors());
 
 // app.use(helmet());
 
