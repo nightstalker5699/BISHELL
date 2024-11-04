@@ -20,59 +20,86 @@ const hpp = require("hpp");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
+
 app.enable("trust proxy");
 const multiPartParser = multer();
+
+// Configure CORS options
+const corsOptions = {
+  origin: ['https://bis-hell.vercel.app'], // Frontend URL
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Disposition'],
+  maxAge: 600,
+};
+
 // Global middlewares
-app.use(cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
-app.options("*", cors());
+// Create profilePics directory if it doesn't exist
+const profilePicsDir = path.join(__dirname, 'static', 'profilePics');
+if (!fs.existsSync(profilePicsDir)) {
+  fs.mkdirSync(profilePicsDir, { recursive: true });
+}
 
-app.use(helmet());
+// Serve static files
+app.use(express.static(path.join(__dirname, 'static')));
+app.use('/profilePics', cors(corsOptions), express.static(profilePicsDir));
 
-if (process.env.NODE_ENV === "development") {
-  app.use(morgan("dev"));
+// Set security HTTP headers
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'blob:', '*'],
+      },
+    },
+  })
+);
+
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
 }
 
 const limiter = rateLimit({
   max: 1000,
   windowMs: 60 * 60 * 1000,
-  message: "Too many requests from this IP, please try again in an hour!",
+  message: 'Too many requests from this IP, please try again in an hour!',
 });
 
-app.use("api", limiter);
+app.use('/api', limiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-app.use(multiPartParser.any()); // to parse multipart/form data
-// Middleware to parse the body of the request
+app.use(multiPartParser.any());
 app.use(cookieParser());
-app.use(mongoSanitize()); // Middleware to sanitize the input data
-
-app.use(xss()); // Middleware to prevent XSS attacks
-
+app.use(mongoSanitize());
+app.use(xss());
 app.use(
   hpp({
     whitelist: [],
   })
-); // Middleware to prevent parameter pollution
+);
 
-app.use(express.static(path.join(__dirname, "static"))); // Middleware to serve static files
 app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
   next();
 });
 
-//Middleware mounting
-app.use(`/api/users`, userRouter);
-app.use(`/api/points`, pointRouter);
-app.use(`/api/courses`, courseRouter);
-app.use(`/api/todo`, todoRouter);
-app.use("/api/posts", postRouter);
-app.use(`/api/schedules`, scheduleRouter);
-app.use(`/api/materials`, materialRouter);
+// Mounting routes
+app.use('/api/users', userRouter);
+app.use('/api/points', pointRouter);
+app.use('/api/courses', courseRouter);
+app.use('/api/todo', todoRouter);
+app.use('/api/posts', postRouter);
+app.use('/api/schedules', scheduleRouter);
+app.use('/api/materials', materialRouter);
 
-app.all("*", (req, res, next) => {
+app.all('*', (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
