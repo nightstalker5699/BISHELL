@@ -62,11 +62,21 @@ exports.signup = catchAsync(async (req, res) => {
 });
 
 exports.login = catchAsync(async (req, res, next) => {
+  // Log the incoming request method and URL
+  console.log('--- Login Request Received ---');
+  console.log('Request Method:', req.method);
+  console.log('Request URL:', req.originalUrl);
+  console.log('Request Headers:', req.headers);
+  console.log('Raw Request Body:', req.body);
   const { identifier, password } = req.body;
+  console.log('Parsed Identifier:', identifier);
+  console.log('Parsed Password:', password ? password : 'No password provided');
+
   // 1) Check if identifier and password exist
   if (!identifier || !password) {
+    console.log('Error: Missing identifier or password');
     return next(
-      new AppError("Please provide email or username and password", 400)
+      new AppError('Please provide email or username and password', 400)
     );
   }
 
