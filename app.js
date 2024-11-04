@@ -20,7 +20,7 @@ const hpp = require("hpp");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
-// const multiPartParser = multer();
+const multiPartParser = multer();
 app.enable("trust proxy");
 // Global middlewares
 
@@ -48,7 +48,7 @@ app.use("/api", limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// app.use(multiPartParser.any()); // Remove this if not handling file uploads
+// app.use(multiPartParser.any());
 
 app.use(cookieParser());
 app.use(mongoSanitize());
