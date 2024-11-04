@@ -13,33 +13,33 @@ const postRouter = require("./routes/postRoutes");
 const fs = require("fs");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
-const helmet = require("helmet");
+// const helmet = require("helmet");
 const xss = require("xss-clean");
 const mongoSanitize = require("express-mongo-sanitize");
-const hpp = require("hpp");
-const cors = require("cors");
+// const hpp = require("hpp");
+// const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
 app.enable("trust proxy");
 const multiPartParser = multer();
 // Global middlewares
-app.use(cors());
+// app.use(cors());
 
-app.options("*", cors());
+// app.options("*", cors());
 
-app.use(helmet());
+// app.use(helmet());
 
-if (process.env.NODE_ENV === "development") {
-  app.use(morgan("dev"));
-}
+// if (process.env.NODE_ENV === "development") {
+//   app.use(morgan("dev"));
+// }
 
-const limiter = rateLimit({
-  max: 1000,
-  windowMs: 60 * 60 * 1000,
-  message: "Too many requests from this IP, please try again in an hour!",
-});
+// const limiter = rateLimit({
+//   max: 1000,
+//   windowMs: 60 * 60 * 1000,
+//   message: "Too many requests from this IP, please try again in an hour!",
+// });
 
-app.use("api", limiter);
+// app.use("api", limiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -49,13 +49,13 @@ app.use(multiPartParser.any()); // to parse multipart/form data
 app.use(cookieParser());
 app.use(mongoSanitize()); // Middleware to sanitize the input data
 
-app.use(xss()); // Middleware to prevent XSS attacks
+// app.use(xss()); // Middleware to prevent XSS attacks
 
-app.use(
-  hpp({
-    whitelist: [],
-  })
-); // Middleware to prevent parameter pollution
+// app.use(
+//   hpp({
+//     whitelist: [],
+//   })
+// ); // Middleware to prevent parameter pollution
 
 app.use(express.static(path.join(__dirname, "static"))); // Middleware to serve static files
 app.use((req, res, next) => {
