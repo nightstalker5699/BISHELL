@@ -10,9 +10,9 @@ const userSchema = new mongoose.Schema(
       unique: true,
       validate: {
         validator: function (v) {
-          return /^[a-zA-Z0-9]+$/.test(v);
+          return /^[a-zA-Z0-9-]+$/.test(v);
         },
-        message: "Username can only contain letters and numbers, no spaces.",
+        message: "Username can only contain letters, numbers, and hyphens (-), no spaces.",
       },
     },
     fullName: {
