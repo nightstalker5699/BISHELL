@@ -13,8 +13,8 @@ const postRouter = require("./routes/postRoutes");
 const fs = require("fs");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
-const helmet = require("helmet");
-const xss = require("xss-clean");
+// const helmet = require("helmet");
+// const xss = require("xss-clean");
 const mongoSanitize = require("express-mongo-sanitize");
 const hpp = require("hpp");
 const cors = require("cors");
@@ -23,7 +23,7 @@ const cookieParser = require("cookie-parser");
 app.enable("trust proxy");
 
 // 1) Security headers
-app.use(helmet());
+// app.use(helmet());
 
 // 2) CORS configuration
 app.use(
@@ -58,8 +58,8 @@ app.use(cookieParser());
 
 // 6) Security middleware
 app.use(mongoSanitize());
-app.use(xss());
-app.use(hpp());
+// app.use(xss());
+// app.use(hpp());
 
 // 7) Static files
 app.use(express.static(path.join(__dirname, "static")));
