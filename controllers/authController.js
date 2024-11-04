@@ -38,38 +38,23 @@ const createSendToken = (user, statusCode, res) => {
   });
 };
 
-exports.signup = catchAsync(async (req, res, next) => {
-  // Log the incoming request for debugging
-  console.log('--- Signup Request Received ---');
-  console.log('Content-Type:', req.headers['content-type']);
-  console.log('Request Body:', req.body);
-  
-  // Check for required fields
-  const requiredFields = ['username', 'fullName', 'email', 'password', 'passwordConfirm'];
-  for (const field of requiredFields) {
-    if (!req.body[field]) {
-      return next(new AppError(`Missing required field: ${field}`, 400));
-    }
-  }
-
-  // Create new user with available data
+exports.signup = catchAsync(async (req, res) => {
   const newUser = await User.create({
     username: req.body.username,
     fullName: req.body.fullName,
     group: req.body.group,
     email: req.body.email,
-    photo: req.file ? req.file.filename : req.body.photo, // Handle both file upload and direct photo URL
+    photo: req.body.photo,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
     passwordChangedAt: req.body.passwordChangedAt,
   });
 
-  // Add user to all courses
   const courses = await Course.find();
-  for (const course of courses) {
+  courses.forEach(async (course) => {
     course.studentsId.push(newUser._id);
     await course.save({ validateBeforeSave: false });
-  }
+  });
 
   console.log("New User Created:", newUser);
 

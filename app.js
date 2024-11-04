@@ -23,6 +23,7 @@ const multer = require("multer");
 app.enable("trust proxy");
 const multiPartParser = multer();
 // Global middlewares
+
 app.use(cors({
   origin: '*',
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
@@ -32,14 +33,14 @@ app.use(cors({
 
 app.options("*", cors());
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "http:", "https:"],
-    },
-  },
-}));
+// app.use(helmet({
+//   contentSecurityPolicy: {
+//     directives: {
+//       defaultSrc: ["'self'"],
+//       imgSrc: ["'self'", "data:", "http:", "https:"],
+//     },
+//   },
+// }));
 
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
@@ -61,13 +62,13 @@ app.use(multiPartParser.any()); // to parse multipart/form data
 app.use(cookieParser());
 app.use(mongoSanitize()); // Middleware to sanitize the input data
 
-app.use(xss()); // Middleware to prevent XSS attacks
+// app.use(xss()); // Middleware to prevent XSS attacks
 
-app.use(
-  hpp({
-    whitelist: [],
-  })
-); // Middleware to prevent parameter pollution
+// app.use(
+//   hpp({
+//     whitelist: [],
+//   })
+// ); // Middleware to prevent parameter pollution
 
 app.use(express.static(path.join(__dirname, "static"))); // Middleware to serve static files
 app.use((req, res, next) => {
