@@ -13,17 +13,19 @@ const postRouter = require("./routes/postRoutes");
 const fs = require("fs");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
-const helmet = require("helmet");
-const xss = require("xss-clean");
+// const helmet = require("helmet");
+// const xss = require("xss-clean");
 const mongoSanitize = require("express-mongo-sanitize");
 const hpp = require("hpp");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const multer = require("multer");
-const multiPartParser = multer();
-app.enable("trust proxy");
-// Global middlewares
 
+app.enable("trust proxy");
+
+// 1) Security headers
+// app.use(helmet());
+
+// 2) CORS configuration
 app.use(
   cors({
     origin: "*",
@@ -35,10 +37,12 @@ app.use(
 
 app.options("*", cors());
 
+// 3) Development logging
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
+// 4) Request limiting
 const limiter = rateLimit({
   max: 1000,
   windowMs: 60 * 60 * 1000,
@@ -47,35 +51,41 @@ const limiter = rateLimit({
 
 app.use("/api", limiter);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// app.use(multiPartParser.any());
-
+// 5) Body parsers
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+
+// 6) Security middleware
 app.use(mongoSanitize());
+// app.use(xss());
+// app.use(hpp());
 
-app.use(express.static(path.join(__dirname, "static"))); // Middleware to serve static files
+// 7) Static files
+app.use(express.static(path.join(__dirname, "static")));
 
+// 8) Custom headers
 app.use((req, res, next) => {
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   next();
 });
 
+// 9) Request timestamp
 app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
   next();
 });
+
+// 10) Routes
 app.use(`/api/materials`, materialRouter);
 app.use(`/api/users`, userRouter);
-app.use(multiPartParser.any());
-// Middleware mounting
 app.use(`/api/points`, pointRouter);
 app.use(`/api/courses`, courseRouter);
 app.use(`/api/todo`, todoRouter);
 app.use("/api/posts", postRouter);
 app.use(`/api/schedules`, scheduleRouter);
 
+// 11) Error handling
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
