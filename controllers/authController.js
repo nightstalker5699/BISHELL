@@ -53,9 +53,9 @@ exports.signup = catchAsync(async (req, res) => {
   const courses = await Course.find();
   courses.forEach(async (course) => {
     course.studentsId.push(newUser._id);
-    await course.save({validateBeforeSave: false});
+    await course.save({ validateBeforeSave: false });
   });
-  
+
   console.log("New User Created:", newUser);
 
   createSendToken(newUser, 201, res);
@@ -63,23 +63,20 @@ exports.signup = catchAsync(async (req, res) => {
 
 exports.login = catchAsync(async (req, res, next) => {
   const { identifier, password } = req.body;
-
   // 1) Check if identifier and password exist
   if (!identifier || !password) {
     return next(
-      new AppError('Please provide email or username and password', 400)
+      new AppError("Please provide email or username and password", 400)
     );
   }
 
   // 2) Check if user exists and password is correct
   const user = await User.findOne({
     $or: [{ email: identifier }, { username: identifier }],
-  }).select('+password');
+  }).select("+password");
 
   if (!user || !(await user.correctPassword(password, user.password))) {
-    return next(
-      new AppError('Incorrect email/username or password', 401)
-    );
+    return next(new AppError("Incorrect email/username or password", 401));
   }
 
   // 3) If everything is ok, send token to client
@@ -137,24 +134,22 @@ exports.restrictTo = (...roles) => {
   };
 };
 
-exports.isOwner = (Model, idParam = 'id', ownerIdField = 'userId') =>
+exports.isOwner = (Model, idParam = "id", ownerIdField = "userId") =>
   catchAsync(async (req, res, next) => {
     const resourceId = req.params[idParam];
 
     if (!resourceId) {
-      return next(new AppError('No resource ID provided', 400));
+      return next(new AppError("No resource ID provided", 400));
     }
 
     const doc = await Model.findById(resourceId);
 
     if (!doc) {
-      return next(new AppError('No document found with that ID', 404));
+      return next(new AppError("No document found with that ID", 404));
     }
 
     if (!doc[ownerIdField].equals(req.user.id)) {
-      return next(
-        new AppError('ما تبطل منيكة', 403)
-      );
+      return next(new AppError("ما تبطل منيكة", 403));
     }
 
     next();

@@ -9,6 +9,7 @@ const courseRouter = require(`${__dirname}/routes/courseRoutes.js`);
 const todoRouter = require(`${__dirname}/routes/toDoListRoutes.js`);
 const scheduleRouter = require(`${__dirname}/routes/scheduleRoutes.js`);
 const materialRouter = require("./routes/materialRoutes");
+const postRouter = require("./routes/postRoutes");
 const fs = require("fs");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
@@ -18,8 +19,9 @@ const mongoSanitize = require("express-mongo-sanitize");
 const hpp = require("hpp");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const multer = require("multer");
 app.enable("trust proxy");
-
+const multiPartParser = multer();
 // Global middlewares
 app.use(cors());
 
@@ -39,11 +41,11 @@ const limiter = rateLimit({
 
 app.use("api", limiter);
 
-app.use(
-  express.json({
-    limit: "10kb",
-  })
-); // Middleware to parse the body of the request
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(multiPartParser.any()); // to parse multipart/form data
+// Middleware to parse the body of the request
 app.use(cookieParser());
 app.use(mongoSanitize()); // Middleware to sanitize the input data
 
@@ -66,6 +68,7 @@ app.use(`/api/users`, userRouter);
 app.use(`/api/points`, pointRouter);
 app.use(`/api/courses`, courseRouter);
 app.use(`/api/todo`, todoRouter);
+app.use("/api/posts", postRouter);
 app.use(`/api/schedules`, scheduleRouter);
 app.use(`/api/materials`, materialRouter);
 
