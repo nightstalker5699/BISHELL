@@ -20,8 +20,8 @@ const hpp = require("hpp");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
+// const multiPartParser = multer();
 app.enable("trust proxy");
-const multiPartParser = multer();
 // Global middlewares
 
 app.use(cors({
@@ -32,15 +32,6 @@ app.use(cors({
 }));
 
 app.options("*", cors());
-
-// app.use(helmet({
-//   contentSecurityPolicy: {
-//     directives: {
-//       defaultSrc: ["'self'"],
-//       imgSrc: ["'self'", "data:", "http:", "https:"],
-//     },
-//   },
-// }));
 
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
@@ -57,26 +48,24 @@ app.use("/api", limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(multiPartParser.any()); // to parse multipart/form data
-// Middleware to parse the body of the request
+// app.use(multiPartParser.any()); // Remove this if not handling file uploads
+
 app.use(cookieParser());
-app.use(mongoSanitize()); // Middleware to sanitize the input data
-
-// app.use(xss()); // Middleware to prevent XSS attacks
-
-// app.use(
-//   hpp({
-//     whitelist: [],
-//   })
-// ); // Middleware to prevent parameter pollution
+app.use(mongoSanitize());
 
 app.use(express.static(path.join(__dirname, "static"))); // Middleware to serve static files
+
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+});
+
 app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
   next();
 });
 
-//Middleware mounting
+// Middleware mounting
 app.use(`/api/users`, userRouter);
 app.use(`/api/points`, pointRouter);
 app.use(`/api/courses`, courseRouter);
