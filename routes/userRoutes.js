@@ -3,9 +3,17 @@ const userController = require("../controllers/userController");
 const authController = require("./../controllers/authController");
 const toDoListRouter = require("./toDoListRoutes");
 const router = express.Router();
-
+const multer = require("multer");
+const multiPartParser = multer();
 // routes
 
+router.post(
+  `/signup`,
+  userController.uploadProfilePic,
+  userController.resizeProfilePic,
+  authController.signup
+);
+router.use(multiPartParser.any());
 router.get(
   "/me",
   authController.protect,
@@ -36,12 +44,6 @@ router.patch(
   "/updateMyPassword",
   authController.protect,
   authController.updatePassword
-);
-router.post(
-  `/signup`,
-  userController.uploadProfilePic,
-  userController.resizeProfilePic,
-  authController.signup
 );
 router.post(`/login`, authController.login);
 router.route(`/forgotPassword`).post(authController.forgotPassword);

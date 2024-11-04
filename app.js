@@ -24,12 +24,14 @@ const multiPartParser = multer();
 app.enable("trust proxy");
 // Global middlewares
 
-app.use(cors({
-  origin: '*',
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  allowedHeaders: '*',
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: "*",
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    allowedHeaders: "*",
+    credentials: true,
+  })
+);
 
 app.options("*", cors());
 
@@ -56,7 +58,7 @@ app.use(mongoSanitize());
 app.use(express.static(path.join(__dirname, "static"))); // Middleware to serve static files
 
 app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   next();
 });
 
@@ -64,15 +66,15 @@ app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
   next();
 });
-
-// Middleware mounting
+app.use(`/api/materials`, materialRouter);
 app.use(`/api/users`, userRouter);
+app.use(multiPartParser.any());
+// Middleware mounting
 app.use(`/api/points`, pointRouter);
 app.use(`/api/courses`, courseRouter);
 app.use(`/api/todo`, todoRouter);
 app.use("/api/posts", postRouter);
 app.use(`/api/schedules`, scheduleRouter);
-app.use(`/api/materials`, materialRouter);
 
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
