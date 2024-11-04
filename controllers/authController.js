@@ -8,6 +8,8 @@ const sendEmail = require("./../utils/email");
 const crypto = require("crypto");
 const generatePasswordResetEmail = require("./../utils/emailTemplates");
 
+
+
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
@@ -39,57 +41,44 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 exports.signup = catchAsync(async (req, res) => {
+  console.log('Signup body:', req.body);
+  
   const newUser = await User.create({
     username: req.body.username,
     fullName: req.body.fullName,
     group: req.body.group,
     email: req.body.email,
-    photo: req.body.photo,
+    photo: req.file ? `user-${req.body.username}.jpeg` : 'default.jpg',
     password: req.body.password,
-    passwordConfirm: req.body.passwordConfirm,
-    passwordChangedAt: req.body.passwordChangedAt,
+    passwordConfirm: req.body.passwordConfirm
   });
 
   const courses = await Course.find();
-  courses.forEach(async (course) => {
+  await Promise.all(courses.map(async (course) => {
     course.studentsId.push(newUser._id);
     await course.save({ validateBeforeSave: false });
-  });
-
-  console.log("New User Created:", newUser);
+  }));
 
   createSendToken(newUser, 201, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
-  // Log the incoming request method and URL
-  console.log('--- Login Request Received ---');
-  console.log('Request Method:', req.method);
-  console.log('Request URL:', req.originalUrl);
-  console.log('Request Headers:', req.headers);
-  console.log('Raw Request Body:', req.body);
+  console.log('Login body:', req.body);
+  
   const { identifier, password } = req.body;
-  console.log('Parsed Identifier:', identifier);
-  console.log('Parsed Password:', password ? password : 'No password provided');
 
-  // 1) Check if identifier and password exist
   if (!identifier || !password) {
-    console.log('Error: Missing identifier or password');
-    return next(
-      new AppError('Please provide email or username and password', 400)
-    );
+    return next(new AppError('Please provide email or username and password', 400));
   }
 
-  // 2) Check if user exists and password is correct
   const user = await User.findOne({
     $or: [{ email: identifier }, { username: identifier }],
-  }).select("+password");
+  }).select('+password');
 
   if (!user || !(await user.correctPassword(password, user.password))) {
-    return next(new AppError("Incorrect email/username or password", 401));
+    return next(new AppError('Incorrect email/username or password', 401));
   }
 
-  // 3) If everything is ok, send token to client
   createSendToken(user, 200, res);
 });
 
