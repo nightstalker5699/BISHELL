@@ -4,6 +4,7 @@ const multer = require('multer');
 const Material = require('../models/materialModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+const mime = require('mime-types');
 
 // Set max file size to 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -79,29 +80,29 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
     }
   }
 
-  // Construct the material path
+  // Construct the material path using path.posix for consistent '/'
   const materialPath = trimmedParentPath
-    ? path.join(trimmedParentPath, trimmedName)
+    ? path.posix.join(trimmedParentPath, trimmedName)
     : trimmedName;
 
   // Normalize the material path
-  const normalizedMaterialPath = path.normalize(materialPath);
+  const normalizedMaterialPath = path.posix.normalize(materialPath);
 
   // Build the full path for the material
-  const fullMaterialPath = path.join(uploadDir, normalizedMaterialPath);
+  const fullMaterialPath = path.join(uploadDir, ...normalizedMaterialPath.split('/'));
 
   // Ensure all parent folders exist in the database and file system
   const pathSegments = trimmedParentPath
-    ? trimmedParentPath.split(path.sep).filter(Boolean)
+    ? trimmedParentPath.split('/').filter(Boolean)
     : [];
   let parentFolderId = null;
   let currentPath = '';
 
   for (const segment of pathSegments) {
-    currentPath = currentPath ? path.join(currentPath, segment) : segment;
+    currentPath = currentPath ? path.posix.join(currentPath, segment) : segment;
 
     // Normalize the current path
-    const normalizedCurrentPath = path.normalize(currentPath);
+    const normalizedCurrentPath = path.posix.normalize(currentPath);
 
     // Check if the folder exists in the database
     const folder = await Material.findOne({
@@ -115,7 +116,7 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
     }
 
     // Check if the folder exists in the file system
-    const folderPath = path.join(uploadDir, normalizedCurrentPath);
+    const folderPath = path.join(uploadDir, ...normalizedCurrentPath.split('/'));
     if (!fs.existsSync(folderPath)) {
       return next(
         new AppError(
@@ -129,8 +130,9 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
   }
 
   // Create necessary directories in the file system
-  if (!fs.existsSync(path.dirname(fullMaterialPath))) {
-    fs.mkdirSync(path.dirname(fullMaterialPath), { recursive: true });
+  const dirPath = path.dirname(fullMaterialPath);
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
   }
 
   // Move/create file or folder
@@ -150,7 +152,7 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
     type,
     path: normalizedMaterialPath,
     filePath: fullMaterialPath,
-    parentFolder: parentFolderId, // Keeping parent folder tracking
+    parentFolder: parentFolderId,
   };
 
   // Add file metadata if it's a file
@@ -172,18 +174,19 @@ exports.getMaterials = catchAsync(async (req, res, next) => {
   const { courseId } = req.params;
   const { parentPath } = req.query;
 
-  // Normalize parent path and convert backslashes to forward slashes
-  const normalizedParentPath = parentPath 
-    ? path.normalize(parentPath.trim()).replace(/\\/g, '/')
+  // Use path.posix for consistent '/'
+  const normalizedParentPath = parentPath
+    ? path.posix.normalize(parentPath.trim())
     : '';
 
   let query = { course: courseId };
 
   if (normalizedParentPath) {
     // Match only direct children of the parent path
+    const escapedPath = normalizedParentPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     query = {
       course: courseId,
-      path: new RegExp(`^${normalizedParentPath}/[^/]+$`)
+      path: new RegExp(`^${escapedPath}/[^/]+$`)
     };
   } else {
     // Match only top-level files/folders
@@ -195,17 +198,17 @@ exports.getMaterials = catchAsync(async (req, res, next) => {
   const materials = await Material.find(query)
     .select('name type mimeType humanSize path filePath createdAt size parentFolder')
     .populate('parentFolder', 'name path')
-    .sort({ type: -1, name: 1 }); // Sort folders first, then by name
+    .sort({ type: -1, name: 1 });
 
   const transformedMaterials = materials.map(mat => ({
     ...mat.toObject(),
-    path: mat.path.replace(/\\/g, '/'),
-    filePath: mat.filePath.replace(/\\/g, '/')
+    path: mat.path.split(path.posix.sep).join('/'),
+    filePath: mat.filePath.split(path.sep).join('/')
   }));
 
   res.status(200).json({
     status: 'success',
-    data: { 
+    data: {
       materials: transformedMaterials,
       parentPath: normalizedParentPath
     }
@@ -242,7 +245,8 @@ exports.deleteMaterial = catchAsync(async (req, res, next) => {
 
   if (material.type === 'folder') {
     // Prepare regex pattern to match all nested paths
-    const escapedPath = material.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const normalizedPath = material.path.split(path.sep).join('/');
+    const escapedPath = normalizedPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const nestedPattern = new RegExp(`^${escapedPath}(/|$)`);
 
     // Find all nested materials
@@ -253,12 +257,12 @@ exports.deleteMaterial = catchAsync(async (req, res, next) => {
 
     // Delete all nested materials from filesystem
     for (const nestedMaterial of nestedMaterials) {
-      const filePath = path.resolve(nestedMaterial.filePath);
-      if (fs.existsSync(filePath)) {
+      const nestedFilePath = path.join(uploadDir, ...nestedMaterial.path.split('/'));
+      if (fs.existsSync(nestedFilePath)) {
         if (nestedMaterial.type === 'folder') {
-          fs.rmSync(filePath, { recursive: true, force: true });
+          fs.rmSync(nestedFilePath, { recursive: true, force: true });
         } else {
-          fs.unlinkSync(filePath);
+          fs.unlinkSync(nestedFilePath);
         }
       }
     }
@@ -271,7 +275,7 @@ exports.deleteMaterial = catchAsync(async (req, res, next) => {
   }
 
   // Delete the material itself from filesystem
-  const filePath = path.resolve(material.filePath);
+  const filePath = path.join(uploadDir, ...material.path.split('/'));
   if (fs.existsSync(filePath)) {
     if (material.type === 'folder') {
       fs.rmSync(filePath, { recursive: true, force: true });
@@ -296,28 +300,106 @@ exports.getMaterialFile = catchAsync(async (req, res, next) => {
     return next(new AppError('No file found with that ID', 404));
   }
 
-  const filePath = path.resolve(material.filePath);
+  // Fix path resolution
+  const relativePath = material.path.split('/').join(path.sep);
+  const filePath = path.join(uploadDir, relativePath);
 
   if (!fs.existsSync(filePath)) {
-    return next(new AppError('File not found', 404));
+    return next(new AppError(`File not found at path: ${filePath}`, 404));
   }
 
+  // File type configurations
+  const fileExtension = path.extname(material.name).toLowerCase();
+
+  // Define MIME types for common file types
+  const specialMimeTypes = {
+    // Microsoft Office
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.ppt': 'application/vnd.ms-powerpoint',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+
+    // Open Office
+    '.odt': 'application/vnd.oasis.opendocument.text',
+    '.ods': 'application/vnd.oasis.opendocument.spreadsheet',
+    '.odp': 'application/vnd.oasis.opendocument.presentation',
+
+    // Other common types
+    '.pdf': 'application/pdf',
+    '.zip': 'application/zip',
+    '.rar': 'application/x-rar-compressed',
+    '.txt': 'text/plain',
+    '.csv': 'text/csv'
+  };
+
+  // Determine MIME type
+  const mimeType = specialMimeTypes[fileExtension] ||
+    mime.lookup(filePath) ||
+    material.mimeType ||
+    'application/octet-stream';
+
+  // Define which files can be viewed in browser
+  const viewableTypes = [
+    // Images
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp',
+    // Documents
+    '.pdf',
+    // Text
+    '.txt', '.csv', '.html', '.htm',
+    // Video
+    '.mp4', '.webm',
+    // Audio
+    '.mp3', '.wav'
+  ];
+
+  // Determine if file should be viewed in browser
+  const isViewable = viewableTypes.includes(fileExtension) && !req.query.download;
+
   // Set headers
-  res.setHeader('Content-Type', material.mimeType);
-  res.setHeader('Content-Length', material.size);
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="${material.name}"`
-  );
+  const headers = {
+    'Content-Type': mimeType,
+    'Content-Length': material.size,
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Content-Transfer-Encoding': 'binary',
+    'Content-Disposition': `${isViewable ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(material.name)}`,
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'SAMEORIGIN',
+    'X-XSS-Protection': '1; mode=block'
+  };
 
-  // Create read stream
-  const stream = fs.createReadStream(filePath);
-
-  // Handle stream errors
-  stream.on('error', () => {
-    next(new AppError('Error streaming file', 500));
+  // Apply headers
+  Object.entries(headers).forEach(([key, value]) => {
+    res.setHeader(key, value);
   });
 
-  // Pipe stream to response
-  stream.pipe(res);
+  // Handle range requests for media streaming
+  if (req.headers.range && (mimeType.startsWith('video/') || mimeType.startsWith('audio/'))) {
+    const parts = req.headers.range.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : material.size - 1;
+
+    res.status(206); // Partial Content
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Range', `bytes ${start}-${end}/${material.size}`);
+    res.setHeader('Content-Length', end - start + 1);
+
+    const stream = fs.createReadStream(filePath, { start, end });
+    stream.on('error', error => {
+      console.error('Stream error:', error);
+      next(new AppError('Error streaming file', 500));
+    });
+    stream.pipe(res);
+  } else {
+    // Normal file streaming
+    const stream = fs.createReadStream(filePath);
+    stream.on('error', error => {
+      console.error('Stream error:', error);
+      next(new AppError('Error streaming file', 500));
+    });
+    stream.pipe(res);
+  }
 });
