@@ -300,7 +300,6 @@ exports.getMaterialFile = catchAsync(async (req, res, next) => {
     return next(new AppError('No file found with that ID', 404));
   }
 
-  // Fix path resolution
   const relativePath = material.path.split('/').join(path.sep);
   const filePath = path.join(uploadDir, relativePath);
 
@@ -308,25 +307,19 @@ exports.getMaterialFile = catchAsync(async (req, res, next) => {
     return next(new AppError(`File not found at path: ${filePath}`, 404));
   }
 
-  // File type configurations
+
   const fileExtension = path.extname(material.name).toLowerCase();
 
-  // Define MIME types for common file types
   const specialMimeTypes = {
-    // Microsoft Office
     '.doc': 'application/msword',
     '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     '.ppt': 'application/vnd.ms-powerpoint',
     '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     '.xls': 'application/vnd.ms-excel',
     '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-
-    // Open Office
     '.odt': 'application/vnd.oasis.opendocument.text',
     '.ods': 'application/vnd.oasis.opendocument.spreadsheet',
     '.odp': 'application/vnd.oasis.opendocument.presentation',
-
-    // Other common types
     '.pdf': 'application/pdf',
     '.zip': 'application/zip',
     '.rar': 'application/x-rar-compressed',
@@ -334,30 +327,30 @@ exports.getMaterialFile = catchAsync(async (req, res, next) => {
     '.csv': 'text/csv'
   };
 
-  // Determine MIME type
+
   const mimeType = specialMimeTypes[fileExtension] ||
     mime.lookup(filePath) ||
     material.mimeType ||
     'application/octet-stream';
 
-  // Define which files can be viewed in browser
+  // View Able Files 
   const viewableTypes = [
-    // Images
+    // images
     '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp',
-    // Documents
+    // documents
     '.pdf',
-    // Text
+    // text
     '.txt', '.csv', '.html', '.htm',
-    // Video
+    // video
     '.mp4', '.webm',
-    // Audio
+    // audio
     '.mp3', '.wav'
   ];
 
-  // Determine if file should be viewed in browser
+  // is viewable 
   const isViewable = viewableTypes.includes(fileExtension) && !req.query.download;
 
-  // Set headers
+  // cookie Headers
   const headers = {
     'Content-Type': mimeType,
     'Content-Length': material.size,
@@ -371,12 +364,12 @@ exports.getMaterialFile = catchAsync(async (req, res, next) => {
     'X-XSS-Protection': '1; mode=block'
   };
 
-  // Apply headers
+  // push the headers
   Object.entries(headers).forEach(([key, value]) => {
     res.setHeader(key, value);
   });
 
-  // Handle range requests for media streaming
+  // media streaming
   if (req.headers.range && (mimeType.startsWith('video/') || mimeType.startsWith('audio/'))) {
     const parts = req.headers.range.replace(/bytes=/, '').split('-');
     const start = parseInt(parts[0], 10);
@@ -394,7 +387,7 @@ exports.getMaterialFile = catchAsync(async (req, res, next) => {
     });
     stream.pipe(res);
   } else {
-    // Normal file streaming
+    // low file streaming + error handleing
     const stream = fs.createReadStream(filePath);
     stream.on('error', error => {
       console.error('Stream error:', error);
