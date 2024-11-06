@@ -1,23 +1,37 @@
-const authController = require("./../controllers/authController");
-const postController = require("./../controllers/postController");
-const commentRoutes = require("./commentRoutes");
+// postRoutes.js
 const express = require("express");
-
 const router = express.Router();
+const postController = require("../controllers/postController");
+const authController = require("../controllers/authController");
 
+// Public routes
+router.get("/", postController.getAllPosts);
+router.get("/user/:userId", postController.getUserPosts);
+router.get("/:id", postController.getPost);
+
+// Protected routes
 router.use(authController.protect);
 
+// Create post route with proper middleware chain
 router
   .route("/")
-  .get(postController.getAllPost)
-  .post(postController.createPost);
+  .post(
+    postController.uploadPostImages,    // Handle file upload
+    postController.processPostImages,   // Process images
+    postController.createPost           // Create post
+  );
+
 router
   .route("/:id")
-  .get(postController.getPost)
-  .patch(postController.updatePost)
+  .patch(
+    postController.uploadPostImages,
+    postController.processPostImages,
+    postController.updatePost
+  )
   .delete(postController.deletePost);
 
-router.use("/:postId/comments", commentRoutes);
-router.post("/:id/like", postController.likePost);
-router.post("/:id/unlike", postController.unlikePost);
+router.post("/:id/toggle-like", postController.toggleLike);
+
+router.use("/:postId/comments", require("./commentRoutes"));
+
 module.exports = router;
