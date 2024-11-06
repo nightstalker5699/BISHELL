@@ -45,23 +45,23 @@ exports.deleteOne = (Model) =>
     });
   });
 
-  exports.getAll = (Model, excludeFields = []) =>
-    catchAsync(async (req, res, next) => {
-      // Convert the array of fields to exclude into a string format for Mongoose select
-      const excludeString = excludeFields.map(field => `-${field}`).join(' ');
-  
-      const doc = await Model.find().select(excludeString);
-  
-      // Send the Response
-      res.status(200).json({
-        status: "success",
-        requestedAt: req.requestTime,
-        results: doc.length,
-        data: {
-          doc: doc,
-        },
-      });
+exports.getAll = (Model, excludeFields = []) =>
+  catchAsync(async (req, res, next) => {
+    // Convert the array of fields to exclude into a string format for Mongoose select
+    const excludeString = excludeFields.map((field) => `-${field}`).join(" ");
+
+    const doc = await Model.find().select(excludeString);
+
+    // Send the Response
+    res.status(200).json({
+      status: "success",
+      requestedAt: req.requestTime,
+      results: doc.length,
+      data: {
+        doc: doc,
+      },
     });
+  });
 
 exports.getOne = (Model, populateOptions) =>
   catchAsync(async (req, res, next) => {

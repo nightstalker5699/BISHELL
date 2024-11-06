@@ -49,11 +49,11 @@ const limiter = rateLimit({
   message: "Too many requests from this IP, please try again in an hour!",
 });
 
-app.use("/api", limiter);
+// app.use("/api", limiter);
 
 // 5) Body parsers
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
 // 6) Security middleware
