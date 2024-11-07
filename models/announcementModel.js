@@ -32,6 +32,11 @@ const announcementSchema = new mongoose.Schema({
       },
     },
   ],
+  groups: [
+    {
+      type: String,
+    },
+  ],
 });
 
 const Announcement = mongoose.model("Announcement", announcementSchema);

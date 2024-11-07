@@ -15,7 +15,10 @@ const storage = multer.diskStorage({
     cb(null, attach_file);
   },
   filename: (req, file, cb) => {
-    file.originalname = Date.now() + "-" + file.originalname;
+    file.originalname = (Date.now() + "-" + file.originalname).replace(
+      " ",
+      "-"
+    );
     cb(null, file.originalname);
   },
 });
@@ -34,13 +37,16 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
       path: `/attachFile/${file.originalname}`,
     };
   });
-
+  let groups;
+  if (req.body.groups) groups = req.body.groups.split("");
+  else groups = ["A", "B", "C", "D"];
   const announcement = await Announcement.create({
     courseId: req.params.courseId,
     announcerId: req.user._id,
     title: req.body.title,
     body: req.body.body,
     attach_files: attach,
+    groups: groups,
   });
 
   res.status(200).json({
@@ -50,12 +56,17 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
 });
 
 exports.deleteAnnouncement = catchAsync(async (req, res, next) => {
-  const announcement = await Announcement.findByIdAndDelete(
-    req.params.announcementId
-  );
+  const announcement = await Announcement.findById(req.params.announcementId);
+
+  if (!announcement)
+    return next(new appError("there is no announcement with that id "), 404);
+
+  if (req.user._id.toString() !== announcement.announcerId.toString())
+    return next(new appError("you are not the creator of the annouce "), 403);
   for (attach of announcement.attach_files) {
     fs.unlinkSync(path.join(attach_file, attach.name));
   }
+  await Announcement.findByIdAndDelete(announcement._id);
   res.status(204).json({ status: "success" });
 });
 
@@ -77,5 +88,40 @@ exports.getAnnouncement = catchAsync(async (req, res, next) => {
     req.params.announcementId
   ).populate({ path: "announcerId", select: "username photo" });
 
+  if (!announcement)
+    return next(new appError("there is no announcement with that id "), 404);
+
   res.status(200).json({ status: "success", data: announcement });
+});
+
+exports.updateAnnouncement = catchAsync(async (req, res, next) => {
+  const announcement = await Announcement.findById(req.params.announcementId);
+  if (!announcement)
+    return next(new appError("there is no announcement with that id "), 404);
+  if (req.user._id.toString() !== announcement.announcerId.toString())
+    return next(new appError("you are not the creator of the annouce "), 403);
+  if (req.files[0]) {
+    for (file of announcement.attach_files) {
+      fs.unlinkSync(path.join(attach_file, file.name));
+    }
+    const attach = req.files.map((file) => {
+      return {
+        name: file.originalname,
+        size: file.size,
+        mimeType: file.mimetype,
+        path: `/attachFile/${file.originalname}`,
+      };
+    });
+    announcement.attach_files = attach;
+  }
+  if (req.body.groups)
+    announcement.groups = req.body.groups.toUpperCase().split("");
+  announcement.body = req.body.body || announcement.body;
+  announcement.title = req.body.title || announcement.title;
+  await announcement.save();
+
+  res.status(200).json({
+    status: "success",
+    announcement,
+  });
 });

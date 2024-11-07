@@ -20,6 +20,11 @@ router
   .delete(
     authController.restrictTo("admin", "instructor"),
     announcementController.deleteAnnouncement
+  )
+  .patch(
+    authController.restrictTo("admin", "instructor"),
+    announcementController.attachment,
+    announcementController.updateAnnouncement
   );
 
 module.exports = router;
