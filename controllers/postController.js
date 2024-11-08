@@ -4,53 +4,50 @@ const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const multer = require("multer");
 const sharp = require("sharp");
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 // Image Upload Configuration
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024, files: 10 }
+  limits: { fileSize: 5 * 1024 * 1024, files: 10 },
 });
-
-
 
 // Create uploads directory if it doesn't exist
 
 const addPostMetadata = (post, req, userId = null) => {
-  const baseImageUrl = `${req.protocol}://${req.get('host')}/img/posts/`;
-  
+  const baseImageUrl = `${req.protocol}://${req.get("host")}/img/posts/`;
+
   // Convert to object to allow modifications
   const postObj = post.toObject();
-  
+
   // Add image URLs and process content blocks
-  postObj.contentBlocks = postObj.contentBlocks.map(block => {
+  postObj.contentBlocks = postObj.contentBlocks.map((block) => {
     if (block.type === "image") {
       return {
         ...block,
-        imageUrl: `${baseImageUrl}${block.content}`
+        imageUrl: `${baseImageUrl}${block.content}`,
       };
     }
     return block;
   });
-  
+
   // Add like status if userId provided
   if (userId) {
     postObj.isLiked = post.likes.includes(userId);
   }
-  
+
   return postObj;
 };
 
 const createUploadDirs = () => {
-  const uploadDir = path.join(__dirname, '..', 'public', 'img', 'posts');
+  const uploadDir = path.join(__dirname, "..", "static", "img", "posts");
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
   return uploadDir;
 };
-
 
 exports.uploadPostImages = upload.array("images", 10);
 
@@ -65,13 +62,13 @@ exports.processPostImages = catchAsync(async (req, res, next) => {
       req.files.map(async (file, index) => {
         const filename = `post-${req.user.id}-${Date.now()}-${index + 1}.jpeg`;
         const filePath = path.join(uploadDir, filename);
-        
+
         await sharp(file.buffer)
           .resize(1200, 1200, { fit: "inside" })
           .toFormat("jpeg")
           .jpeg({ quality: 90 })
           .toFile(filePath);
-          
+
         return filename;
       })
     );
@@ -92,13 +89,12 @@ exports.getAllPosts = catchAsync(async (req, res) => {
     .skip(skip)
     .limit(limit);
 
-  const [posts, total] = await Promise.all([
-    query,
-    Post.countDocuments()
-  ]);
+  const [posts, total] = await Promise.all([query, Post.countDocuments()]);
 
   // Add metadata to each post
-  const enrichedPosts = posts.map(post => addPostMetadata(post, req, req.user?._id));
+  const enrichedPosts = posts.map((post) =>
+    addPostMetadata(post, req, req.user?._id)
+  );
 
   res.status(200).json({
     status: "success",
@@ -106,8 +102,8 @@ exports.getAllPosts = catchAsync(async (req, res) => {
       posts: enrichedPosts,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
-      total
-    }
+      total,
+    },
   });
 });
 
@@ -118,8 +114,8 @@ exports.getPost = catchAsync(async (req, res, next) => {
       path: "comments",
       populate: {
         path: "userId",
-        select: "username photo"
-      }
+        select: "username photo",
+      },
     });
 
   if (!post) {
@@ -134,7 +130,7 @@ exports.getPost = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
-    data: { post: enrichedPost }
+    data: { post: enrichedPost },
   });
 });
 
@@ -150,7 +146,7 @@ exports.getUserPosts = catchAsync(async (req, res) => {
       .sort("-createdAt")
       .skip(skip)
       .limit(limit),
-    Post.countDocuments({ userId })
+    Post.countDocuments({ userId }),
   ]);
 
   res.status(200).json({
@@ -159,30 +155,33 @@ exports.getUserPosts = catchAsync(async (req, res) => {
       posts,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
-      total
-    }
+      total,
+    },
   });
 });
 
 // postController.js
-exports.createPost = catchAsync(async (req, res, next) => {  // Add next parameter here
-  console.log('Request body:', req.body);
-  console.log('Files:', req.files);
+exports.createPost = catchAsync(async (req, res, next) => {
+  // Add next parameter here
+  console.log("Request body:", req.body);
+  console.log("Files:", req.files);
 
   // Validate required fields
   if (!req.body.title) {
-    return next(new AppError('Title is required', 400));
+    return next(new AppError("Title is required", 400));
   }
 
   if (!req.body.content) {
-    return next(new AppError('Content is required', 400));
+    return next(new AppError("Content is required", 400));
   }
 
   let contentBlocks;
   try {
     contentBlocks = JSON.parse(req.body.content);
   } catch (err) {
-    return next(new AppError('Invalid content format - must be valid JSON', 400));
+    return next(
+      new AppError("Invalid content format - must be valid JSON", 400)
+    );
   }
 
   const processedBlocks = [];
@@ -191,18 +190,18 @@ exports.createPost = catchAsync(async (req, res, next) => {  // Add next paramet
   contentBlocks.forEach((block, index) => {
     if (block.type === "image") {
       if (!req.processedImages || imageIndex >= req.processedImages.length) {
-        return next(new AppError('Missing image file for image block', 400));  // Use return next() instead of throw
+        return next(new AppError("Missing image file for image block", 400)); // Use return next() instead of throw
       }
       processedBlocks.push({
         orderIndex: index,
         type: "image",
-        content: req.processedImages[imageIndex++]
+        content: req.processedImages[imageIndex++],
       });
     } else {
       processedBlocks.push({
         orderIndex: index,
         type: "text",
-        content: block.content
+        content: block.content,
       });
     }
   });
@@ -211,12 +210,12 @@ exports.createPost = catchAsync(async (req, res, next) => {  // Add next paramet
     title: req.body.title,
     contentBlocks: processedBlocks,
     userId: req.user.id,
-    tags: req.body.tags ? JSON.parse(req.body.tags) : []
+    tags: req.body.tags ? JSON.parse(req.body.tags) : [],
   });
 
   res.status(201).json({
     status: "success",
-    data: { post }
+    data: { post },
   });
 });
 
@@ -238,7 +237,10 @@ exports.updatePost = catchAsync(async (req, res, next) => {
     post.contentBlocks = updatedContent.map((block, index) => ({
       orderIndex: index,
       type: block.type,
-      content: block.type === "image" ? req.processedImages[imageIndex++] : block.content
+      content:
+        block.type === "image"
+          ? req.processedImages[imageIndex++]
+          : block.content,
     }));
   }
 
@@ -247,7 +249,7 @@ exports.updatePost = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
-    data: { post }
+    data: { post },
   });
 });
 
@@ -266,7 +268,7 @@ exports.deletePost = catchAsync(async (req, res, next) => {
 
   res.status(204).json({
     status: "success",
-    data: null
+    data: null,
   });
 });
 
@@ -289,6 +291,6 @@ exports.toggleLike = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
-    data: { post }
+    data: { post },
   });
 });
