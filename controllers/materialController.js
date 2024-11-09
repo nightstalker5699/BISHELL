@@ -6,8 +6,8 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const mime = require('mime-types');
 
-// Set max file size to 10MB
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Set max file size to 40MB
+const MAX_FILE_SIZE = 40 * 1024 * 1024;
 
 // Configure upload directory
 const uploadDir = path.join(__dirname, '..', 'uploads');
@@ -31,7 +31,7 @@ const upload = multer({
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (req, file, cb) => {
     if (file.size > MAX_FILE_SIZE) {
-      cb(new AppError('File too large - max 10MB allowed', 400), false);
+      cb(new AppError('File too large - max 40MB allowed', 400), false);
       return;
     }
     cb(null, true);
@@ -43,7 +43,7 @@ const handleUpload = (req, res, next) => {
   upload(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return next(new AppError('File size exceeds 10MB limit', 400));
+        return next(new AppError('File size exceeds 40MB limit', 400));
       }
       return next(new AppError(err.message, 400));
     }
