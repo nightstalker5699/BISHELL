@@ -54,29 +54,33 @@ const handleUpload = (req, res, next) => {
 exports.uploadMaterial = handleUpload;
 
 exports.createMaterial = catchAsync(async (req, res, next) => {
-  const { course, name, type, parentPath } = req.body;
+  const { course, type, parentPath } = req.body;
+  let { name } = req.body;
 
   // Validate required fields
-  if (!course || !name || !type) {
+  if (!course || !type) {
     return next(new AppError('Missing required fields', 400));
   }
 
   // Trim whitespace
-  let trimmedName = name.trim();
+  let trimmedName = name ? name.trim() : '';
   const trimmedParentPath = parentPath ? parentPath.trim() : '';
 
-  // Handle file extension for files
+  // Handle file requirements
   if (type === 'file') {
     if (!req.file) {
       return next(new AppError("File is required for type 'file'", 400));
     }
 
-    // Get the file extension from the uploaded file
-    const fileExtension = path.extname(req.file.originalname);
+    // Use original filename if name not provided
+    if (!trimmedName) {
+      trimmedName = req.file.originalname;
+    }
 
-    // Check if the provided name has an extension
+    // Add file extension if missing
+    const fileExtension = path.extname(req.file.originalname);
     if (!path.extname(trimmedName)) {
-      trimmedName += fileExtension; // Append the original file's extension
+      trimmedName += fileExtension;
     }
   }
 
