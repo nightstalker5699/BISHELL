@@ -71,8 +71,15 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError('Please provide email or username and password', 400));
   }
 
+  //case-insensitive regex patterns for both email and username
+  const emailPattern = new RegExp(`^${identifier}$`, 'i');
+  const usernamePattern = new RegExp(`^${identifier}$`, 'i');
+
   const user = await User.findOne({
-    $or: [{ email: identifier }, { username: identifier }],
+    $or: [
+      { email: emailPattern }, 
+      { username: usernamePattern }
+    ],
   }).select('+password');
 
   if (!user || !(await user.correctPassword(password, user.password))) {
