@@ -220,23 +220,93 @@ exports.getMaterials = catchAsync(async (req, res, next) => {
 });
 
 exports.updateMaterial = catchAsync(async (req, res, next) => {
-  const material = await Material.findByIdAndUpdate(
-    req.params.id,
-    req.body,
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
+  const { name } = req.body;
+  if (!name || typeof name !== 'string') {
+    return next(new AppError('Valid name is required', 400));
+  }
 
+  const trimmedNewName = name.trim();
+  if (!trimmedNewName) {
+    return next(new AppError('Name cannot be empty', 400));
+  }
+
+  // Find the material
+  const material = await Material.findById(req.params.id);
   if (!material) {
     return next(new AppError('No material found with that ID', 404));
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: { material },
+  let finalName = trimmedNewName;
+
+  // For files, preserve original extension
+  if (material.type === 'file') {
+    const originalExt = path.extname(material.name);
+    const newExt = path.extname(trimmedNewName);
+    
+    if (newExt) {
+      // Remove any extension from new name
+      finalName = path.basename(trimmedNewName, newExt);
+    }
+    // Always append original extension
+    finalName = `${finalName}${originalExt}`;
+  }
+
+  // Calculate new paths
+  const parentDir = path.dirname(material.path);
+  const newPath = parentDir === '.' ? finalName : path.posix.join(parentDir, finalName);
+  const oldFilePath = path.join(uploadDir, ...material.path.split('/'));
+  const newFilePath = path.join(uploadDir, ...newPath.split('/'));
+
+  // Check for naming conflicts
+  const existingMaterial = await Material.findOne({
+    _id: { $ne: material._id },
+    course: material.course,
+    path: newPath
   });
+
+  if (existingMaterial) {
+    return next(new AppError('A file or folder with this name already exists', 400));
+  }
+
+  try {
+    // Rename in filesystem
+    if (!fs.existsSync(oldFilePath)) {
+      return next(new AppError('File not found in filesystem', 404));
+    }
+
+    fs.renameSync(oldFilePath, newFilePath);
+
+    // Update in database
+    const updatedMaterial = await Material.findByIdAndUpdate(
+      req.params.id,
+      {
+        name: finalName,
+        path: newPath,
+        filePath: newFilePath
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    res.status(200).json({
+      status: 'success',
+      data: { material: updatedMaterial }
+    });
+
+  } catch (error) {
+    // Attempt to rollback filesystem change if database update fails
+    try {
+      if (fs.existsSync(newFilePath)) {
+        fs.renameSync(newFilePath, oldFilePath);
+      }
+    } catch (rollbackError) {
+      console.error('Rollback failed:', rollbackError);
+    }
+
+    return next(new AppError('Error updating material name', 500));
+  }
 });
 
 exports.deleteMaterial = catchAsync(async (req, res, next) => {
