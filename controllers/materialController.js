@@ -92,8 +92,23 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
   // Normalize the material path
   const normalizedMaterialPath = path.posix.normalize(materialPath);
 
+  // Duplicate check
+  const existingMaterial = await Material.findOne({
+    course,
+    path: normalizedMaterialPath,
+  });
+
+  if (existingMaterial) {
+    return next(
+      new AppError('A material with this name already exists in the specified path', 400)
+    );
+  }
+
   // Build the full path for the material
-  const fullMaterialPath = path.join(uploadDir, ...normalizedMaterialPath.split('/'));
+  const fullMaterialPath = path.join(
+    uploadDir,
+    ...normalizedMaterialPath.split('/')
+  );
 
   // Ensure all parent folders exist in the database and file system
   const pathSegments = trimmedParentPath
@@ -120,7 +135,10 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
     }
 
     // Check if the folder exists in the file system
-    const folderPath = path.join(uploadDir, ...normalizedCurrentPath.split('/'));
+    const folderPath = path.join(
+      uploadDir,
+      ...normalizedCurrentPath.split('/')
+    );
     if (!fs.existsSync(folderPath)) {
       return next(
         new AppError(
