@@ -5,6 +5,7 @@ const Material = require('../models/materialModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const mime = require('mime-types');
+const archiver = require('archiver')
 
 // Set max file size to 40MB
 const MAX_FILE_SIZE = 40 * 1024 * 1024;
@@ -494,4 +495,36 @@ exports.getMaterialFile = catchAsync(async (req, res, next) => {
     });
     stream.pipe(res);
   }
+});
+
+exports.downloadFolder = catchAsync(async (req, res, next) => {
+  const material = await Material.findById(req.params.id);
+  
+  if (!material || material.type !== 'folder') {
+    return next(new AppError('Folder not found', 404));
+  }
+
+  const folderPath = path.join(uploadDir, ...material.path.split('/'));
+
+  try {
+    await fs.access(folderPath);
+  } catch (err) {
+    return next(new AppError('Folder does not exist on the server', 404));
+  }
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${material.name}.zip"`
+  );
+
+  const archive = archiver('zip', {
+    store: true
+  });
+
+  archive.on('error', err => next(err));
+
+  archive.pipe(res);
+  archive.directory(folderPath, false);
+  await archive.finalize();
 });

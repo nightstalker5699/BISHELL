@@ -12,9 +12,9 @@ router
 router.use(multiPartParser.any());
 router.route("/:courseId").get(materialController.getMaterials);
 
-// Add specific download route
 router.route("/download/:id").get(materialController.getMaterialFile);
 
+router.route('/download-folder/:id').get(materialController.downloadFolder);
 router
   .route("/:id")
   .patch(materialController.updateMaterial)
