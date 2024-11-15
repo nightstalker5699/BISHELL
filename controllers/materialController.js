@@ -1,4 +1,5 @@
 const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
 const multer = require('multer');
 const Material = require('../models/materialModel');
@@ -504,10 +505,12 @@ exports.downloadFolder = catchAsync(async (req, res, next) => {
     return next(new AppError('Folder not found', 404));
   }
 
-  const folderPath = path.join(uploadDir, ...material.path.split('/'));
-
+  // Ensure material.path uses forward slashes
+  const normalizedPath = material.path.replace(/\\/g, '/');
+  const folderPath = path.join(uploadDir, ...normalizedPath.split('/'));
+  
   try {
-    await fs.access(folderPath);
+    await fsp.access(folderPath);
   } catch (err) {
     return next(new AppError('Folder does not exist on the server', 404));
   }
@@ -519,10 +522,10 @@ exports.downloadFolder = catchAsync(async (req, res, next) => {
   );
 
   const archive = archiver('zip', {
-    store: true
+    store: true,
   });
 
-  archive.on('error', err => next(err));
+  archive.on('error', (err) => next(err));
 
   archive.pipe(res);
   archive.directory(folderPath, false);
