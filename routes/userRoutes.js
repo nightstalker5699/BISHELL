@@ -13,6 +13,15 @@ router.post(
   userController.resizeProfilePic,
   authController.signup
 );
+
+router.patch(
+  "/updateMe",
+  authController.protect,
+  userController.uploadProfilePic,
+  userController.resizeProfilePic,
+  userController.updateMe
+);
+
 router.use(multiPartParser.any());
 router.get(
   "/me",
@@ -48,6 +57,8 @@ router.patch(
 router.post(`/login`, authController.login);
 router.route(`/forgotPassword`).post(authController.forgotPassword);
 router.route(`/resetPassword/:token`).patch(authController.resetPassword);
+
+
 
 router
   .route(`/`)

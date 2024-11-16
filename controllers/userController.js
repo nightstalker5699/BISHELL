@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const User = require("../models/userModel");
 const toDoListModel = require("../models/toDoListModel");
 const AppError = require("../utils/appError");
@@ -16,6 +18,16 @@ const fileFilter = (req, file, cb) => {
   } else {
     cb(new appError("not an image please upload an image", 400), false);
   }
+};
+
+const filterObj = (obj, ...allowedFields) => {
+  const newObj = {};
+  Object.keys(obj).forEach((el) => {
+    if (allowedFields.includes(el)) {
+      newObj[el] = obj[el];
+    }
+  });
+  return newObj;
 };
 
 const uploadImage = multer({ storage, fileFilter });
@@ -64,7 +76,9 @@ exports.getUser = catchAsync(async (req, res, next) => {
     return next(new AppError("There's no document with this username", 404));
   }
 
-  const photoUrl = `${req.protocol}://${req.get('host')}/profilePics/${targetUser.photo}`;
+  const photoUrl = `${req.protocol}://${req.get("host")}/profilePics/${
+    targetUser.photo
+  }`;
   targetUser.photo = photoUrl;
   // Fetch toDoList if allowed and not viewing own profile
 
@@ -208,14 +222,54 @@ exports.uploadProfilePic = uploadImage.single("photo");
 
 exports.resizeProfilePic = catchAsync(async (req, res, next) => {
   if (!req.file) return next();
-  req.body.photo = `user-${req.body.username}.jpeg`;
 
+  req.body.photo = `user-${req.user.username}.jpeg`;
+
+  // Delete old photo if exists and not default
+  if (req.user.photo !== "default.jpg") {
+    const oldPhotoPath = path.join("static", "profilePics", req.user.photo);
+    if (fs.existsSync(oldPhotoPath)) {
+      fs.unlinkSync(oldPhotoPath);
+    }
+  }
+
+  // Process and save new photo
   await sharp(req.file.buffer)
     .resize(500, 500)
     .toFormat("jpeg")
     .jpeg({ quality: 90 })
     .toFile(`static/profilePics/${req.body.photo}`);
-  // if (req.user.photo !== "default.jpg")
-  //   await fs.unlinkSync(`./static/profilePics/${req.user.photo}`);
+
   next();
+});
+
+exports.updateMe = catchAsync(async (req, res, next) => {
+  // Prevent password updates here
+  if (req.body.password || req.body.passwordConfirm) {
+    return next(
+      new AppError(
+        "This route is not for password updates. Please use /updateMyPassword.",
+        400
+      )
+    );
+  }
+
+  // Filter out unwanted fields
+  const filteredBody = filterObj(req.body, "fullName", "caption");
+
+  // Handle photo upload
+  if (req.file) filteredBody.photo = `user-${req.user.username}.jpeg`;
+
+  // Update user document
+  const updatedUser = await User.findByIdAndUpdate(req.user.id, filteredBody, {
+    new: true,
+    runValidators: true,
+  });
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      user: updatedUser,
+    },
+  });
 });
