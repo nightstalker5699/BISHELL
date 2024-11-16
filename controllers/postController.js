@@ -142,7 +142,6 @@ exports.getUserPosts = catchAsync(async (req, res) => {
 
   const [posts, total] = await Promise.all([
     Post.find({ userId })
-      .populate("userId", "username photo")
       .sort("-createdAt")
       .skip(skip)
       .limit(limit),
@@ -162,19 +161,6 @@ exports.getUserPosts = catchAsync(async (req, res) => {
 
 // postController.js
 exports.createPost = catchAsync(async (req, res, next) => {
-  // Add next parameter here
-  console.log("Request body:", req.body);
-  console.log("Files:", req.files);
-
-  // Validate required fields
-  if (!req.body.title) {
-    return next(new AppError("Title is required", 400));
-  }
-
-  if (!req.body.content) {
-    return next(new AppError("Content is required", 400));
-  }
-
   let contentBlocks;
   try {
     contentBlocks = JSON.parse(req.body.content);
@@ -190,7 +176,7 @@ exports.createPost = catchAsync(async (req, res, next) => {
   contentBlocks.forEach((block, index) => {
     if (block.type === "image") {
       if (!req.processedImages || imageIndex >= req.processedImages.length) {
-        return next(new AppError("Missing image file for image block", 400)); // Use return next() instead of throw
+        return next(new AppError("Missing image file for image block", 400));
       }
       processedBlocks.push({
         orderIndex: index,
@@ -210,7 +196,7 @@ exports.createPost = catchAsync(async (req, res, next) => {
     title: req.body.title,
     contentBlocks: processedBlocks,
     userId: req.user.id,
-    tags: req.body.tags ? JSON.parse(req.body.tags) : [],
+    label: req.body.label
   });
 
   res.status(201).json({

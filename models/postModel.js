@@ -34,12 +34,11 @@ const postSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: "User"
     }],
-    tags: [String],
-    // status: {
-    //   type: String,
-    //   enum: ["draft", "published", "archived"],
-    //   default: "published"
-    // },
+    label: {
+      type: String,
+      enum: ['Summary', 'Notes', 'Solutions', 'General'],
+      required: [true, 'a Post must have a label']
+    },
     views: {
       type: Number,
       default: 0
