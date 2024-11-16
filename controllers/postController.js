@@ -1,4 +1,4 @@
-// postController.js
+const Course = require("../models/courseModel");
 const Post = require("../models/postModel");
 const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
@@ -109,7 +109,6 @@ exports.getAllPosts = catchAsync(async (req, res) => {
 
 exports.getPost = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.id)
-    .populate("userId", "username photo")
     .populate({
       path: "comments",
       populate: {
@@ -134,24 +133,51 @@ exports.getPost = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.getUserPosts = catchAsync(async (req, res) => {
+exports.getUserPosts = catchAsync(async (req, res, next) => {
   const { userId } = req.params;
+  let { courseName } = req.params;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
+  // Base query
+  let query = { userId };
+
+  // Handle courseName if provided
+  if (courseName) {
+    // Decode the URL-encoded courseName
+    courseName = decodeURIComponent(courseName);
+    
+    const course = await Course.findOne({ 
+      courseName: new RegExp(`^${courseName}$`, 'i') // Case insensitive match
+    });
+    
+    if (!course) {
+      return next(new AppError('Course not found', 404));
+    }
+    
+    query.courseId = course._id;
+  }
+
   const [posts, total] = await Promise.all([
-    Post.find({ userId })
+    Post.find(query)
+      .populate('userId', 'username photo')
+      .populate('courseId', 'courseName')
       .sort("-createdAt")
       .skip(skip)
       .limit(limit),
-    Post.countDocuments({ userId }),
+    Post.countDocuments(query)
   ]);
+
+  // Add metadata to each post
+  const enrichedPosts = posts.map(post => 
+    addPostMetadata(post, req, req.user?._id)
+  );
 
   res.status(200).json({
     status: "success",
     data: {
-      posts,
+      posts: enrichedPosts,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       total,
@@ -196,7 +222,8 @@ exports.createPost = catchAsync(async (req, res, next) => {
     title: req.body.title,
     contentBlocks: processedBlocks,
     userId: req.user.id,
-    label: req.body.label
+    label: req.body.label,
+    courseId: req.body.courseId
   });
 
   res.status(201).json({

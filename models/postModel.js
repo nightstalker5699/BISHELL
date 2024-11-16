@@ -1,4 +1,3 @@
-// postModel.js
 const mongoose = require("mongoose");
 
 const postSchema = new mongoose.Schema(
@@ -7,6 +6,11 @@ const postSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: "User",
       required: [true, "Post must belong to a user"]
+    },
+    courseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Course",
+      required: false
     },
     title: {
       type: String,
