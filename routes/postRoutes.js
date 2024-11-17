@@ -5,13 +5,14 @@ const postController = require("../controllers/postController");
 const authController = require("../controllers/authController");
 
 // Public routes
+
+// Protected routes
+router.use(authController.protect);
+
 router.get("/", postController.getAllPosts);
 router.get("/user/:userId/:courseName", postController.getUserPosts);
 router.get("/user/:userId", postController.getUserPosts);
 router.get("/:id", postController.getPost);
-
-// Protected routes
-router.use(authController.protect);
 
 // Create post route with proper middleware chain
 router
