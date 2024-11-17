@@ -10,8 +10,8 @@ const multiPartParser = multer();
 router.post(
   `/signup`,
   userController.uploadProfilePic,
-  authController.signup,
-  userController.resizeProfilePic
+  userController.resizeProfilePic,
+  authController.signup
 );
 
 router.patch(

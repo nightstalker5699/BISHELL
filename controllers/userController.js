@@ -223,19 +223,21 @@ exports.uploadProfilePic = uploadImage.single("photo");
 exports.resizeProfilePic = catchAsync(async (req, res, next) => {
   if (!req.file) return next();
 
-  req.body.photo = `user-${req.user.username}.jpeg`;
+  // Use username from req.body if req.user is undefined (during signup)
+  const username = req.user ? req.user.username : req.body.username;
+  req.body.photo = `user-${username}.jpeg`;
 
-  // Delete old photo if exists and not default
-  if (req.user.photo !== "default.jpg") {
+  // Delete old photo only if req.user exists and photo is not default
+  if (req.user && req.user.photo !== "default.jpg") {
     const oldPhotoPath = path.join("static", "profilePics", req.user.photo);
     if (fs.existsSync(oldPhotoPath)) {
       fs.unlinkSync(oldPhotoPath);
     }
   }
 
-  // Process and save new photo
+  // Process and save the new photo
   await sharp(req.file.buffer)
-    //.resize(500, 500)
+    //.resize(500,500)
     .toFormat("jpeg")
     .jpeg({ quality: 90 })
     .toFile(`static/profilePics/${req.body.photo}`);
