@@ -1,13 +1,15 @@
 const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
 const multer = require('multer');
 const Material = require('../models/materialModel');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const mime = require('mime-types');
+const archiver = require('archiver')
 
-// Set max file size to 10MB
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Set max file size to 40MB
+const MAX_FILE_SIZE = 40 * 1024 * 1024;
 
 // Configure upload directory
 const uploadDir = path.join(__dirname, '..', 'uploads');
@@ -31,7 +33,7 @@ const upload = multer({
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (req, file, cb) => {
     if (file.size > MAX_FILE_SIZE) {
-      cb(new AppError('File too large - max 10MB allowed', 400), false);
+      cb(new AppError('File too large - max 40MB allowed', 400), false);
       return;
     }
     cb(null, true);
@@ -43,7 +45,7 @@ const handleUpload = (req, res, next) => {
   upload(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return next(new AppError('File size exceeds 10MB limit', 400));
+        return next(new AppError('File size exceeds 40MB limit', 400));
       }
       return next(new AppError(err.message, 400));
     }
@@ -54,29 +56,33 @@ const handleUpload = (req, res, next) => {
 exports.uploadMaterial = handleUpload;
 
 exports.createMaterial = catchAsync(async (req, res, next) => {
-  const { course, name, type, parentPath } = req.body;
+  const { course, type, parentPath } = req.body;
+  let { name } = req.body;
 
   // Validate required fields
-  if (!course || !name || !type) {
+  if (!course || !type) {
     return next(new AppError('Missing required fields', 400));
   }
 
   // Trim whitespace
-  let trimmedName = name.trim();
+  let trimmedName = name ? name.trim() : '';
   const trimmedParentPath = parentPath ? parentPath.trim() : '';
 
-  // Handle file extension for files
+  // Handle file requirements
   if (type === 'file') {
     if (!req.file) {
       return next(new AppError("File is required for type 'file'", 400));
     }
 
-    // Get the file extension from the uploaded file
-    const fileExtension = path.extname(req.file.originalname);
+    // Use original filename if name not provided
+    if (!trimmedName) {
+      trimmedName = req.file.originalname;
+    }
 
-    // Check if the provided name has an extension
+    // Add file extension if missing
+    const fileExtension = path.extname(req.file.originalname);
     if (!path.extname(trimmedName)) {
-      trimmedName += fileExtension; // Append the original file's extension
+      trimmedName += fileExtension;
     }
   }
 
@@ -88,8 +94,23 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
   // Normalize the material path
   const normalizedMaterialPath = path.posix.normalize(materialPath);
 
+  // Duplicate check
+  const existingMaterial = await Material.findOne({
+    course,
+    path: normalizedMaterialPath,
+  });
+
+  if (existingMaterial) {
+    return next(
+      new AppError('A material with this name already exists in the specified path', 400)
+    );
+  }
+
   // Build the full path for the material
-  const fullMaterialPath = path.join(uploadDir, ...normalizedMaterialPath.split('/'));
+  const fullMaterialPath = path.join(
+    uploadDir,
+    ...normalizedMaterialPath.split('/')
+  );
 
   // Ensure all parent folders exist in the database and file system
   const pathSegments = trimmedParentPath
@@ -116,7 +137,10 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
     }
 
     // Check if the folder exists in the file system
-    const folderPath = path.join(uploadDir, ...normalizedCurrentPath.split('/'));
+    const folderPath = path.join(
+      uploadDir,
+      ...normalizedCurrentPath.split('/')
+    );
     if (!fs.existsSync(folderPath)) {
       return next(
         new AppError(
@@ -216,23 +240,93 @@ exports.getMaterials = catchAsync(async (req, res, next) => {
 });
 
 exports.updateMaterial = catchAsync(async (req, res, next) => {
-  const material = await Material.findByIdAndUpdate(
-    req.params.id,
-    req.body,
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
+  const { name } = req.body;
+  if (!name || typeof name !== 'string') {
+    return next(new AppError('Valid name is required', 400));
+  }
 
+  const trimmedNewName = name.trim();
+  if (!trimmedNewName) {
+    return next(new AppError('Name cannot be empty', 400));
+  }
+
+  // Find the material
+  const material = await Material.findById(req.params.id);
   if (!material) {
     return next(new AppError('No material found with that ID', 404));
   }
 
-  res.status(200).json({
-    status: 'success',
-    data: { material },
+  let finalName = trimmedNewName;
+
+  // For files, preserve original extension
+  if (material.type === 'file') {
+    const originalExt = path.extname(material.name);
+    const newExt = path.extname(trimmedNewName);
+    
+    if (newExt) {
+      // Remove any extension from new name
+      finalName = path.basename(trimmedNewName, newExt);
+    }
+    // Always append original extension
+    finalName = `${finalName}${originalExt}`;
+  }
+
+  // Calculate new paths
+  const parentDir = path.dirname(material.path);
+  const newPath = parentDir === '.' ? finalName : path.posix.join(parentDir, finalName);
+  const oldFilePath = path.join(uploadDir, ...material.path.split('/'));
+  const newFilePath = path.join(uploadDir, ...newPath.split('/'));
+
+  // Check for naming conflicts
+  const existingMaterial = await Material.findOne({
+    _id: { $ne: material._id },
+    course: material.course,
+    path: newPath
   });
+
+  if (existingMaterial) {
+    return next(new AppError('A file or folder with this name already exists', 400));
+  }
+
+  try {
+    // Rename in filesystem
+    if (!fs.existsSync(oldFilePath)) {
+      return next(new AppError('File not found in filesystem', 404));
+    }
+
+    fs.renameSync(oldFilePath, newFilePath);
+
+    // Update in database
+    const updatedMaterial = await Material.findByIdAndUpdate(
+      req.params.id,
+      {
+        name: finalName,
+        path: newPath,
+        filePath: newFilePath
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    res.status(200).json({
+      status: 'success',
+      data: { material: updatedMaterial }
+    });
+
+  } catch (error) {
+    // Attempt to rollback filesystem change if database update fails
+    try {
+      if (fs.existsSync(newFilePath)) {
+        fs.renameSync(newFilePath, oldFilePath);
+      }
+    } catch (rollbackError) {
+      console.error('Rollback failed:', rollbackError);
+    }
+
+    return next(new AppError('Error updating material name', 500));
+  }
 });
 
 exports.deleteMaterial = catchAsync(async (req, res, next) => {
@@ -402,4 +496,38 @@ exports.getMaterialFile = catchAsync(async (req, res, next) => {
     });
     stream.pipe(res);
   }
+});
+
+exports.downloadFolder = catchAsync(async (req, res, next) => {
+  const material = await Material.findById(req.params.id);
+  
+  if (!material || material.type !== 'folder') {
+    return next(new AppError('Folder not found', 404));
+  }
+
+  // Ensure material.path uses forward slashes
+  const normalizedPath = material.path.replace(/\\/g, '/');
+  const folderPath = path.join(uploadDir, ...normalizedPath.split('/'));
+  
+  try {
+    await fsp.access(folderPath);
+  } catch (err) {
+    return next(new AppError('Folder does not exist on the server', 404));
+  }
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${material.name}.zip"`
+  );
+
+  const archive = archiver('zip', {
+    store: true,
+  });
+
+  archive.on('error', (err) => next(err));
+
+  archive.pipe(res);
+  archive.directory(folderPath, false);
+  await archive.finalize();
 });

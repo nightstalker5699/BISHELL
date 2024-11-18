@@ -71,10 +71,13 @@ exports.login = catchAsync(async (req, res, next) => {
     );
   }
 
-  const user = await User.findOne({
-    $or: [{ email: identifier }, { username: identifier }],
-  }).select("+password");
+  //case-insensitive regex patterns for both email and username
+  const emailPattern = new RegExp(`^${identifier}$`, "i");
+  const usernamePattern = new RegExp(`^${identifier}$`, "i");
 
+  const user = await User.findOne({
+    $or: [{ email: emailPattern }, { username: usernamePattern }],
+  }).select("+password");
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError("Incorrect email/username or password", 401));
   }

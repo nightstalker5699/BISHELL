@@ -30,6 +30,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "default.jpg",
     },
+    caption: {
+      type: String,
+      required:[false],
+      default: "This user is too lazy for writing couple of words 🙄"
+    }
+    ,
     role: {
       type: String,
       enum: ["student", "instructor", "group-leader", "admin"],

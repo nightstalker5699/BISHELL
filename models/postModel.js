@@ -1,4 +1,3 @@
-// postModel.js
 const mongoose = require("mongoose");
 
 const postSchema = new mongoose.Schema(
@@ -7,6 +6,11 @@ const postSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: "User",
       required: [true, "Post must belong to a user"]
+    },
+    courseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Course",
+      required: false
     },
     title: {
       type: String,
@@ -34,12 +38,11 @@ const postSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: "User"
     }],
-    tags: [String],
-    // status: {
-    //   type: String,
-    //   enum: ["draft", "published", "archived"],
-    //   default: "published"
-    // },
+    label: {
+      type: String,
+      enum: ['Summary', 'Notes', 'Solutions', 'General'],
+      required: [true, 'a Post must have a label']
+    },
     views: {
       type: Number,
       default: 0
