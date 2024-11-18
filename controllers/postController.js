@@ -108,14 +108,13 @@ exports.getAllPosts = catchAsync(async (req, res) => {
 });
 
 exports.getPost = catchAsync(async (req, res, next) => {
-  const post = await Post.findById(req.params.id)
-    .populate({
-      path: "comments",
-      populate: {
-        path: "userId",
-        select: "username photo",
-      },
-    });
+  const post = await Post.findById(req.params.id).populate({
+    path: "comments",
+    populate: {
+      path: "userId",
+      select: "username photo",
+    },
+  });
 
   if (!post) {
     return next(new AppError("Post not found", 404));
@@ -147,30 +146,30 @@ exports.getUserPosts = catchAsync(async (req, res, next) => {
   if (courseName) {
     // Decode the URL-encoded courseName
     courseName = decodeURIComponent(courseName);
-    
-    const course = await Course.findOne({ 
-      courseName: new RegExp(`^${courseName}$`, 'i') // Case insensitive match
+
+    const course = await Course.findOne({
+      courseName: new RegExp(`^${courseName}$`, "i"), // Case insensitive match
     });
-    
+
     if (!course) {
-      return next(new AppError('Course not found', 404));
+      return next(new AppError("Course not found", 404));
     }
-    
+
     query.courseId = course._id;
   }
 
   const [posts, total] = await Promise.all([
     Post.find(query)
-      .populate('userId', 'username photo')
-      .populate('courseId', 'courseName')
+      .populate("userId", "username photo")
+      .populate("courseId", "courseName")
       .sort("-createdAt")
       .skip(skip)
       .limit(limit),
-    Post.countDocuments(query)
+    Post.countDocuments({ userId }),
   ]);
 
   // Add metadata to each post
-  const enrichedPosts = posts.map(post => 
+  const enrichedPosts = posts.map((post) =>
     addPostMetadata(post, req, req.user?._id)
   );
 
@@ -187,6 +186,19 @@ exports.getUserPosts = catchAsync(async (req, res, next) => {
 
 // postController.js
 exports.createPost = catchAsync(async (req, res, next) => {
+  // Add next parameter here
+  console.log("Request body:", req.body);
+  console.log("Files:", req.files);
+
+  // Validate required fields
+  if (!req.body.title) {
+    return next(new AppError("Title is required", 400));
+  }
+
+  if (!req.body.content) {
+    return next(new AppError("Content is required", 400));
+  }
+
   let contentBlocks;
   try {
     contentBlocks = JSON.parse(req.body.content);
@@ -202,7 +214,7 @@ exports.createPost = catchAsync(async (req, res, next) => {
   contentBlocks.forEach((block, index) => {
     if (block.type === "image") {
       if (!req.processedImages || imageIndex >= req.processedImages.length) {
-        return next(new AppError("Missing image file for image block", 400));
+        return next(new AppError("Missing image file for image block", 400)); // Use return next() instead of throw
       }
       processedBlocks.push({
         orderIndex: index,
@@ -222,8 +234,7 @@ exports.createPost = catchAsync(async (req, res, next) => {
     title: req.body.title,
     contentBlocks: processedBlocks,
     userId: req.user.id,
-    label: req.body.label,
-    courseId: req.body.courseId
+    tags: req.body.tags ? JSON.parse(req.body.tags) : [],
   });
 
   res.status(201).json({

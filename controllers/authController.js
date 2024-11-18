@@ -8,8 +8,6 @@ const sendEmail = require("./../utils/email");
 const crypto = require("crypto");
 const generatePasswordResetEmail = require("./../utils/emailTemplates");
 
-
-
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
@@ -41,49 +39,47 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 exports.signup = catchAsync(async (req, res) => {
-  console.log('Signup body:', req.body);
-  
+  console.log("Signup body:", req.body);
+
   const newUser = await User.create({
     username: req.body.username,
     fullName: req.body.fullName,
     group: req.body.group,
     email: req.body.email,
-    photo: req.file ? `user-${req.body.username}.jpeg` : 'default.jpg',
+    photo: req.file ? `user-${req.body.username}.jpeg` : "default.jpg",
     password: req.body.password,
-    passwordConfirm: req.body.passwordConfirm
+    passwordConfirm: req.body.passwordConfirm,
   });
 
   const courses = await Course.find();
-  await Promise.all(courses.map(async (course) => {
-    course.studentsId.push(newUser._id);
-    await course.save({ validateBeforeSave: false });
-  }));
+  await Promise.all(
+    courses.map(async (course) => {
+      course.studentsId.push(newUser._id);
+      await course.save({ validateBeforeSave: false });
+    })
+  );
 
   createSendToken(newUser, 201, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
-  console.log('Login body:', req.body);
-  
   const { identifier, password } = req.body;
 
   if (!identifier || !password) {
-    return next(new AppError('Please provide email or username and password', 400));
+    return next(
+      new AppError("Please provide email or username and password", 400)
+    );
   }
 
   //case-insensitive regex patterns for both email and username
-  const emailPattern = new RegExp(`^${identifier}$`, 'i');
-  const usernamePattern = new RegExp(`^${identifier}$`, 'i');
+  const emailPattern = new RegExp(`^${identifier}$`, "i");
+  const usernamePattern = new RegExp(`^${identifier}$`, "i");
 
   const user = await User.findOne({
-    $or: [
-      { email: emailPattern }, 
-      { username: usernamePattern }
-    ],
-  }).select('+password');
-
+    $or: [{ email: emailPattern }, { username: usernamePattern }],
+  }).select("+password");
   if (!user || !(await user.correctPassword(password, user.password))) {
-    return next(new AppError('Incorrect email/username or password', 401));
+    return next(new AppError("Incorrect email/username or password", 401));
   }
 
   createSendToken(user, 200, res);
