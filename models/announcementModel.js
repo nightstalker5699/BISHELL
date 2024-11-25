@@ -16,6 +16,11 @@ const announcementSchema = new mongoose.Schema({
     required: [true, "an announcement must have a title"],
   },
   body: { type: String, required: [true, "an announcement must have a body"] },
+  importance:{
+    type: String,
+    enum: ['Normal', 'Important', 'Urgent'],
+    required: [true, 'An announcement must have a importance type']
+  },
   attach_files: [
     {
       name: {

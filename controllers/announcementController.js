@@ -5,6 +5,7 @@ const Announcement = require("../models/announcementModel");
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
+const APIFeatures = require("../utils/apiFeatures");
 
 const attach_file = path.join(__dirname, "..", "static/attachFile");
 if (!fs.existsSync(attach_file)) {
@@ -45,6 +46,7 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
     announcerId: req.user._id,
     title: req.body.title,
     body: req.body.body,
+    importance: req.body.importance,
     attach_files: attach,
     groups: groups,
   });
@@ -71,16 +73,30 @@ exports.deleteAnnouncement = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllAnnouncement = catchAsync(async (req, res, next) => {
-  const announcements = await Announcement.find({
-    courseId: req.params.courseId,
-  })
-    .select("title announcerId")
+  const filter = { courseId: req.params.courseId };
+  if (req.query.importance) filter.importance = req.query.importance;
+
+  const page = req.query.page * 1 || 1;
+  const limit = 10;
+  const skip = (page - 1) * limit;
+  const total = await Announcement.countDocuments(filter);
+
+  const announcements = await Announcement.find(filter)
+    .skip(skip)
+    .limit(limit)
+    .select("title importance announcerId")
     .populate({
       path: "announcerId",
       select: "username photo",
     });
 
-  res.status(200).json({ status: "success", data: announcements });
+  res.status(200).json({
+    status: "success",
+    data: {
+      announcements,
+      totalPages: Math.ceil(total / limit),
+    },
+  });
 });
 
 exports.getAnnouncement = catchAsync(async (req, res, next) => {
@@ -91,7 +107,7 @@ exports.getAnnouncement = catchAsync(async (req, res, next) => {
   if (!announcement)
     return next(new appError("there is no announcement with that id "), 404);
 
-  res.status(200).json({ status: "success", data: announcement });
+  res.status(200).json({ status: "success", data: announcement});
 });
 
 exports.updateAnnouncement = catchAsync(async (req, res, next) => {
