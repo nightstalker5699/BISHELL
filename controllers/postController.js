@@ -4,7 +4,7 @@ const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const multer = require("multer");
 const sharp = require("sharp");
-const fs = require("fs");
+const fsPromises = require("fs").promises;
 const path = require("path");
 
 // Image Upload Configuration
@@ -41,10 +41,13 @@ const addPostMetadata = (post, req, userId = null) => {
   return postObj;
 };
 
-const createUploadDirs = () => {
+const createUploadDirs = async () => {
   const uploadDir = path.join(__dirname, "..", "static", "img", "posts");
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+  try {
+    await fsPromises.access(uploadDir);
+
+  } catch (err) {
+    await fsPromises.mkdir(uploadDir, { recursive: true });
   }
   return uploadDir;
 };
@@ -55,7 +58,7 @@ exports.processPostImages = catchAsync(async (req, res, next) => {
   if (!req.files) return next();
 
   // Ensure upload directory exists
-  const uploadDir = createUploadDirs();
+  const uploadDir = await createUploadDirs();
 
   try {
     req.processedImages = await Promise.all(
@@ -272,6 +275,7 @@ exports.updatePost = catchAsync(async (req, res, next) => {
   });
 });
 
+
 exports.deletePost = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.id);
 
@@ -279,8 +283,17 @@ exports.deletePost = catchAsync(async (req, res, next) => {
     return next(new AppError("Post not found", 404));
   }
 
-  if (post.userId.toString() !== req.user.id && req.user.role !== "admin") {
-    return next(new AppError("Not authorized to delete this post", 403));
+  const uploadDir = path.join(__dirname, "..", "static", "img", "posts");
+
+  for (const block of post.contentBlocks) {
+    if (block.type === "image" && block.content) {
+      const imagePath = path.join(uploadDir, block.content);
+      try {
+        await fsPromises.unlink(imagePath);
+      } catch (err) {
+        console.error(`Failed to delete image ${imagePath}: ${err.message}`);
+      }
+    }
   }
 
   await Post.findByIdAndDelete(req.params.id);
