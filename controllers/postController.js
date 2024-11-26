@@ -184,12 +184,8 @@ exports.getUserPosts = catchAsync(async (req, res, next) => {
   });
 });
 
-// postController.js
-exports.createPost = catchAsync(async (req, res, next) => {
-  // Add next parameter here
-  console.log("Request body:", req.body);
-  console.log("Files:", req.files);
 
+exports.createPost = catchAsync(async (req, res, next) => {
   // Validate required fields
   if (!req.body.title) {
     return next(new AppError("Title is required", 400));
@@ -203,18 +199,17 @@ exports.createPost = catchAsync(async (req, res, next) => {
   try {
     contentBlocks = JSON.parse(req.body.content);
   } catch (err) {
-    return next(
-      new AppError("Invalid content format - must be valid JSON", 400)
-    );
+    return next(new AppError("Invalid content format - must be valid JSON", 400));
   }
 
   const processedBlocks = [];
   let imageIndex = 0;
 
-  contentBlocks.forEach((block, index) => {
+  for (let index = 0; index < contentBlocks.length; index++) {
+    const block = contentBlocks[index];
     if (block.type === "image") {
       if (!req.processedImages || imageIndex >= req.processedImages.length) {
-        return next(new AppError("Missing image file for image block", 400)); // Use return next() instead of throw
+        throw new AppError("Missing image file for image block", 400);
       }
       processedBlocks.push({
         orderIndex: index,
@@ -228,13 +223,13 @@ exports.createPost = catchAsync(async (req, res, next) => {
         content: block.content,
       });
     }
-  });
+  }
 
   const post = await Post.create({
     title: req.body.title,
     contentBlocks: processedBlocks,
     userId: req.user.id,
-    label: req.body.label
+    label: req.body.label,
   });
 
   res.status(201).json({
