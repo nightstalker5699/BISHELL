@@ -234,7 +234,7 @@ exports.createPost = catchAsync(async (req, res, next) => {
     title: req.body.title,
     contentBlocks: processedBlocks,
     userId: req.user.id,
-    tags: req.body.tags ? JSON.parse(req.body.tags) : [],
+    label: req.body.label
   });
 
   res.status(201).json({
