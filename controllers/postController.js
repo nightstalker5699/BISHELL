@@ -233,6 +233,7 @@ exports.createPost = catchAsync(async (req, res, next) => {
     contentBlocks: processedBlocks,
     userId: req.user.id,
     label: req.body.label,
+    courseId: req.body.courseId
   });
 
   res.status(201).json({
