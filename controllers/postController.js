@@ -18,6 +18,7 @@ const upload = multer({
 
 const addPostMetadata = (post, req, userId = null) => {
   const baseImageUrl = `${req.protocol}://${req.get("host")}/img/posts/`;
+  const baseProfileUrl = `${req.protocol}://${req.get("host")}/profilePics/`;
 
   // Convert to object to allow modifications
   const postObj = post.toObject();
@@ -32,6 +33,11 @@ const addPostMetadata = (post, req, userId = null) => {
     }
     return block;
   });
+
+  // Add user photo URL if userId is populated
+  if (postObj.userId && postObj.userId.photo) {
+    postObj.userId.photo = `${baseProfileUrl}${postObj.userId.photo}`;
+  }
 
   // Add like status if userId provided
   if (userId) {
