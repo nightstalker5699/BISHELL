@@ -111,13 +111,15 @@ exports.getAllPosts = catchAsync(async (req, res) => {
 });
 
 exports.getPost = catchAsync(async (req, res, next) => {
-  const post = await Post.findById(req.params.id).populate({
-    path: "comments",
-    populate: {
-      path: "userId",
-      select: "username photo",
-    },
-  });
+  const post = await Post.findById(req.params.id)
+    .populate("userId", "username photo") // Add this line
+    .populate({
+      path: "comments",
+      populate: {
+        path: "userId",
+        select: "username photo",
+      },
+    });
 
   if (!post) {
     return next(new AppError("Post not found", 404));
@@ -126,7 +128,6 @@ exports.getPost = catchAsync(async (req, res, next) => {
   post.views += 1;
   await post.save({ validateBeforeSave: false });
 
-  // Add metadata to post
   const enrichedPost = addPostMetadata(post, req, req.user?._id);
 
   res.status(200).json({
