@@ -112,7 +112,7 @@ exports.getAllPosts = catchAsync(async (req, res) => {
 
 exports.getPost = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.id)
-    .populate("userId", "username photo") // Add this line
+    .populate("userId", "username photo")
     .populate({
       path: "comments",
       populate: {
