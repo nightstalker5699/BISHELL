@@ -45,6 +45,16 @@ const addPostMetadata = (post, req, userId = null) => {
     postObj.isLiked = post.likes.includes(userId);
   }
 
+  // **Enrich comments' user photos if comments are populated**
+  if (postObj.comments && postObj.comments.length > 0) {
+    postObj.comments = postObj.comments.map((comment) => {
+      if (comment.userId && comment.userId.photo) {
+        comment.userId.photo = `${baseProfileUrl}${comment.userId.photo}`;
+      }
+      return comment;
+    });
+  }
+
   return postObj;
 };
 
@@ -141,14 +151,16 @@ exports.getPostByUsernameAndSlug = catchAsync(async (req, res, next) => {
     return next(new AppError('No post found with that slug for this user', 404));
   }
 
-  // Optional: Increment views
+  // Increment views and save
   post.views += 1;
   await post.save({ validateBeforeSave: false });
 
-  // Send the response
+  const enrichedPost = addPostMetadata(post, req, req.user?._id);
+
+  // Send the response with the enriched post
   res.status(200).json({
     status: "success",
-    data: { post },
+    data: { post: enrichedPost },
   });
 });
 
