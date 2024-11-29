@@ -13,9 +13,14 @@ const MAX_FILE_SIZE = 40 * 1024 * 1024;
 
 // Configure upload directory
 const uploadDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Initialize upload directory asynchronously
+(async () => {
+  try {
+    await fsp.access(uploadDir);
+  } catch {
+    await fsp.mkdir(uploadDir, { recursive: true });
+  }
+})();
 
 // Configure storage
 const storage = multer.diskStorage({
@@ -141,7 +146,9 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
       uploadDir,
       ...normalizedCurrentPath.split('/')
     );
-    if (!fs.existsSync(folderPath)) {
+    try {
+      await fsp.access(folderPath);
+    } catch {
       return next(
         new AppError(
           `Folder ${segment} does not exist in the file system`,
@@ -155,18 +162,14 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
 
   // Create necessary directories in the file system
   const dirPath = path.dirname(fullMaterialPath);
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
+  await fsp.mkdir(dirPath, { recursive: true });
 
   // Move/create file or folder
   if (type === 'file') {
-    fs.renameSync(req.file.path, fullMaterialPath);
+    await fsp.rename(req.file.path, fullMaterialPath);
   } else {
     // For folders, create the directory
-    if (!fs.existsSync(fullMaterialPath)) {
-      fs.mkdirSync(fullMaterialPath, { recursive: true });
-    }
+    await fsp.mkdir(fullMaterialPath, { recursive: true });
   }
 
   // Prepare material data with all required fields
@@ -289,12 +292,11 @@ exports.updateMaterial = catchAsync(async (req, res, next) => {
   }
 
   try {
-    // Rename in filesystem
-    if (!fs.existsSync(oldFilePath)) {
-      return next(new AppError('File not found in filesystem', 404));
-    }
-
-    fs.renameSync(oldFilePath, newFilePath);
+    // Check file existence asynchronously
+    await fsp.access(oldFilePath);
+    
+    // Rename in filesystem asynchronously
+    await fsp.rename(oldFilePath, newFilePath);
 
     // Update in database
     const updatedMaterial = await Material.findByIdAndUpdate(
@@ -318,9 +320,8 @@ exports.updateMaterial = catchAsync(async (req, res, next) => {
   } catch (error) {
     // Attempt to rollback filesystem change if database update fails
     try {
-      if (fs.existsSync(newFilePath)) {
-        fs.renameSync(newFilePath, oldFilePath);
-      }
+      await fsp.access(newFilePath);
+      await fsp.rename(newFilePath, oldFilePath);
     } catch (rollbackError) {
       console.error('Rollback failed:', rollbackError);
     }
@@ -352,12 +353,16 @@ exports.deleteMaterial = catchAsync(async (req, res, next) => {
     // Delete all nested materials from filesystem
     for (const nestedMaterial of nestedMaterials) {
       const nestedFilePath = path.join(uploadDir, ...nestedMaterial.path.split('/'));
-      if (fs.existsSync(nestedFilePath)) {
+      try {
+        await fsp.access(nestedFilePath);
         if (nestedMaterial.type === 'folder') {
-          fs.rmSync(nestedFilePath, { recursive: true, force: true });
+          await fsp.rm(nestedFilePath, { recursive: true, force: true });
         } else {
-          fs.unlinkSync(nestedFilePath);
+          await fsp.unlink(nestedFilePath);
         }
+      } catch (err) {
+        // Handle if file doesn't exist
+        console.log(`File ${nestedFilePath} already removed or not found`);
       }
     }
 
@@ -370,12 +375,16 @@ exports.deleteMaterial = catchAsync(async (req, res, next) => {
 
   // Delete the material itself from filesystem
   const filePath = path.join(uploadDir, ...material.path.split('/'));
-  if (fs.existsSync(filePath)) {
+  try {
+    await fsp.access(filePath);
     if (material.type === 'folder') {
-      fs.rmSync(filePath, { recursive: true, force: true });
+      await fsp.rm(filePath, { recursive: true, force: true });
     } else {
-      fs.unlinkSync(filePath);
+      await fsp.unlink(filePath);
     }
+  } catch (err) {
+    // Handle if file doesn't exist
+    console.log(`File ${filePath} already removed or not found`);
   }
 
   // Delete the material from database
@@ -398,7 +407,9 @@ exports.getMaterialFile = catchAsync(async (req, res, next) => {
   const relativePath = material.path.split('/').join(path.sep);
   const filePath = path.join(uploadDir, relativePath);
 
-  if (!fs.existsSync(filePath)) {
+  try {
+    await fsp.access(filePath);
+  } catch (err) {
     return next(new AppError(`File not found at path: ${filePath}`, 404));
   }
 
