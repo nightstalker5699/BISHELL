@@ -1,4 +1,5 @@
 const Course = require("../models/courseModel");
+const User = require("../models/userModel");
 const Post = require("../models/postModel");
 const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
@@ -116,9 +117,17 @@ exports.getAllPosts = catchAsync(async (req, res) => {
   });
 });
 
-exports.getPost = catchAsync(async (req, res, next) => {
-  const {slug} = req.params
-  const post = await Post.findOne({slug})
+exports.getPostByUsernameAndSlug = catchAsync(async (req, res, next) => {
+  const { username, slug } = req.params;
+
+  // Find the user by username
+  const user = await User.findOne({ username }).select('_id');
+  if (!user) {
+    return next(new AppError('User not found', 404));
+  }
+
+  // Find the post by userId and slug
+  const post = await Post.findOne({ userId: user._id, slug })
     .populate("userId", "username photo")
     .populate({
       path: "comments",
@@ -129,17 +138,17 @@ exports.getPost = catchAsync(async (req, res, next) => {
     });
 
   if (!post) {
-    return next(new AppError("Post not found", 404));
+    return next(new AppError('No post found with that slug for this user', 404));
   }
 
+  // Optional: Increment views
   post.views += 1;
   await post.save({ validateBeforeSave: false });
 
-  const enrichedPost = addPostMetadata(post, req, req.user?._id);
-
+  // Send the response
   res.status(200).json({
     status: "success",
-    data: { post: enrichedPost },
+    data: { post },
   });
 });
 

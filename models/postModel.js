@@ -60,6 +60,7 @@ const postSchema = new mongoose.Schema(
   }
 );
 
+postSchema.index({ userId: 1, slug: 1 }, { unique: true });
 postSchema.index({ userId: 1, createdAt: -1 });
 postSchema.index({ tags: 1 });
 postSchema.index({ status: 1 });
@@ -72,7 +73,9 @@ postSchema.virtual("comments", {
 });
 
 postSchema.pre("save", function (next) {
-  this.slug = slugify(this.title, { lower: true });
+  if (this.isModified("title")) {
+    this.slug = slugify(this.title, { lower: true });
+  }
   next();
 });
 
