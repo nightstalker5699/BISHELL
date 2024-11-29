@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const slugify = require("slugify");
 
 const postSchema = new mongoose.Schema(
   {
@@ -46,6 +47,10 @@ const postSchema = new mongoose.Schema(
     views: {
       type: Number,
       default: 0
+    },
+    slug: {
+      type: String,
+      unique: true,
     }
   },
   {
@@ -64,6 +69,11 @@ postSchema.virtual("comments", {
   ref: "Comment",
   foreignField: "postId",
   localField: "_id"
+});
+
+postSchema.pre("save", function (next) {
+  this.slug = slugify(this.title, { lower: true });
+  next();
 });
 
 const Post = mongoose.model("Post", postSchema);

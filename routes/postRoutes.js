@@ -10,7 +10,7 @@ router.use(authController.protect);
 
 router.get("/user/:userId/:courseName", postController.getUserPosts);
 router.get("/user/:userId", postController.getUserPosts);
-router.get("/:id", postController.getPost);
+router.get("/:slug", postController.getPost);
 
 
 router
