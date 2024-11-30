@@ -40,6 +40,7 @@ const createSendToken = (user, statusCode, res) => {
 
 exports.signup = catchAsync(async (req, res) => {
   console.log("Signup body:", req.body);
+  const rank = await User.countDocuments({ role: "student" });
 
   const newUser = await User.create({
     username: req.body.username,
@@ -49,6 +50,7 @@ exports.signup = catchAsync(async (req, res) => {
     photo: req.file ? `user-${req.body.username}.jpeg` : "default.jpg",
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
+    rank: rank + 1,
   });
 
   const courses = await Course.find();
