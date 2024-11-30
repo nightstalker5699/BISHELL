@@ -23,7 +23,7 @@ router
   .route("/")
   .get(announcementController.getAllAnnouncement)
   .post(
-    authController.restrictTo("admin", "instructor"),
+    authController.restrictTo("admin", "instructor", "group-leader"),
     announcementController.attachment,
     announcementController.createAnnouncement
   );
