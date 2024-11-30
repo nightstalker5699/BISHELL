@@ -154,7 +154,7 @@ userSchema.methods.createPasswordResetToken = function () {
 };
 
 userSchema.post("updateOne", async function () {
-    const users = await this.model.find().sort({ points: -1 });
+    const users = await this.model.find({ role: 'student' }).sort({ points: -1 });
     await Promise.all(
       users.map((user, index) => {
         user.rank = index + 1;
