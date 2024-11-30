@@ -46,6 +46,8 @@ const announcementSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+},{
+  timestamps: true
 });
 
 announcementSchema.pre("save", function (next) {
