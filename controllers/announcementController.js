@@ -88,7 +88,11 @@ exports.getAllAnnouncement = catchAsync(async (req, res, next) => {
   const skip = (page - 1) * limit;
   const total = await Announcement.countDocuments(filter);
 
-  const announcements = await Announcement.find(filter)
+  let query = Announcement.find(filter);
+  const features = new APIFeatures(query, req.query);
+  features.sort(); 
+
+  const announcements = await features.query
     .skip(skip)
     .limit(limit)
     .select("title importance announcerId")
