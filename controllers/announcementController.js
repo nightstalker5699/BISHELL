@@ -42,7 +42,8 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
   if (req.body.groups) groups = req.body.groups.split("");
   else groups = ["A", "B", "C", "D"];
   const announcement = await Announcement.create({
-    courseId: req.params.courseId,
+    courseId:
+      req.params.courseId !== "general" ? req.params.courseId : undefined,
     announcerId: req.user._id,
     title: req.body.title,
     body: req.body.body,
@@ -63,7 +64,10 @@ exports.deleteAnnouncement = catchAsync(async (req, res, next) => {
   if (!announcement)
     return next(new appError("there is no announcement with that id "), 404);
 
-  if (req.user._id.toString() !== announcement.announcerId.toString())
+  if (
+    req.user._id.toString() !== announcement.announcerId.toString() &&
+    req.user.role !== "admin"
+  )
     return next(new appError("you are not the creator of the annouce "), 403);
   for (attach of announcement.attach_files) {
     fs.unlinkSync(path.join(attach_file, attach.name));
@@ -73,7 +77,10 @@ exports.deleteAnnouncement = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllAnnouncement = catchAsync(async (req, res, next) => {
-  const filter = { courseId: req.params.courseId };
+  const filter =
+    req.params.courseId !== "general"
+      ? { courseId: req.params.courseId }
+      : { general: true };
   if (req.query.importance) filter.importance = req.query.importance;
 
   const page = req.query.page * 1 || 1;
@@ -107,7 +114,7 @@ exports.getAnnouncement = catchAsync(async (req, res, next) => {
   if (!announcement)
     return next(new appError("there is no announcement with that id "), 404);
 
-  res.status(200).json({ status: "success", data: announcement});
+  res.status(200).json({ status: "success", data: announcement });
 });
 
 exports.updateAnnouncement = catchAsync(async (req, res, next) => {
