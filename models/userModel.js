@@ -153,24 +153,14 @@ userSchema.methods.createPasswordResetToken = function () {
   return resetToken;
 };
 
-userSchema.statics.updateStudentRanks = async function () {
-  const students = await this.find({ role: 'student' }).sort({ points: -1 });
-  await Promise.all(
-    students.map((user, index) => {
-      user.rank = index + 1;
-      return user.save({ validateBeforeSave: false });
-    })
-  );
-};
-
-
-userSchema.post('save', function () {
-  this.constructor.updateStudentRanks();
-});
-
-
-userSchema.post('findOneAndUpdate', function () {
-  this.model.updateStudentRanks();
+userSchema.post("updateOne", async function () {
+    const users = await this.model.find().sort({ points: -1 });
+    await Promise.all(
+      users.map((user, index) => {
+        user.rank = index + 1;
+        return user.save({ validateBeforeSave: false });
+      })
+    );
 });
 
 const User = mongoose.model("User", userSchema);
