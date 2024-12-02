@@ -4,14 +4,22 @@ const Comment = require("./../models/commentModel");
 const Post = require("./../models/postModel");
 const factory = require("./handlerFactory");
 exports.addComment = catchAsync(async (req, res, next) => {
-  const post = await Post.findById(req.params.postId);
+  const post = await Post.findById(req.params.questionId);
+  
   if (!post) return next(new appError("there is no post with that ID", 404));
+  
   const comment = await Comment.create({
     userId: req.user._id,
     content: req.body.content,
-    postId: req.params.postId,
+    questionId: req.params.questionId,
   });
-  post.comments.push(comment);
+
+
+  if (!post.comments) {
+    post.comments = [];
+  }
+  
+  post.comments.push(comment._id);
   await post.save();
 
   res.status(200).json({
@@ -40,7 +48,7 @@ exports.deleteComment = catchAsync(async (req, res, next) => {
   });
 });
 exports.getAllComments = catchAsync(async (req, res, next) => {
-  const comments = Comment.find({ questionId: req.params.postId });
+  const comments = Comment.find({ questionId: req.params.questionId });
   res.status(200).json({
     status: "success",
     data: comments,

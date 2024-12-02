@@ -25,7 +25,7 @@ router
 
 router.post("/:id/toggle-like", postController.toggleLike);
 
-router.use("/:postId/comments", require("./commentRoutes"));
+router.use("/:questionId/comments", require("./commentRoutes"));
 
 router
 .route("/")

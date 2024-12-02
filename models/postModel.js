@@ -51,7 +51,11 @@ const postSchema = new mongoose.Schema(
     slug: {
       type: String,
       unique: true,
-    }
+    },
+    comments: [{
+      type: mongoose.Schema.ObjectId,
+      ref: 'Comment'
+    }]
   },
   {
     timestamps: true,
@@ -66,11 +70,6 @@ postSchema.index({ tags: 1 });
 postSchema.index({ status: 1 });
 postSchema.index({ "contentBlocks.orderIndex": 1 });
 
-postSchema.virtual("comments", {
-  ref: "Comment",
-  foreignField: "questionId",
-  localField: "_id"
-});
 
 postSchema.pre("save", function (next) {
   if (this.isModified("title")) {
