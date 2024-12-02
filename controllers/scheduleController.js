@@ -3,16 +3,20 @@ const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const factory = require("./handlerFactory");
 const Course = require("../models/courseModel");
+const apiFeatures = require('../utils/apiFeatures')
 
 exports.createSchedule = factory.createOne(Schedule);
 exports.getAllSchedule = factory.getAll(Schedule);
 exports.getSchedule = catchAsync(async (req, res, next) => {
   const groupLetter = req.params.groupLetter;
+  const baseQuery = Schedule.find({ group: groupLetter });
+  
+  const features = new apiFeatures(baseQuery, { sort: 'day,startTime' })
+    .sort();
 
-  // Find schedules by group letter and populate the course details
-  const schedules = await Schedule.find({ group: groupLetter }).populate({
+  const schedules = await features.query.populate({
     path: 'courseId',
-    select: 'courseName instructorName' // Select the fields you want to include
+    select: 'courseName instructorName'
   });
 
   if (!schedules) {
