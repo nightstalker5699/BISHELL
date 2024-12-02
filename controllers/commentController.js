@@ -28,7 +28,7 @@ exports.addComment = catchAsync(async (req, res, next) => {
 
 exports.updateComment = factory.updateOne(Comment);
 exports.deleteComment = catchAsync(async (req, res, next) => {
-  const post = await Post.findById(req.params.postId);
+  const post = await Post.findById(req.params.questionId);
   if (!post) return next(new appError("there is no post with that ID", 404));
   await Comment.findByIdAndDelete(req.params.id);
   post.comments = post.comments.filter(
@@ -40,7 +40,7 @@ exports.deleteComment = catchAsync(async (req, res, next) => {
   });
 });
 exports.getAllComments = catchAsync(async (req, res, next) => {
-  const comments = Comment.find({ postId: req.params.postId });
+  const comments = Comment.find({ questionId: req.params.postId });
   res.status(200).json({
     status: "success",
     data: comments,

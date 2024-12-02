@@ -68,7 +68,7 @@ postSchema.index({ "contentBlocks.orderIndex": 1 });
 
 postSchema.virtual("comments", {
   ref: "Comment",
-  foreignField: "postId",
+  foreignField: "questionId",
   localField: "_id"
 });
 

@@ -5,16 +5,42 @@ const commentSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.ObjectId,
     ref: "User",
-    required: [true, "a comment must have a user"],
+    required: [true, "A comment must have a user"]
   },
-  postId: {
+  questionId: {
     type: mongoose.Schema.ObjectId,
-    ref: "Post",
-    required: [true, "a comment must belong to a post"],
+    ref: "Question",
+    required: [true, "A comment must belong to a Question"]
   },
   content: {
     type: String,
-  },
+    required: [true, "A comment cannot be empty"],
+    trim: true
+  },attach_files:
+    {
+      name: {
+        type: String,
+      },
+      size: {
+        type: Number,
+      },
+      mimeType: {
+        type: String,
+      },
+      path: {
+        type: String,
+      },
+    },
+  likes: [{
+    type: mongoose.Schema.ObjectId,
+    ref: "User"
+  }],
+  replies: [{
+    type: mongoose.Schema.ObjectId,
+    ref: "Comment"
+  }]
+}, {
+  timestamps: true
 });
 
 const Comment = mongoose.model("Comment", commentSchema);
