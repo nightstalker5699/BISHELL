@@ -10,6 +10,7 @@ const todoRouter = require(`${__dirname}/routes/toDoListRoutes.js`);
 const scheduleRouter = require(`${__dirname}/routes/scheduleRoutes.js`);
 const materialRouter = require("./routes/materialRoutes");
 const postRouter = require("./routes/postRoutes");
+const questionRouter = require("./routes/questionRoutes");
 const fs = require("fs");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
@@ -84,6 +85,8 @@ app.use(`/api/courses`, courseRouter);
 app.use(`/api/todo`, todoRouter);
 app.use("/api/posts", postRouter);
 app.use(`/api/schedules`, scheduleRouter);
+app.use(`/api/questions`, questionRouter);
+
 
 // 11) Error handling
 app.all("*", (req, res, next) => {
