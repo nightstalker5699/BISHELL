@@ -12,8 +12,12 @@ const userSchema = new mongoose.Schema(
         validator: function (v) {
           return /^[a-zA-Z0-9-]+$/.test(v);
         },
-        message: "Username can only contain letters, numbers, and hyphens (-), no spaces.",
+        message:
+          "Username can only contain letters, numbers, and hyphens (-), no spaces.",
       },
+    },
+    deviceTokens: {
+      type: [String],
     },
     fullName: {
       type: String,
@@ -32,10 +36,9 @@ const userSchema = new mongoose.Schema(
     },
     caption: {
       type: String,
-      required:[false],
-      default: "This user is too lazy for writing couple of words 🙄"
-    }
-    ,
+      required: [false],
+      default: "This user is too lazy for writing couple of words 🙄",
+    },
     role: {
       type: String,
       enum: ["student", "instructor", "group-leader", "admin"],
@@ -154,13 +157,13 @@ userSchema.methods.createPasswordResetToken = function () {
 };
 
 userSchema.post("updateOne", async function () {
-    const users = await this.model.find({ role: 'student' }).sort({ points: -1 });
-    await Promise.all(
-      users.map((user, index) => {
-        user.rank = index + 1;
-        return user.save({ validateBeforeSave: false });
-      })
-    );
+  const users = await this.model.find({ role: "student" }).sort({ points: -1 });
+  await Promise.all(
+    users.map((user, index) => {
+      user.rank = index + 1;
+      return user.save({ validateBeforeSave: false });
+    })
+  );
 });
 
 const User = mongoose.model("User", userSchema);

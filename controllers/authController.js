@@ -51,6 +51,7 @@ exports.signup = catchAsync(async (req, res) => {
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
     rank: rank + 1,
+    deviceTokens: req.body.deviceToken ? [req.body.deviceToken] : [],
   });
 
   const courses = await Course.find();
@@ -65,7 +66,7 @@ exports.signup = catchAsync(async (req, res) => {
 });
 
 exports.login = catchAsync(async (req, res, next) => {
-  const { identifier, password } = req.body;
+  const { identifier, password, deviceToken } = req.body; // Add deviceToken here
 
   if (!identifier || !password) {
     return next(
@@ -80,8 +81,15 @@ exports.login = catchAsync(async (req, res, next) => {
   const user = await User.findOne({
     $or: [{ email: emailPattern }, { username: usernamePattern }],
   }).select("+password");
+  
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError("Incorrect email/username or password", 401));
+  }
+
+  // Only try to add deviceToken if one was provided
+  if (deviceToken && !user.deviceTokens.includes(deviceToken)) {
+    user.deviceTokens.push(deviceToken);
+    await user.save({ validateBeforeSave: false });
   }
 
   createSendToken(user, 200, res);
@@ -238,4 +246,16 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   await user.save();
   //4 log user in, send JWT
   createSendToken(user, 200, res);
+});
+
+exports.logout = catchAsync(async (req, res, next) => {
+  const { deviceToken } = req.body;
+  if (deviceToken && req.user) {
+    req.user.deviceTokens = req.user.deviceTokens.filter(
+      (token) => token !== deviceToken
+    );
+    await req.user.save({ validateBeforeSave: false });
+  }
+
+  res.status(200).json({ status: 'success' });
 });

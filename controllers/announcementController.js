@@ -6,6 +6,8 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 const APIFeatures = require("../utils/apiFeatures");
+const { sendNotificationToUser } = require('../utils/notificationUtil');
+const User = require('../models/userModel');
 
 const attach_file = path.join(__dirname, "..", "static/attachFile");
 if (!fs.existsSync(attach_file)) {
@@ -51,6 +53,59 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
     attach_files: attach,
     groups: groups,
   });
+
+  const filter = { 
+    role: { $in: ['student', 'admin', 'instructor'] },
+    notificationSettings: { $ne: false } // Only notify users who haven't disabled notifications
+  };
+  
+  if (!announcement.general) {
+    filter.group = { $in: announcement.groups };
+  }
+
+  // Batch process users
+  const batchSize = 1000;
+  let lastId = null;
+  let failedNotifications = 0;
+
+  while (true) {
+    const query = { ...filter };
+    if (lastId) {
+      query._id = { $gt: lastId };
+    }
+
+    const users = await User.find(query)
+      .select('_id')
+      .limit(batchSize)
+      .sort('_id');
+
+    if (users.length === 0) break;
+
+    const notificationPromises = users.map(user => 
+      sendNotificationToUser(
+        user._id,
+        {
+          title: announcement.title,
+          body: announcement.body.substring(0, 100) + '...'
+        },
+        {
+          type: 'announcement',
+          announcementId: announcement._id.toString(),
+          importance: announcement.importance.toString(), // Convert to string
+          courseId: (announcement.courseId || 'general').toString(),
+          groups: announcement.groups.join(','),
+          timestamp: Date.now().toString()
+        }
+      ).catch(err => {
+        console.error(`Failed to send notification to user ${user._id}:`, err);
+        failedNotifications++;
+        return null;
+      })
+    );
+
+    await Promise.all(notificationPromises);
+    lastId = users[users.length - 1]._id;
+  }
 
   res.status(200).json({
     status: "success",
