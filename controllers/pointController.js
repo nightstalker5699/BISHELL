@@ -4,7 +4,13 @@ const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const factory = require("./handlerFactory");
 exports.getLeaderBoard = catchAsync(async (req, res, next) => {
-  const users = await User.find({ role: "student" }).sort({ rank: 1 });
+  let users = await User.find({ role: "student" }).sort({ rank: 1 });
+  users = users.map((el) => {
+    let name = el.fullName.split(" ");
+    el.fullName = name.length <= 2 ? el.fullName : name[0] + " " + name[1];
+    return el;
+  });
+
   res
     .status(200)
     .json({ status: "success", results: users.length, data: users });

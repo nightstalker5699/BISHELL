@@ -61,10 +61,16 @@
     document.addEventListener("DOMContentLoaded", function () {
       var socket = io("localhost:8000", {
         query: `course=test2`,
+        auth: {
+          token:
+            "eyJfbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3MWI3NGNkNDcwMzk3MmZkZDFmYWQwNCIsImlhdCI6MTczMzYwNDE4OCwiZXhwIjoxNzQxMzgwMTg4fQ.ge_xiTvvpS3a7eIJsm9tof-2WI_NBhSd4TrCVfxHh9Y",
+        },
       });
       let form = document.getElementById("form");
       let input = document.getElementById("input");
-
+      socket.on("connect_error", (error) => {
+        console.log(error);
+      });
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         if (input.value) {

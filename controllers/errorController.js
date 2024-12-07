@@ -52,7 +52,7 @@ const sendErrorProd = (err, req, res) => {
   });
 };
 
-module.exports = (err, req, res, next) => {
+exports.globalErrorHandle = (err, req, res, next) => {
   err.statusCode = err.statusCode || 500;
   err.status = err.status || "error";
 
@@ -70,4 +70,16 @@ module.exports = (err, req, res, next) => {
       error = handleDupEmail();
     sendErrorProd(error, req, res);
   }
+};
+
+exports.socketErrorHandle = (err) => {
+  let error = { ...err };
+  error.message = err.message;
+  if (err.name === "JsonWebTokenError") error = handleJWTError();
+  if (err.name === "TokenExpiredError") error = handleJWTExpiredError();
+  return {
+    message: error.message,
+    status: error.status,
+    statusCode: error.statusCode,
+  };
 };

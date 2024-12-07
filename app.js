@@ -87,12 +87,11 @@ app.use("/api/posts", postRouter);
 app.use(`/api/schedules`, scheduleRouter);
 app.use(`/api/questions`, questionRouter);
 
-
 // 11) Error handling
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
-app.use(globalErrorHandler);
+app.use(globalErrorHandler.globalErrorHandle);
 
 module.exports = app;
