@@ -14,6 +14,9 @@ router.post(
   authController.signup
 );
 
+router.post('/device-token', authController.protect, userController.addDeviceToken);
+router.delete('/device-token', authController.protect, userController.removeDeviceToken);
+
 router.patch(
   "/updateMe",
   authController.protect,

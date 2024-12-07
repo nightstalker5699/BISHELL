@@ -1,6 +1,47 @@
 const User = require('../models/userModel');
 const admin = require('../firebase');
 
+exports.cleanupInvalidTokens = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    if (!user?.deviceTokens?.length) return;
+
+    const messaging = admin.messaging();
+    const invalidTokens = [];
+
+    // Test each token
+    const tokenTests = await Promise.allSettled(
+      user.deviceTokens.map(async token => {
+        try {
+          await messaging.send({ token }, true); // dry run
+          return { token, valid: true };
+        } catch (error) {
+          if (error.code?.includes('messaging/invalid-registration') || 
+              error.code?.includes('messaging/registration-token-not-registered')) {
+            return { token, valid: false };
+          }
+          return { token, valid: true }; // assume valid on other errors
+        }
+      })
+    );
+
+    tokenTests.forEach(result => {
+      if (result.status === 'fulfilled' && !result.value.valid) {
+        invalidTokens.push(result.value.token);
+      }
+    });
+
+    if (invalidTokens.length > 0) {
+      await User.findByIdAndUpdate(userId, {
+        $pull: { deviceTokens: { $in: invalidTokens } }
+      });
+      console.log(`Cleaned up ${invalidTokens.length} invalid tokens for user ${userId}`);
+    }
+  } catch (error) {
+    console.error('Token cleanup error:', error);
+  }
+};
+
 exports.sendNotificationToUser = async (userId, notification, data = {}) => {
   try {
     const user = await User.findById(userId);
