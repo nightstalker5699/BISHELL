@@ -54,10 +54,18 @@ const ioHandler = (server) => {
       const room = socket.handshake.query.course;
       const course = await Course.findOne({ slug: room });
       socket.join(room);
+      const messages = await Chat.find({ course: course._id }).limit(20);
+      socket.to(room).emit("load", messages);
       console.log(`${socket.user.username} have joined to room: ${room}`);
       socket.on("disconnect", () => {
         socket.leave(room);
         console.log(`user have left to room: ${room}`);
+      });
+      socket.on("loadMessages", async (page) => {
+        const loadMessages = await Chat.find({ course: course._id })
+          .skip((page - 1) * 20)
+          .limit(20);
+        socket.to(room).emit("load", loadMessages);
       });
       socket.on("sendMessage", async (Message) => {
         const message = await Chat.create({
@@ -69,11 +77,22 @@ const ioHandler = (server) => {
       });
       socket.on("sendReply", async (Message) => {
         const reply = await Chat.create({
-          user: Message.user._id,
+          user: socket.user._id,
           content: Message.content,
           course: course._id,
           replyTo: Message.replyTo,
         });
+        io.to(room).emit("receivedMessage", reply);
+      });
+      socket.on("deleteMessage", async (Message) => {
+        const reply = await Chat.findByIdAndDelete(Message._id);
+        io.to(room).emit("deletedMessage", reply);
+      });
+      socket.on("updateMessage", async (Message) => {
+        const reply = await Chat.findByIdAndUpdate(Message._id, {
+          content: Message.content,
+        });
+        io.to(room).emit("updatedMessage", reply);
       });
     } catch (err) {
       io.to(socket.io).emit("error", err);
