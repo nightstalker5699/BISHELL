@@ -31,6 +31,7 @@ const upload = multer({
 }).array("attachments");
 
 exports.attachment = upload;
+
 exports.createAnnouncement = catchAsync(async (req, res, next) => {
   const attach = req.files.map((file) => {
     return {
