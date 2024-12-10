@@ -9,7 +9,7 @@ const APIFeatures = require("../utils/apiFeatures");
 const multer = require("multer");
 const sharp = require("sharp");
 const appError = require("../utils/appError");
-const notification = require("../utils/notificationUtil");
+
 const storage = multer.memoryStorage({});
 
 const fileFilter = (req, file, cb) => {
@@ -126,23 +126,7 @@ exports.followUser = catchAsync(async (req, res, next) => {
     userToFollow.followers.push(currentUser._id);
     await currentUser.save({ validateBeforeSave: false });
     await userToFollow.save({ validateBeforeSave: false });
-    const body = `${currentUser.username} have followed you `;
-    const title = "new Follower";
-    console.log(
-      await notification.sendNotificationToUser(
-        userToFollow._id,
-        {
-          title,
-          body,
-        },
-        {
-          type: "follower",
-          followerId: currentUser._id,
-          followedId: userToFollow._id,
-          followersNum: userToFollow.followers.length,
-        }
-      )
-    );
+
     res.status(200).json({
       status: "success",
       message: "User followed successfully",
@@ -292,11 +276,12 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   });
 });
 
+
 exports.addDeviceToken = catchAsync(async (req, res, next) => {
   const { deviceToken } = req.body;
 
   if (!deviceToken) {
-    return next(new AppError("Device token is required", 400));
+    return next(new AppError('Device token is required', 400));
   }
 
   const user = await User.findById(req.user._id);
@@ -312,8 +297,8 @@ exports.addDeviceToken = catchAsync(async (req, res, next) => {
   }
 
   res.status(200).json({
-    status: "success",
-    message: "Device token added successfully",
+    status: 'success',
+    message: 'Device token added successfully'
   });
 });
 
@@ -321,15 +306,15 @@ exports.removeDeviceToken = catchAsync(async (req, res, next) => {
   const { deviceToken } = req.body;
 
   if (!deviceToken) {
-    return next(new AppError("Device token is required", 400));
+    return next(new AppError('Device token is required', 400));
   }
 
   await User.findByIdAndUpdate(req.user._id, {
-    $pull: { deviceTokens: deviceToken },
+    $pull: { deviceTokens: deviceToken }
   });
 
   res.status(200).json({
-    status: "success",
-    message: "Device token removed successfully",
+    status: 'success',
+    message: 'Device token removed successfully'
   });
 });
