@@ -38,31 +38,107 @@ const createSendToken = (user, statusCode, res) => {
   });
 };
 
-exports.signup = catchAsync(async (req, res) => {
-  console.log("Signup body:", req.body);
-  const rank = await User.countDocuments({ role: "student" });
+exports.signup = catchAsync(async (req, res, next) => {
+  try {
+    // 1. Log incoming request data
+    console.log('Signup Request:', {
+      body: {
+        ...req.body,
+        password: '[REDACTED]',
+        passwordConfirm: '[REDACTED]'
+      },
+      file: req.file ? {
+        filename: req.file.filename,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      } : 'No file uploaded'
+    });
 
-  const newUser = await User.create({
-    username: req.body.username,
-    fullName: req.body.fullName,
-    group: req.body.group,
-    email: req.body.email,
-    photo: req.file ? `user-${req.body.username}.jpeg` : "default.jpg",
-    password: req.body.password,
-    passwordConfirm: req.body.passwordConfirm,
-    rank: rank + 1,
-    deviceTokens: req.body.deviceToken ? [req.body.deviceToken] : [],
-  });
+    // 2. Validate required fields
+    const requiredFields = ['username', 'fullName', 'group', 'email', 'password', 'passwordConfirm'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+    if (missingFields.length > 0) {
+      console.error('Missing required fields:', missingFields);
+      return next(new AppError(`Missing required fields: ${missingFields.join(', ')}`, 400));
+    }
 
-  const courses = await Course.find();
-  await Promise.all(
-    courses.map(async (course) => {
-      course.studentsId.push(newUser._id);
-      await course.save({ validateBeforeSave: false });
-    })
-  );
+    // 3. Check if user already exists
+    const existingUser = await User.findOne({
+      $or: [
+        { email: req.body.email },
+        { username: req.body.username }
+      ]
+    });
 
-  createSendToken(newUser, 201, res);
+    if (existingUser) {
+      console.error('User already exists:', {
+        email: existingUser.email === req.body.email,
+        username: existingUser.username === req.body.username
+      });
+      return next(new AppError('Email or username already exists', 400));
+    }
+
+    // 4. Get student rank
+    console.log('Calculating student rank...');
+    const rank = await User.countDocuments({ role: "student" });
+    console.log('Current student count:', rank);
+
+    // 5. Create user
+    console.log('Creating new user...');
+    const newUser = await User.create({
+      username: req.body.username,
+      fullName: req.body.fullName,
+      group: req.body.group,
+      email: req.body.email,
+      photo: req.file ? `user-${req.body.username}.jpeg` : "default.jpg",
+      password: req.body.password,
+      passwordConfirm: req.body.passwordConfirm,
+      rank: rank + 1,
+      deviceTokens: req.body.deviceToken ? [req.body.deviceToken] : [],
+    }).catch(err => {
+      console.error('User creation error:', err);
+      throw err;
+    });
+
+    console.log('User created successfully:', {
+      id: newUser._id,
+      username: newUser.username,
+      rank: newUser.rank
+    });
+
+    // 6. Assign courses
+    console.log('Assigning courses...');
+    const courses = await Course.find();
+    console.log(`Found ${courses.length} courses to assign`);
+
+    try {
+      await Promise.all(
+        courses.map(async (course) => {
+          console.log(`Assigning course: ${course._id} to user: ${newUser._id}`);
+          course.studentsId.push(newUser._id);
+          await course.save({ validateBeforeSave: false });
+        })
+      );
+      console.log('Courses assigned successfully');
+    } catch (err) {
+      console.error('Error assigning courses:', err);
+      // Cleanup: Delete user if course assignment fails
+      await User.findByIdAndDelete(newUser._id);
+      throw new AppError('Error assigning courses. Registration failed.', 500);
+    }
+
+    // 7. Generate and send token
+    console.log('Generating authentication token...');
+    createSendToken(newUser, 201, res);
+
+  } catch (error) {
+    console.error('Signup process failed:', {
+      error: error.message,
+      stack: error.stack
+    });
+    next(error);
+  }
 });
 
 exports.login = catchAsync(async (req, res, next) => {
