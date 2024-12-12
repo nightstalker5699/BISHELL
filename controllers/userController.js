@@ -221,66 +221,28 @@ exports.getFollowing = catchAsync(async (req, res, next) => {
 exports.uploadProfilePic = uploadImage.single("photo");
 
 exports.resizeProfilePic = catchAsync(async (req, res, next) => {
-  try {
-    // Debug log request
-    console.log('Upload request received:', {
-      hasFile: !!req.file,
-      fileSize: req.file?.size,
-      mimeType: req.file?.mimetype
-    });
+  if (!req.file) return next();
 
-    if (!req.file) {
-      console.error('No file uploaded');
-      return next(new Error('Please upload an image'));
+  // Use username from req.body if req.user is undefined (during signup)
+  const username = req.user ? req.user.username : req.body.username;
+  req.body.photo = `user-${username}.jpeg`;
+
+  // Delete old photo only if req.user exists and photo is not default
+  if (req.user && req.user.photo !== "default.jpg") {
+    const oldPhotoPath = path.join("static", "profilePics", req.user.photo);
+    if (fs.existsSync(oldPhotoPath)) {
+      fs.unlinkSync(oldPhotoPath);
     }
-
-    // Validate file type
-    if (!req.file.mimetype.startsWith('image')) {
-      console.error('Invalid file type:', req.file.mimetype);
-      return next(new Error('Please upload an image file'));
-    }
-
-    // Use username from req.body if req.user is undefined (during signup)
-    const username = req.user ? req.user.username : req.body.username;
-    if (!username) {
-      console.error('Username not found');
-      return next(new Error('Username is required'));
-    }
-
-    req.body.photo = `user-${username}.jpeg`;
-
-    // Delete old photo only if req.user exists and photo is not default
-    if (req.user && req.user.photo !== "default.jpg") {
-      const oldPhotoPath = path.join("static", "profilePics", req.user.photo);
-      try {
-        if (fs.existsSync(oldPhotoPath)) {
-          fs.unlinkSync(oldPhotoPath);
-          console.log('Old photo deleted:', oldPhotoPath);
-        }
-      } catch (err) {
-        console.error('Error deleting old photo:', err);
-        // Continue processing even if old photo deletion fails
-      }
-    }
-
-    // Process and save the new photo
-    const outputPath = `static/profilePics/${req.body.photo}`;
-    await sharp(req.file.buffer)
-      .toFormat("jpeg")
-      .jpeg({ quality: 90 })
-      .toFile(outputPath)
-      .catch(err => {
-        console.error('Sharp processing error:', err);
-        throw new Error('Error processing image');
-      });
-
-    console.log('Image successfully processed and saved:', outputPath);
-    next();
-
-  } catch (error) {
-    console.error('Profile pic resize error:', error);
-    next(error);
   }
+
+  // Process and save the new photo
+  await sharp(req.file.buffer)
+    //.resize(500,500)
+    .toFormat("jpeg")
+    .jpeg({ quality: 90 })
+    .toFile(`static/profilePics/${req.body.photo}`);
+
+  next();
 });
 
 exports.updateMe = catchAsync(async (req, res, next) => {
