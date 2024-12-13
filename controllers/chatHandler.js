@@ -41,7 +41,6 @@ const ioHandler = (server) => {
           "your password have been changed. please log in again",
           401
         );
-
       socket.user = user;
       next();
     } catch (err) {
@@ -52,14 +51,12 @@ const ioHandler = (server) => {
   }).on("connection", async (socket) => {
     try {
       const room = socket.handshake.query.course;
-      const course = await Course.findOne({ slug: room });
+      const course = await Course.findById(room);
       socket.join(room);
       const messages = await Chat.find({ course: course._id }).limit(20);
       socket.to(room).emit("load", messages);
-      console.log(`${socket.user.username} have joined to room: ${room}`);
       socket.on("disconnect", () => {
         socket.leave(room);
-        console.log(`user have left to room: ${room}`);
       });
       socket.on("loadMessages", async (page) => {
         const loadMessages = await Chat.find({ course: course._id })
@@ -69,13 +66,14 @@ const ioHandler = (server) => {
       });
       socket.on("sendMessage", async (Message) => {
         const message = await Chat.create({
-          user: socket.user._id,
-          content: Message.content,
+          sender: socket.user._id,
+          content: Message,
           course: course._id,
         });
         io.to(room).emit("receivedMessage", message);
       });
       socket.on("sendReply", async (Message) => {
+        console.log(Message);
         const reply = await Chat.create({
           user: socket.user._id,
           content: Message.content,
