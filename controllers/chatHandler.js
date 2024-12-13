@@ -12,7 +12,7 @@ const ioHandler = (server) => {
   const io = new Server(server, {
     cors: {
       origin: "*",
-      methods: ["GET", "POST"],
+      methods: ["GET", "POST", "PATCH", "DELETE"],
     },
   });
   io.use(async (socket, next) => {
@@ -69,7 +69,7 @@ const ioHandler = (server) => {
       });
       socket.on("sendMessage", async (Message) => {
         const message = await Chat.create({
-          user: Message.user._id,
+          user: socket.user._id,
           content: Message.content,
           course: course._id,
         });
