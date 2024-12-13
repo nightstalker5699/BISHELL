@@ -275,3 +275,46 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+
+exports.addDeviceToken = catchAsync(async (req, res, next) => {
+  const { deviceToken } = req.body;
+
+  if (!deviceToken) {
+    return next(new AppError('Device token is required', 400));
+  }
+
+  const user = await User.findById(req.user._id);
+
+  if (!user.deviceTokens.includes(deviceToken)) {
+    // Limit max tokens per user
+    const MAX_TOKENS = 5;
+    if (user.deviceTokens.length >= MAX_TOKENS) {
+      user.deviceTokens.shift();
+    }
+    user.deviceTokens.push(deviceToken);
+    await user.save({ validateBeforeSave: false });
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Device token added successfully'
+  });
+});
+
+exports.removeDeviceToken = catchAsync(async (req, res, next) => {
+  const { deviceToken } = req.body;
+
+  if (!deviceToken) {
+    return next(new AppError('Device token is required', 400));
+  }
+
+  await User.findByIdAndUpdate(req.user._id, {
+    $pull: { deviceTokens: deviceToken }
+  });
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Device token removed successfully'
+  });
+});

@@ -66,7 +66,11 @@ exports.signup = catchAsync(async (req, res) => {
 });
 
 exports.login = catchAsync(async (req, res, next) => {
-  const { identifier, password, deviceToken } = req.body; // Add deviceToken here
+  const { identifier, password, deviceToken } = req.body;
+
+  if (deviceToken && typeof deviceToken !== 'string') {
+    return next(new AppError('Invalid device token format', 400));
+  }
 
   if (!identifier || !password) {
     return next(
@@ -86,10 +90,15 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError("Incorrect email/username or password", 401));
   }
 
-  // Only try to add deviceToken if one was provided
-  if (deviceToken && !user.deviceTokens.includes(deviceToken)) {
-    user.deviceTokens.push(deviceToken);
-    await user.save({ validateBeforeSave: false });
+  if (deviceToken) {
+    if (!user.deviceTokens.includes(deviceToken)) {
+      const MAX_TOKENS = 5;
+      if (user.deviceTokens.length >= MAX_TOKENS) {
+        user.deviceTokens.shift();
+      }
+      user.deviceTokens.push(deviceToken);
+      await user.save({ validateBeforeSave: false });
+    }
   }
 
   createSendToken(user, 200, res);
@@ -250,12 +259,20 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
 
 exports.logout = catchAsync(async (req, res, next) => {
   const { deviceToken } = req.body;
-  if (deviceToken && req.user) {
-    req.user.deviceTokens = req.user.deviceTokens.filter(
-      (token) => token !== deviceToken
-    );
-    await req.user.save({ validateBeforeSave: false });
+
+  if (!deviceToken) {
+    return next(new AppError('Device token is required', 400));
   }
 
-  res.status(200).json({ status: 'success' });
+  if (req.user) {
+    // Remove the specific device token
+    await User.findByIdAndUpdate(req.user._id, {
+      $pull: { deviceTokens: deviceToken }
+    });
+  }
+
+  res.status(200).json({ 
+    status: 'success',
+    message: 'Successfully logged out'
+  });
 });
