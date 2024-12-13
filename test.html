@@ -59,8 +59,8 @@
   <script src="./node_modules/socket.io/client-dist/socket.io.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      var socket = io("localhost:8000", {
-        query: `course=test`,
+      var socket = io("https://apis.bishell.online", {
+        query: `course=6725397401c599d3de8570ba`,
         auth: {
           token:
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3MWI3NGNkNDcwMzk3MmZkZDFmYWQwNCIsImlhdCI6MTczMzYwNDE4OCwiZXhwIjoxNzQxMzgwMTg4fQ.ge_xiTvvpS3a7eIJsm9tof-2WI_NBhSd4TrCVfxHh9Y",
@@ -75,7 +75,7 @@
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         if (input.value) {
-          socket.emit("sendMessage", input.value, "test");
+          socket.emit("sendMessage", { message: input.value });
           input.value = "";
         }
       });
