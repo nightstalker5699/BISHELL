@@ -19,6 +19,9 @@ const chatSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: "Chat",
     },
+    deletedAt: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
