@@ -19,6 +19,7 @@ const rateLimit = require("express-rate-limit");
 const mongoSanitize = require("express-mongo-sanitize");
 const hpp = require("hpp");
 const cors = require("cors");
+const compression = require('compression');
 const cookieParser = require("cookie-parser");
 
 app.enable("trust proxy");
@@ -53,8 +54,8 @@ const limiter = rateLimit({
 // app.use("/api", limiter);
 
 // 5) Body parsers
-app.use(express.json({ limit: "30mb" }));
-app.use(express.urlencoded({ extended: true, limit: "30mb" }));
+app.use(express.json({ limit: "100mb" }));
+app.use(express.urlencoded({ extended: true, limit: "100mb" }));
 app.use(cookieParser());
 
 // 6) Security middleware
@@ -77,7 +78,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// 10) Routes
+// 10) Compression
+app.use(compression());
+
+// 11) Routes
 app.use(`/api/materials`, materialRouter);
 app.use(`/api/users`, userRouter);
 app.use(`/api/points`, pointRouter);
@@ -88,7 +92,7 @@ app.use(`/api/schedules`, scheduleRouter);
 app.use(`/api/questions`, questionRouter);
 
 
-// 11) Error handling
+// 12) Error handling
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
