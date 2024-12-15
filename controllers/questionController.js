@@ -30,12 +30,10 @@ const upload = multer({ storage }).single("attach_file");
 exports.uploadAttachFile = upload;
 
 exports.getAllQuestions = catchAsync(async (req, res, next) => {
-  // Default pagination values
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const skip = (page - 1) * limit;
 
-  // Base filter
   const filter = {};
   if (req.query.answered === "true") {
     filter.verifiedComment = { $exists: true };
@@ -43,48 +41,82 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
     filter.verifiedComment = { $exists: false };
   }
 
-  // Get total docs for pagination
   const total = await Question.countDocuments(filter);
 
-  // Get paginated questions
-  const questions = await Question.find(filter)
-    .select(
-      "content userId likes comments createdAt verifiedComment attach_file"
-    )
-    .populate({
-      path: "userId",
-      select: "username photo fullName -_id",
-    })
-    .populate({
-      path: "verifiedComment",
-      select: "content userId attach_file likes replies",
-      populate: [
-        {
-          path: "userId",
-          select: "username photo fullName -_id",
-        },
-        {
-          path: "replies",
-          match: { parentId: { $ne: null } },
-        },
-      ],
-    })
-    .populate({
-      path: "comments",
-      populate: [
-        {
-          path: "userId",
-          select: "username photo fullName -_id",
-        },
-        {
-          path: "replies",
-          match: { parentId: { $ne: null } },
-        },
-      ],
-    })
-    .sort(req.query.sort ? req.query.sort.split(",").join(" ") : "-createdAt")
-    .skip(skip)
-    .limit(limit);
+  let questions;
+  if (req.query.sort === '-likes') {
+    questions = await Question.findAllSortedByLikes(filter, skip, limit);
+    questions = await Question.populate(questions, [
+      {
+        path: "userId",
+        select: "username photo fullName -_id",
+      },
+      {
+        path: "verifiedComment",
+        select: "content userId attach_file likes replies",
+        populate: [
+          {
+            path: "userId",
+            select: "username photo fullName -_id",
+          },
+          {
+            path: "replies",
+            match: { parentId: { $ne: null } },
+          },
+        ],
+      },
+      {
+        path: "comments",
+        populate: [
+          {
+            path: "userId",
+            select: "username photo fullName -_id",
+          },
+          {
+            path: "replies",
+            match: { parentId: { $ne: null } },
+          },
+        ],
+      },
+    ]);
+  } else {
+    questions = await Question.find(filter)
+      .select("content userId likes comments createdAt verifiedComment attach_file")
+      .populate({
+        path: "userId",
+        select: "username photo fullName -_id",
+      })
+      .populate({
+        path: "verifiedComment",
+        select: "content userId attach_file likes replies",
+        populate: [
+          {
+            path: "userId",
+            select: "username photo fullName -_id",
+          },
+          {
+            path: "replies",
+            match: { parentId: { $ne: null } },
+          },
+        ],
+      })
+      .populate({
+        path: "comments",
+        populate: [
+          {
+            path: "userId",
+            select: "username photo fullName -_id",
+          },
+          {
+            path: "replies",
+            match: { parentId: { $ne: null } },
+          },
+        ],
+      })
+      .sort(req.query.sort ? req.query.sort.split(",").join(" ") : "-createdAt")
+      .skip(skip)
+      .limit(limit);
+  }
 
   const formattedQuestions = await Promise.all(
     questions.map(async (question) => {
