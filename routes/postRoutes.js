@@ -5,13 +5,14 @@ const postController = require("../controllers/postController");
 const authController = require("../controllers/authController");
 const posts = require('../models/postModel')
 
+router.get("/:username/:slug", postController.getPostByUsernameAndSlug);
+
 // Protected routes
 router.use(authController.protect);
 
 router.get("/user/:userId/:courseName", postController.getUserPosts);
 router.get("/user/:userId", postController.getUserPosts);
 //router.get("/:slug", postController.getPost);
-router.get("/:username/:slug", postController.getPostByUsernameAndSlug);
 
 
 router
