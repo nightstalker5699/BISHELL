@@ -694,16 +694,19 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
     return next(new AppError("Question not found", 404));
   }
 
-  // Check if user owns the question
-  if (question.userId.toString() !== req.user._id.toString()) {
-    return next(new AppError("You can only delete your own questions", 403));
+  // Check if user owns the question or is admin
+  if (question.userId.toString() !== req.user._id.toString() && 
+      req.user.role !== 'admin' &&
+      req.user.role !== 'group-leader') {
+    return next(new AppError("You are not authorized to delete this question", 403));
   }
+
 
   // Helper function to delete attachment file
   const deleteAttachment = async (filePath) => {
     try {
       await fsp.access(filePath);
-      await fsp.unlink(filePath);
+      await fsp.unlink(filePath);  
     } catch (err) {
       console.log(`Could not delete file ${filePath}: ${err.message}`);
     }
@@ -715,7 +718,7 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
       const questionFilePath = path.join(
         __dirname,
         "..",
-        "static",
+        "static", 
         "attachFile",
         question.attach_file.name
       );
@@ -737,7 +740,7 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
           __dirname,
           "..",
           "static",
-          "attachFile",
+          "attachFile", 
           comment.attach_file.name
         );
         await deleteAttachment(commentFilePath);
