@@ -49,7 +49,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
     questions = await Question.populate(questions, [
       {
         path: "userId",
-        select: "username photo fullName role -_id",
+        select: "username photo fullName role",
       },
       {
         path: "verifiedComment",
@@ -57,7 +57,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName role -_id",
+            select: "username photo fullName role",
           },
           {
             path: "replies",
@@ -70,7 +70,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName role -_id",
+            select: "username photo fullName role",
           },
           {
             path: "replies",
@@ -84,7 +84,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
       .select("content userId likes comments createdAt verifiedComment attach_file")
       .populate({
         path: "userId",
-        select: "username photo fullName role -_id",
+        select: "username photo fullName role",
       })
       .populate({
         path: "verifiedComment",
@@ -92,7 +92,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName role -_id",
+            select: "username photo fullName role",
           },
           {
             path: "replies",
@@ -105,7 +105,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName role -_id",
+            select: "username photo fullName role",
           },
           {
             path: "replies",
@@ -127,6 +127,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
           username: question.userId.username,
           fullName: question.userId.fullName,
           photo: question.userId.photo,
+          role: question.userId.role
         },
         stats: {
           likesCount: question.likes?.length || 0,
@@ -441,6 +442,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       username: question.userId.username,
       fullName: question.userId.fullName,
       photo: question.userId.photo,
+      role: question.userId.role
     },
     stats: {
       likesCount: question.likes.length,
@@ -474,6 +476,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         username: question.verifiedComment.userId.username,
         fullName: question.verifiedComment.userId.fullName,
         photo: question.verifiedComment.userId.photo,
+        role: question.verifiedComment.userId.role
       },
       stats: {
         likesCount: question.verifiedComment.likes.length,
@@ -489,6 +492,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
           username: reply.userId.username,
           fullName: reply.userId.fullName,
           photo: reply.userId.photo,
+          role: reply.userId.role
         },
         stats: {
           likesCount: reply.likes.length,
@@ -543,6 +547,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         username: comment.userId.username,
         fullName: comment.userId.fullName,
         photo: comment.userId.photo,
+        role: comment.userId.role
       },
       stats: {
         likesCount: comment.likes.length,
@@ -569,6 +574,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
           username: reply.userId.username,
           fullName: reply.userId.fullName,
           photo: reply.userId.photo,
+          role: reply.userId.role
         },
         stats: {
           likesCount: reply.likes.length,
@@ -661,6 +667,7 @@ exports.updateQuestion = catchAsync(async (req, res, next) => {
       username: question.userId.username,
       fullName: question.userId.fullName,
       photo: question.userId.photo,
+      role: question.userId.role
     },
     attachment:
       question.attach_file && question.attach_file.name
