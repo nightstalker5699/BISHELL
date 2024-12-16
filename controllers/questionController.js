@@ -49,7 +49,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
     questions = await Question.populate(questions, [
       {
         path: "userId",
-        select: "username photo fullName -_id",
+        select: "username photo fullName role -_id",
       },
       {
         path: "verifiedComment",
@@ -57,7 +57,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName -_id",
+            select: "username photo fullName role -_id",
           },
           {
             path: "replies",
@@ -70,7 +70,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName -_id",
+            select: "username photo fullName role -_id",
           },
           {
             path: "replies",
@@ -84,7 +84,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
       .select("content userId likes comments createdAt verifiedComment attach_file")
       .populate({
         path: "userId",
-        select: "username photo fullName -_id",
+        select: "username photo fullName role -_id",
       })
       .populate({
         path: "verifiedComment",
@@ -92,7 +92,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName -_id",
+            select: "username photo fullName role -_id",
           },
           {
             path: "replies",
@@ -105,7 +105,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName -_id",
+            select: "username photo fullName role -_id",
           },
           {
             path: "replies",
@@ -267,7 +267,7 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
   const newQuestion = await Question.create(questionData);
   await newQuestion.populate({
     path: "userId",
-    select: "username fullName photo",
+    select: "username fullName photo role",
   });
 
   const response = {
@@ -379,7 +379,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
   const question = await Question.findById(req.params.id)
     .populate({
       path: "userId",
-      select: "username fullName photo",
+      select: "username fullName photo role",
     })
     .populate({
       path: "verifiedComment",
@@ -387,14 +387,14 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       populate: [
         {
           path: "userId",
-          select: "username fullName photo",
+          select: "username fullName photo role",
         },
         {
           path: "replies",
           options: { sort: sort },
           populate: {
             path: "userId",
-            select: "username fullName photo",
+            select: "username fullName photo role",
           },
         },
       ],
@@ -420,7 +420,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
   })
     .populate({
       path: "userId",
-      select: "username fullName photo",
+      select: "username fullName photo role",
     })
     .populate({
       path: "replies",
@@ -428,7 +428,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       options: { sort: sort }, // Add sorting here
       populate: {
         path: "userId",
-        select: "username fullName photo",
+        select: "username fullName photo role",
       },
     })
     .sort(sort)
@@ -651,7 +651,7 @@ exports.updateQuestion = catchAsync(async (req, res, next) => {
   await question.save();
   await question.populate({
     path: "userId",
-    select: "username fullName photo",
+    select: "username fullName photo role",
   });
 
   const formattedQuestion = {
