@@ -25,7 +25,7 @@ logSchema.statics.calcuPoints = async function (userId) {
   await User.updateOne(
     { _id: userId },
     {
-      points: totalPoints[0].points,
+      points: totalPoints[0].points || 0,
     }
   );
 };
