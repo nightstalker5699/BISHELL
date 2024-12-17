@@ -12,7 +12,7 @@ router
 
 router
   .route("/:id")
-  .get(authController.optionalProtect,questionController.getQuestion)
+  .get(authController.protect,questionController.getQuestion)
   .patch(
     authController.protect,
     questionController.uploadAttachFile,
