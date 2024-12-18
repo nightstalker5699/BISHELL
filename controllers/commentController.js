@@ -312,11 +312,15 @@ exports.likeComment = catchAsync(async (req, res, next) => {
   comment.likes.push(req.user._id);
   await comment.save({ validateBeforeSave: false });
 
-  await Point.create({
-    userId: comment.userId,
-    point: 2,
-    description: "Your comment/reply received a like"
-  });
+  // Check if user is liking their own comment
+  if (comment.userId.toString() !== req.user._id.toString()) {
+    // Liked someone else's comment
+    await Point.create({
+      userId: comment.userId,
+      point: 2,
+      description: "Your comment/reply received a like"
+    });
+  }
 
 
   await Point.create({
