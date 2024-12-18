@@ -325,7 +325,8 @@ exports.verifyComment = catchAsync(async (req, res, next) => {
   // Check if user is question owner or doctor
   if (
     question.userId.toString() !== req.user._id.toString() &&
-    req.user.role !== "doctor"
+    req.user.role !== "instructor" &&
+    req.user.role !== "group-leader"
   ) {
     return next(new AppError("You are not authorized to verify answers", 403));
   }
@@ -363,7 +364,8 @@ exports.unverifyComment = catchAsync(async (req, res, next) => {
   // Check if user is question owner or doctor
   if (
     question.userId.toString() !== req.user._id.toString() &&
-    req.user.role !== "doctor"
+    req.user.role !== "instructor" &&
+    req.user.role !== "group-leader"
   ) {
     return next(
       new AppError("You are not authorized to unverify answers", 403)
