@@ -241,44 +241,43 @@ exports.deleteQuestionComment = catchAsync(async (req, res, next) => {
     return next(new AppError('Comment not found', 404));
   }
 
-  // Check if user owns the comment
   if (comment.userId.toString() !== req.user._id.toString()) {
     return next(new AppError('You can only delete your own comments', 403));
   }
 
-  // Get all replies to this comment
   const replies = await Comment.find({ parentId: comment._id });
   
-  // Helper function to delete attachment file
   const deleteAttachment = async (comment) => {
     if (comment.attach_file && comment.attach_file.name) {
       const filePath = path.join(__dirname, '..', 'static', 'attachFile', comment.attach_file.name);
       try {
-        await fs.access(filePath); // Check if file exists
-        await fs.unlink(filePath); // Delete file
+        await fs.access(filePath);
+        await fs.unlink(filePath);
       } catch (err) {
-        // File doesn't exist or other error - continue execution
         console.log(`Could not delete file ${filePath}: ${err.message}`);
       }
     }
   };
 
   try {
-    // Delete main comment's attachment
+    // Deduct points for main comment deletion
+    await Point.create({
+      userId: comment.userId,
+      point: -1,
+      description: "Comment deleted"
+    });
+
     await deleteAttachment(comment);
 
-    // Delete replies' attachments and the replies themselves
     for (const reply of replies) {
       await deleteAttachment(reply);
       await reply.deleteOne();
     }
 
-    // Remove comment from question's comments array
     await Question.findByIdAndUpdate(req.params.questionId, {
       $pull: { comments: comment._id }
     });
 
-    // Delete the main comment
     await comment.deleteOne();
 
     res.status(204).json({
@@ -290,7 +289,6 @@ exports.deleteQuestionComment = catchAsync(async (req, res, next) => {
   }
 });
 
-
 exports.likeComment = catchAsync(async (req, res, next) => {
   const comment = await Comment.findOne({
     _id: req.params.commentId,
@@ -300,6 +298,10 @@ exports.likeComment = catchAsync(async (req, res, next) => {
   if (!comment) {
     return next(new AppError('Comment not found', 404));
   }
+
+  // if (comment.userId.toString() === req.user._id.toString()) {
+  //   return next(new AppError('You cannot like your own comment', 400));
+  // }
 
   // Check if already liked
   if (comment.likes.includes(req.user._id)) {
@@ -350,6 +352,18 @@ exports.unlikeComment = catchAsync(async (req, res, next) => {
   comment.likes = comment.likes.filter(id => !id.equals(req.user._id));
   await comment.save({ validateBeforeSave: false });
 
+  await Point.create({
+    userId: comment.userId,
+    point: -2, // Deduct points from comment owner
+    description: "Comment/reply lost a like"
+  });
+
+  await Point.create({
+    userId: req.user._id,
+    point: -1, // Deduct point from user who unliked
+    description: "Unliked a comment"
+  });
+
   res.status(200).json({
     status: 'success',
     data: {
@@ -357,3 +371,5 @@ exports.unlikeComment = catchAsync(async (req, res, next) => {
     }
   });
 });
+
+// protection on comments and likes

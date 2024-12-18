@@ -378,6 +378,15 @@ exports.unverifyComment = catchAsync(async (req, res, next) => {
   question.verifiedComment = null;
   await question.save({ validateBeforeSave: false });
 
+  // Deduct points from comment owner
+  if (verifiedComment) {
+    await Point.create({
+      userId: verifiedComment.userId,
+      point: -10, // Deduct same points given for verification
+      description: "Comment unverified as answer"
+    });
+  }
+
   res.status(200).json({
     status: "success",
     message: "Answer unverified successfully",
@@ -714,15 +723,13 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
     return next(new AppError("Question not found", 404));
   }
 
-  // Check if user owns the question or is admin
+  // Check authorization
   if (question.userId.toString() !== req.user._id.toString() && 
       req.user.role !== 'admin' &&
       req.user.role !== 'group-leader') {
     return next(new AppError("You are not authorized to delete this question", 403));
   }
 
-
-  // Helper function to delete attachment file
   const deleteAttachment = async (filePath) => {
     try {
       await fsp.access(filePath);
@@ -733,7 +740,14 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
   };
 
   try {
-    // 1. Delete question's attachment if exists
+    // Deduct points from question creator
+    await Point.create({
+      userId: question.userId,
+      point: -5, // Deduct same amount given for creating question
+      description: "Question deleted"
+    });
+
+    // Delete question's attachment if exists
     if (question.attach_file && question.attach_file.name) {
       const questionFilePath = path.join(
         __dirname,
@@ -745,15 +759,11 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
       await deleteAttachment(questionFilePath);
     }
 
-    // 2. Get all comments including replies
+    // Delete all comments' attachments
     const comments = await Comment.find({
-      $or: [
-        { questionId: question._id },
-        { questionId: question._id, parentId: { $exists: true } },
-      ],
+      questionId: question._id
     });
 
-    // 3. Delete all comments' attachments
     for (const comment of comments) {
       if (comment.attach_file && comment.attach_file.name) {
         const commentFilePath = path.join(
@@ -767,23 +777,21 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
       }
     }
 
-    // 4. Delete all comments and replies
+    // Delete all comments and replies
     await Comment.deleteMany({ questionId: question._id });
 
-    // 5. Delete the question
+    // Delete the question
     await question.deleteOne();
 
     res.status(204).json({
       status: "success",
-      data: null,
+      data: null
     });
   } catch (error) {
-    return next(
-      new AppError("Error deleting question and associated data", 500)
-    );
+    return next(new AppError("Error deleting question and associated data", 500));
   }
 });
-
+// protection On deleting Question for points done
 // LIKESSSS
 
 exports.likeQuestion = catchAsync(async (req, res, next) => {
