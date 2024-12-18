@@ -6,6 +6,8 @@ const Post = require("./../models/postModel");
 const factory = require("./handlerFactory");
 const Question = require('../models/questionModel')
 const path = require('path');
+const Point = require("../models/pointModel");
+
 
 exports.addComment = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.questionId);
@@ -113,6 +115,12 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
     }
   };
 
+  await Point.create({
+    userId: req.user._id,
+    point: 1,
+    description: "Posted a comment on a question"
+  });
+
   res.status(201).json({
     status: 'success',
     data: { comment: response }
@@ -210,6 +218,12 @@ exports.addReply = catchAsync(async (req, res, next) => {
     } : null
   };
 
+  await Point.create({
+    userId: req.user._id,
+    point: 1,
+    description: "Posted a reply to a comment"
+  });
+
   res.status(201).json({
     status: 'success',
     data: { reply: response }
@@ -295,6 +309,19 @@ exports.likeComment = catchAsync(async (req, res, next) => {
   // Add like
   comment.likes.push(req.user._id);
   await comment.save({ validateBeforeSave: false });
+
+  await Point.create({
+    userId: comment.userId,
+    point: 2,
+    description: "Your comment/reply received a like"
+  });
+
+
+  await Point.create({
+    userId: req.user._id,  // liker gets the points
+    point: 1, 
+    description: "You liked someone's comment"
+});
 
   res.status(200).json({
     status: 'success',

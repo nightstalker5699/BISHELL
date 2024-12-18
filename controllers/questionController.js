@@ -9,6 +9,7 @@ const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const mime = require("mime-types");
 const APIFeatures = require("../utils/apiFeatures");
+const Point = require("../models/pointModel");
 
 const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
 if (!fs.existsSync(attachFileDir)) {
@@ -296,6 +297,12 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
     },
   };
 
+  await Point.create({
+    userId: userId,
+    point: 5,
+    description: "Created a new question"
+  });
+
   res.status(201).json({
     status: "success",
     data: {
@@ -334,6 +341,12 @@ exports.verifyComment = catchAsync(async (req, res, next) => {
 
   question.verifiedComment = comment._id;
   await question.save({ validateBeforeSave: false });
+
+  await Point.create({
+    userId: comment.userId,
+    point: 10,
+    description: "Your comment was verified as the correct answer"
+  });
 
   res.status(200).json({
     status: "success",
