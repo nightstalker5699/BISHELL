@@ -5,6 +5,10 @@ const pointController = require("../controllers/pointController");
 
 const router = express.Router();
 
+router
+  .route("/givePoint")
+  .post(authController.protect, authController.restrictTo("admin"), pointController.givePointToUser);
+
 router.use(authController.protect);
 router.get("/leaderboard", pointController.getLeaderBoard);
 router.route("/user/:id").get(pointController.getUserLog);
