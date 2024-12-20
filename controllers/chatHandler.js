@@ -50,16 +50,21 @@ const ioHandler = (server) => {
     }
   }).on("connection", async (socket) => {
     try {
+      let searchQuery;
       const room = socket.handshake.query.course;
-      const course = await Course.findById(room);
+      searchQuery = { course: room };
+      if (room === "general") {
+        searchQuery = { course: { $eq: null } };
+      }
+      // const course = await Course.findById(room);
       socket.join(room);
-      const messages = await Chat.find({ course: course._id }).limit(20);
+      const messages = await Chat.find(searchQuery).limit(20);
       socket.to(room).emit("load", messages);
       socket.on("disconnect", () => {
         socket.leave(room);
       });
       socket.on("loadMessages", async (page) => {
-        const loadMessages = await Chat.find({ course: course._id })
+        const loadMessages = await Chat.find(searchQuery)
           .skip((page - 1) * 20)
           .limit(20);
         socket.to(room).emit("load", loadMessages);
@@ -68,7 +73,7 @@ const ioHandler = (server) => {
         const message = await Chat.create({
           sender: socket.user._id,
           content: Message,
-          course: course._id,
+          course: room === "general" ? null : room,
         });
         io.to(room).emit("receivedMessage", message);
       });
@@ -77,7 +82,7 @@ const ioHandler = (server) => {
         const reply = await Chat.create({
           user: socket.user._id,
           content: Message.content,
-          course: course._id,
+          course: room === "general" ? null : room,
           replyTo: Message.replyTo,
         });
         io.to(room).emit("receivedMessage", reply);
