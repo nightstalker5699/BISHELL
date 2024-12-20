@@ -58,7 +58,9 @@ const ioHandler = (server) => {
       }
       // const course = await Course.findById(room);
       socket.join(room);
-      const messages = await Chat.find(searchQuery).limit(20);
+      const messages = await Chat.find(searchQuery)
+        .limit(20)
+        .populate({ path: "sender", select: "username photo" });
       socket.to(room).emit("load", messages);
       socket.on("disconnect", () => {
         socket.leave(room);
@@ -66,7 +68,8 @@ const ioHandler = (server) => {
       socket.on("loadMessages", async (page) => {
         const loadMessages = await Chat.find(searchQuery)
           .skip((page - 1) * 20)
-          .limit(20);
+          .limit(20)
+          .populate({ path: "sender", select: "username photo" });
         socket.to(room).emit("load", loadMessages);
       });
       socket.on("sendMessage", async (Message) => {
@@ -74,7 +77,8 @@ const ioHandler = (server) => {
           sender: socket.user._id,
           content: Message,
           course: room === "general" ? null : room,
-        });
+        }).populate({ path: "sender", select: "username photo" });
+        console.log(message);
         io.to(room).emit("receivedMessage", message);
       });
       socket.on("sendReply", async (Message) => {
@@ -84,7 +88,7 @@ const ioHandler = (server) => {
           content: Message.content,
           course: room === "general" ? null : room,
           replyTo: Message.replyTo,
-        });
+        }).populate({ path: "sender", select: "username photo" });
         io.to(room).emit("receivedMessage", reply);
       });
       socket.on("deleteMessage", async (Message) => {
@@ -94,7 +98,7 @@ const ioHandler = (server) => {
       socket.on("updateMessage", async (Message) => {
         const reply = await Chat.findByIdAndUpdate(Message._id, {
           content: Message.content,
-        });
+        }).populate({ path: "sender", select: "username photo" });
         io.to(room).emit("updatedMessage", reply);
       });
     } catch (err) {
