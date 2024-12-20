@@ -77,7 +77,8 @@ const ioHandler = (server) => {
           sender: socket.user._id,
           content: Message,
           course: room === "general" ? null : room,
-        }).populate({ path: "sender", select: "username photo" });
+        });
+        message.populate({ path: "sender", select: "username photo" });
         console.log(message);
         io.to(room).emit("receivedMessage", message);
       });
