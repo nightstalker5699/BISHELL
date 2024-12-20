@@ -78,7 +78,7 @@ const ioHandler = (server) => {
           content: Message,
           course: room === "general" ? null : room,
         });
-        message.populate({ path: "sender", select: "username photo" });
+        await message.populate({ path: "sender", select: "username photo" });
         console.log(message);
         io.to(room).emit("receivedMessage", message);
       });
@@ -89,7 +89,8 @@ const ioHandler = (server) => {
           content: Message.content,
           course: room === "general" ? null : room,
           replyTo: Message.replyTo,
-        }).populate({ path: "sender", select: "username photo" });
+        });
+        await reply.populate({ path: "sender", select: "username photo" });
         io.to(room).emit("receivedMessage", reply);
       });
       socket.on("deleteMessage", async (Message) => {
@@ -99,7 +100,8 @@ const ioHandler = (server) => {
       socket.on("updateMessage", async (Message) => {
         const reply = await Chat.findByIdAndUpdate(Message._id, {
           content: Message.content,
-        }).populate({ path: "sender", select: "username photo" });
+        });
+        await reply.populate({ path: "sender", select: "username photo" });
         io.to(room).emit("updatedMessage", reply);
       });
     } catch (err) {
