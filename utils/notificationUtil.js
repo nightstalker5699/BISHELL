@@ -33,7 +33,7 @@ exports.sendNotificationToUser = async (userId, notification, data = {}) => {
     const messaging = admin.messaging();
     console.log('Messaging instance:', messaging); // Debug log
 
-    const response = await messaging.sendMulticast(user.deviceTokens, payload);
+    const response = await messaging.sendToDevice(user.deviceTokens, payload);
     console.log('Notification sent successfully:', response);
 
     // Handle invalid tokens
