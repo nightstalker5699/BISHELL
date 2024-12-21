@@ -109,7 +109,7 @@ const ioHandler = (server) => {
       handleOn(async (Message) => {
         console.log(Message);
         let reply = await Chat.create({
-          user: socket.user._id,
+          sender: socket.user._id,
           content: Message.content,
           course: room === "general" ? null : searchQuery.course,
           replyTo: Message.replyTo,
