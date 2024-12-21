@@ -56,7 +56,7 @@ const ioHandler = (server) => {
         searchQuery = { course: { $eq: null } };
       } else {
         console.log(room);
-        const course = await Course.findOne({ courseName: room });
+        const course = await Course.findOne({ slug: room });
         console.log(course);
         searchQuery = { course: course._id };
       }
