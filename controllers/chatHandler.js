@@ -70,7 +70,15 @@ const ioHandler = (server) => {
       let messages = await Chat.find(searchQuery)
         .sort("-_id")
         .limit(20)
-        .populate({ path: "sender", select: "username photo" });
+        .populate({ path: "sender", select: "username photo" })
+        .populate({
+          path: "replyTo",
+          select: "content",
+          populate: {
+            path: "sender",
+            select: "username",
+          },
+        });
       messages = messages.reverse();
       socket.emit("load", messages);
     } catch (err) {
@@ -86,7 +94,15 @@ const ioHandler = (server) => {
           .sort("-_id")
           .skip((page - 1) * 20)
           .limit(20)
-          .populate({ path: "sender", select: "username photo" });
+          .populate({ path: "sender", select: "username photo" })
+          .populate({
+            path: "replyTo",
+            select: "content",
+            populate: {
+              path: "sender",
+              select: "username",
+            },
+          });
         loadMessages = loadMessages.reverse();
         socket.emit("load", loadMessages);
       }, socket)
