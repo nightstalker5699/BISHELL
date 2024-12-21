@@ -55,7 +55,9 @@ const ioHandler = (server) => {
       if (room === "general") {
         searchQuery = { course: { $eq: null } };
       } else {
+        console.log(room);
         const course = await Course.findOne({ courseName: room });
+        console.log(course);
         searchQuery = { course: course._id };
       }
       socket.join(room);
