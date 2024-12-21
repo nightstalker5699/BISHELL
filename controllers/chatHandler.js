@@ -60,6 +60,7 @@ const ioHandler = (server) => {
       }
       socket.join(room);
       const messages = await Chat.find(searchQuery)
+        .sort("-_id")
         .limit(20)
         .populate({ path: "sender", select: "username photo" });
       socket.emit("load", messages);
