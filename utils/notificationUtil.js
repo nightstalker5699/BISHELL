@@ -54,19 +54,25 @@ exports.sendNotificationToUser = async (userId, notification, data = {}) => {
       return acc;
     }, {});
 
-    // Simplified message structure
+    // Add notification origin identifier
     const message = {
       notification: {
         title: notification.title,
         body: notification.body,
       },
-      data: stringifiedData,
+      data: {
+        ...stringifiedData,
+        origin: 'server_push', // Add origin identifier
+        notificationId: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // Unique ID
+      },
       webpush: {
         headers: {
           Urgency: 'high',
         },
         notification: {
           requireInteraction: true,
+          tag: `server_${Date.now()}`, // Prevent duplicates
+          renotify: false // Don't show duplicate notifications
         },
         fcm_options: {
           link: stringifiedData.link || ''
