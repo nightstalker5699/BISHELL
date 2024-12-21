@@ -6,7 +6,7 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 const APIFeatures = require("../utils/apiFeatures");
-const sendNotificationToUser = require('../utils/notificationUtil');
+const { sendNotificationToUser } = require('../utils/notificationUtil');
 const User = require('../models/userModel');
 
 const attach_file = path.join(__dirname, "..", "static/attachFile");
