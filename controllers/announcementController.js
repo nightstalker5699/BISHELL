@@ -33,30 +33,27 @@ const upload = multer({
 exports.attachment = upload;
 
 exports.createAnnouncement = catchAsync(async (req, res, next) => {
-  const attach = req.files.map((file) => {
-    return {
-      name: file.originalname,
-      size: file.size,
-      mimeType: file.mimetype,
-      path: `/attachFile/${file.originalname}`,
-    };
-  });
-  let groups;
-  if (req.body.groups) groups = req.body.groups.split("");
-  else groups = ["A", "B", "C", "D"];
+  const attach = req.files.map((file) => ({
+    name: file.filename,
+    size: file.size,
+    mimeType: file.mimetype,
+    path: `/attachFile/${file.filename}`,
+  }));
+
+  const groups = req.body.groups ? req.body.groups.split(",") : ["A", "B", "C", "D"];
+
   const announcement = await Announcement.create({
-    courseId:
-      req.params.courseId !== "general" ? req.params.courseId : undefined,
+    courseId: req.params.courseId !== "general" ? req.params.courseId : undefined,
     announcerId: req.user._id,
     title: req.body.title,
     body: req.body.body,
     importance: req.body.importance,
     attach_files: attach,
-    groups: groups,
+    groups,
   });
 
   // Fetch users in the specified groups
-  const usersToNotify = await User.find({ group: { $in: groups } });
+  const usersToNotify = await User.find({ group: { $in: groups }, deviceTokens: { $exists: true, $not: { $size: 0 } } });
 
   // Create the notification message
   const message = {
@@ -65,13 +62,16 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
   };
 
   // Send notifications to each user
-  usersToNotify.forEach(user => {
-    sendNotification.sendNotificationToUser(user._id, message);
-  });
+  const notificationPromises = usersToNotify.map(user =>
+    sendNotificationToUser(user._id, message)
+  );
+
+  const notificationResults = await Promise.all(notificationPromises);
 
   res.status(200).json({
     status: "success",
     data: announcement,
+    notifications: notificationResults,
   });
 });
 
