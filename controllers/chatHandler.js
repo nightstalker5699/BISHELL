@@ -55,9 +55,7 @@ const ioHandler = (server) => {
       if (room === "general") {
         searchQuery = { course: { $eq: null } };
       } else {
-        console.log(room);
         const course = await Course.findOne({ slug: room });
-        console.log(course);
         searchQuery = { course: course._id };
       }
       socket.join(room);
@@ -82,11 +80,10 @@ const ioHandler = (server) => {
           course: room === "general" ? null : searchQuery.course,
         });
         await message.populate({ path: "sender", select: "username photo" });
-        console.log(message);
+
         io.to(room).emit("receivedMessage", message);
       });
       socket.on("sendReply", async (Message) => {
-        console.log(Message);
         const reply = await Chat.create({
           user: socket.user._id,
           content: Message.content,
@@ -97,7 +94,6 @@ const ioHandler = (server) => {
         io.to(room).emit("receivedMessage", reply);
       });
       socket.on("deleteMessage", async (Message) => {
-        console.log(Message);
         const reply = await Chat.findByIdAndUpdate(Message, {
           deletedAt: Date.now(),
         });
@@ -105,7 +101,6 @@ const ioHandler = (server) => {
         io.to(room).emit("deletedMessage", reply);
       });
       socket.on("updateMessage", async (Message) => {
-        console.log(Message);
         const reply = await Chat.findByIdAndUpdate(Message._id, {
           content: Message.content,
         });
