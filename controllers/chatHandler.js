@@ -106,6 +106,7 @@ const ioHandler = (server) => {
     socket.on(
       "sendReply",
       handleOn(async (Message) => {
+        console.log(Message);
         let reply = await Chat.create({
           user: socket.user._id,
           content: Message.content,
