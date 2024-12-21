@@ -52,11 +52,12 @@ const ioHandler = (server) => {
     try {
       let searchQuery;
       const room = socket.handshake.query.course;
-      searchQuery = { course: room };
       if (room === "general") {
         searchQuery = { course: { $eq: null } };
+      } else {
+        const course = await Course.findOne({ courseName: room });
+        searchQuery = { course: course._id };
       }
-      // const course = await Course.findById(room);
       socket.join(room);
       const messages = await Chat.find(searchQuery)
         .limit(20)
@@ -76,7 +77,7 @@ const ioHandler = (server) => {
         const message = await Chat.create({
           sender: socket.user._id,
           content: Message,
-          course: room === "general" ? null : room,
+          course: room === "general" ? null : searchQuery.course,
         });
         await message.populate({ path: "sender", select: "username photo" });
         console.log(message);
@@ -87,7 +88,7 @@ const ioHandler = (server) => {
         const reply = await Chat.create({
           user: socket.user._id,
           content: Message.content,
-          course: room === "general" ? null : room,
+          course: room === "general" ? null : searchQuery.course,
           replyTo: Message.replyTo,
         });
         await reply.populate({ path: "sender", select: "username photo" });

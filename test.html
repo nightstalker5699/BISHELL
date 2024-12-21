@@ -59,7 +59,7 @@
   <script src="./node_modules/socket.io/client-dist/socket.io.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      var socket = io("localhost:8000", {
+      var socket = io("https://apis.bishell.online/", {
         query: `course=general`,
         auth: {
           token:
@@ -74,12 +74,6 @@
       socket.on("connect_error", (error) => {
         console.log(error);
       });
-      socket.on("load", (val) => {
-        console.log(val);
-        const message = document.createElement("li");
-        message.innerHTML = val;
-        document.querySelector("#messages").appendChild(message);
-      });
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         if (input.value) {
@@ -89,7 +83,7 @@
       });
       socket.on("receivedMessage", (val) => {
         const message = document.createElement("li");
-        message.innerHTML = val;
+        message.innerHTML = val.content;
         document.querySelector("#messages").appendChild(message);
       });
     });
