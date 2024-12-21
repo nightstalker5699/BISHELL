@@ -11,6 +11,7 @@ const errorHandler = require("./errorController");
 const handleOn = (fn, socket) => (data) => {
   fn(data).catch((err) => {
     const error = errorHandler.socketErrorHandle(err);
+    console.log(error);
     socket.emit("error", error);
   });
 };
