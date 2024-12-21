@@ -154,9 +154,13 @@ const ioHandler = (server) => {
     socket.on(
       "updateMessage",
       handleOn(async (Message) => {
-        const reply = await Chat.findByIdAndUpdate(Message._id, {
-          content: Message.content,
-        });
+        const reply = await Chat.findByIdAndUpdate(
+          Message._id,
+          {
+            content: Message.content,
+          },
+          { new: true }
+        );
         await reply.populate({ path: "sender", select: "username photo" });
         console.log(reply);
         io.to(room).emit("updatedMessage", reply);
