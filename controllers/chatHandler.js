@@ -99,6 +99,7 @@ const ioHandler = (server) => {
         const reply = await Chat.findByIdAndUpdate(Message, {
           deletedAt: Date.now(),
         });
+        io.emit("deletedMessage", reply);
         io.to(room).emit("deletedMessage", reply);
       });
       socket.on("updateMessage", async (Message) => {
@@ -108,6 +109,7 @@ const ioHandler = (server) => {
         });
         await reply.populate({ path: "sender", select: "username photo" });
         io.to(room).emit("updatedMessage", reply);
+        io.emit("updatedMessage", reply);
       });
     } catch (err) {
       io.to(socket.io).emit("error", err);
