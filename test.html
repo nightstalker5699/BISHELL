@@ -74,17 +74,22 @@
       socket.on("connect_error", (error) => {
         console.log(error);
       });
+      let message;
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         if (input.value) {
-          socket.emit("sendMessage", "");
+          socket.emit("deleteMessage", message._id);
           input.value = "";
         }
       });
       socket.on("receivedMessage", (val) => {
         const message = document.createElement("li");
         message.innerHTML = val.content;
+        message = val;
         document.querySelector("#messages").appendChild(message);
+      });
+      socket.on("deletedMessage", (val) => {
+        console.log(val);
       });
     });
   </script>

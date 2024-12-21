@@ -106,13 +106,21 @@ const ioHandler = (server) => {
     socket.on(
       "sendReply",
       handleOn(async (Message) => {
-        const reply = await Chat.create({
+        let reply = await Chat.create({
           user: socket.user._id,
           content: Message.content,
           course: room === "general" ? null : searchQuery.course,
           replyTo: Message.replyTo,
         });
         await reply.populate({ path: "sender", select: "username photo" });
+        await reply.populate({
+          path: "replyTo",
+          select: "content",
+          populate: {
+            path: "sender",
+            select: "username",
+          },
+        });
         io.to(room).emit("receivedMessage", reply);
       }, socket)
     );
