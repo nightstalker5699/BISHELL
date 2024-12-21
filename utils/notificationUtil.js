@@ -42,6 +42,30 @@ exports.cleanupInvalidTokens = async (userId) => {
   }
 };
 
+const getNotificationConfig = (type, data) => {
+  const baseUrl = 'http://localhost:5173';
+  
+  const configs = {
+    announcement: {
+      icon: `${baseUrl}/icons/announcement.png`,
+      link: `${baseUrl}/announcements/${data.announcementId}`,
+      badge: `${baseUrl}/icons/badge.png`
+    },
+    question: {
+      icon: `${baseUrl}/icons/question.png`,
+      link: `${baseUrl}/questions/${data.questionId}`,
+      badge: `${baseUrl}/icons/badge.png`
+    },
+    default: {
+      icon: `${baseUrl}/icons/default.png`,
+      link: baseUrl,
+      badge: `${baseUrl}/icons/badge.png`
+    }
+  };
+
+  return configs[type] || configs.default;
+};
+
 exports.sendNotificationToUser = async (userId, notification, data = {}) => {
   try {
     const user = await User.findById(userId);
@@ -54,31 +78,47 @@ exports.sendNotificationToUser = async (userId, notification, data = {}) => {
       return acc;
     }, {});
 
-    // Add notification origin identifier
+    const notificationConfig = getNotificationConfig(data.type, stringifiedData);
+
     const message = {
       notification: {
         title: notification.title,
         body: notification.body,
+        icon: notificationConfig.icon,
       },
       data: {
         ...stringifiedData,
-        origin: 'server_push', // Add origin identifier
-        notificationId: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // Unique ID
+        origin: 'server_push',
+        notificationId: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        clickAction: notificationConfig.link
       },
       webpush: {
         headers: {
-          Urgency: 'high',
+          Urgency: 'high'
         },
         notification: {
           requireInteraction: true,
-          tag: `server_${Date.now()}`, // Prevent duplicates
-          renotify: false // Don't show duplicate notifications
+          tag: `server_${Date.now()}`,
+          renotify: false,
+          icon: notificationConfig.icon,
+          badge: notificationConfig.badge,
+          actions: [
+            {
+              action: 'view',
+              title: 'View',
+              icon: `${baseUrl}/icons/view.png`
+            }
+          ],
+          data: {
+            url: notificationConfig.link
+          }
         },
         fcm_options: {
-          link: stringifiedData.link || ''
+          link: notificationConfig.link
         }
       }
     };
+
 
     // Keep token batching and cleanup logic
     const batchSize = 500;
