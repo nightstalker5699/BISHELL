@@ -59,19 +59,22 @@ const ioHandler = (server) => {
         searchQuery = { course: course._id };
       }
       socket.join(room);
-      const messages = await Chat.find(searchQuery)
+      let messages = await Chat.find(searchQuery)
         .sort("-_id")
         .limit(20)
         .populate({ path: "sender", select: "username photo" });
+      messages = messages.reverse();
       socket.emit("load", messages);
       socket.on("disconnect", () => {
         socket.leave(room);
       });
       socket.on("loadMessages", async (page) => {
-        const loadMessages = await Chat.find(searchQuery)
+        let loadMessages = await Chat.find(searchQuery)
+          .sort("-_id")
           .skip((page - 1) * 20)
           .limit(20)
           .populate({ path: "sender", select: "username photo" });
+        loadMessages = loadMessages.reverse();
         socket.emit("load", loadMessages);
       });
       socket.on("sendMessage", async (Message) => {
