@@ -61,7 +61,7 @@ const ioHandler = (server) => {
       const messages = await Chat.find(searchQuery)
         .limit(20)
         .populate({ path: "sender", select: "username photo" });
-      socket.to(room).emit("load", messages);
+      socket.emit("load", messages);
       socket.on("disconnect", () => {
         socket.leave(room);
       });
@@ -70,7 +70,7 @@ const ioHandler = (server) => {
           .skip((page - 1) * 20)
           .limit(20)
           .populate({ path: "sender", select: "username photo" });
-        socket.to(room).emit("load", loadMessages);
+        socket.emit("load", loadMessages);
       });
       socket.on("sendMessage", async (Message) => {
         const message = await Chat.create({
