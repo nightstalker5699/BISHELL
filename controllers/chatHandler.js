@@ -8,6 +8,13 @@ const jwt = require("jsonwebtoken");
 const { promisify } = require("util");
 const errorHandler = require("./errorController");
 
+const handleOn = (fn, socket) => (data) => {
+  fn(data).catch((err) => {
+    const error = errorHandler.socketErrorHandle(err);
+    socket.emit("error", error);
+  });
+};
+
 const ioHandler = (server) => {
   const io = new Server(server, {
     cors: {
@@ -49,13 +56,13 @@ const ioHandler = (server) => {
       next(error);
     }
   }).on("connection", async (socket) => {
+    let searchQuery;
+    const room = socket.handshake.query.course;
     try {
-      let searchQuery;
-      const room = socket.handshake.query.course;
       if (room === "general") {
         searchQuery = { course: { $eq: null } };
       } else {
-        const course = await Course.findOne({ slug: room });
+        const course = await Course.findOne({ _id: room });
         searchQuery = { course: course._id };
       }
       socket.join(room);
@@ -65,10 +72,15 @@ const ioHandler = (server) => {
         .populate({ path: "sender", select: "username photo" });
       messages = messages.reverse();
       socket.emit("load", messages);
-      socket.on("disconnect", () => {
-        socket.leave(room);
-      });
-      socket.on("loadMessages", async (page) => {
+    } catch (err) {
+      io.emit("error", err);
+    }
+    socket.on("disconnect", () => {
+      socket.leave(room);
+    });
+    socket.on(
+      "loadMessages",
+      handleOn(async (page) => {
         let loadMessages = await Chat.find(searchQuery)
           .sort("-_id")
           .skip((page - 1) * 20)
@@ -76,8 +88,11 @@ const ioHandler = (server) => {
           .populate({ path: "sender", select: "username photo" });
         loadMessages = loadMessages.reverse();
         socket.emit("load", loadMessages);
-      });
-      socket.on("sendMessage", async (Message) => {
+      }, socket)
+    );
+    socket.on(
+      "sendMessage",
+      handleOn(async (Message) => {
         const message = await Chat.create({
           sender: socket.user._id,
           content: Message,
@@ -86,8 +101,11 @@ const ioHandler = (server) => {
         await message.populate({ path: "sender", select: "username photo" });
 
         io.to(room).emit("receivedMessage", message);
-      });
-      socket.on("sendReply", async (Message) => {
+      }, socket)
+    );
+    socket.on(
+      "sendReply",
+      handleOn(async (Message) => {
         const reply = await Chat.create({
           user: socket.user._id,
           content: Message.content,
@@ -96,25 +114,29 @@ const ioHandler = (server) => {
         });
         await reply.populate({ path: "sender", select: "username photo" });
         io.to(room).emit("receivedMessage", reply);
-      });
-      socket.on("deleteMessage", async (Message) => {
+      }, socket)
+    );
+    socket.on(
+      "deleteMessage",
+      handleOn(async (Message) => {
         const reply = await Chat.findByIdAndUpdate(Message, {
           deletedAt: Date.now(),
         });
         io.emit("deletedMessage", reply);
         io.to(room).emit("deletedMessage", reply);
-      });
-      socket.on("updateMessage", async (Message) => {
+      }, socket)
+    );
+    socket.on(
+      "updateMessage",
+      handleOn(async (Message) => {
         const reply = await Chat.findByIdAndUpdate(Message._id, {
           content: Message.content,
         });
         await reply.populate({ path: "sender", select: "username photo" });
         io.to(room).emit("updatedMessage", reply);
         io.emit("updatedMessage", reply);
-      });
-    } catch (err) {
-      io.to(socket.io).emit("error", err);
-    }
+      }, socket)
+    );
   });
 };
 

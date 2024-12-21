@@ -75,6 +75,9 @@ exports.globalErrorHandle = (err, req, res, next) => {
 exports.socketErrorHandle = (err) => {
   let error = { ...err };
   error.message = err.message;
+  if (err.name === "CastError") error = handleCastErrorDB(error);
+  if (err.code === 11000) error = handleDupFieldsDB(error);
+  if (err.name === "ValidationError") error = handleValidationErrorDB(error);
   if (err.name === "JsonWebTokenError") error = handleJWTError();
   if (err.name === "TokenExpiredError") error = handleJWTExpiredError();
   return {
