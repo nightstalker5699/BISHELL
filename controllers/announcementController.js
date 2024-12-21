@@ -66,7 +66,7 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
 
   // Send notifications to each user
   usersToNotify.forEach(user => {
-    sendNotification.sendNotificationToUser(user._id, message);
+    sendNotificationToUser(user._id, message);
   });
 
   res.status(200).json({
