@@ -158,6 +158,7 @@ const ioHandler = (server) => {
           content: Message.content,
         });
         await reply.populate({ path: "sender", select: "username photo" });
+        console.log(reply);
         io.to(room).emit("updatedMessage", reply);
       }, socket)
     );
