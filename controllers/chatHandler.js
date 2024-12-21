@@ -96,7 +96,9 @@ const ioHandler = (server) => {
       });
       socket.on("deleteMessage", async (Message) => {
         console.log(Message);
-        const reply = await Chat.findByIdAndDelete(Message);
+        const reply = await Chat.findByIdAndUpdate(Message, {
+          deletedAt: Date.now(),
+        });
         io.to(room).emit("deletedMessage", reply);
       });
       socket.on("updateMessage", async (Message) => {
