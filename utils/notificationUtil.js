@@ -15,37 +15,54 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
       return acc;
     }, {});
 
-    // Construct the FCM message (only data payload to prevent duplicate notifications)
+    // Construct the FCM message
     const notificationMessage = {
-      data: {
+      notification: {
         title: messageData.title,
         body: messageData.body,
-        ...stringifiedData, // Include any custom data passed from the function
+      },
+      data: stringifiedData,
+      webpush: {
+        headers: {
+          Urgency: 'high',
+        },
+        notification: {
+          requireInteraction: true,
+        },
+        fcm_options: {
+          link: stringifiedData.link || '',
+        },
       },
     };
+
+    const batchSize = 500; // Limit for FCM batch processing
+    const tokenBatches = [];
+    for (let i = 0; i < user.deviceTokens.length; i += batchSize) {
+      tokenBatches.push(user.deviceTokens.slice(i, i + batchSize));
+    }
 
     const messaging = admin.messaging();
     const invalidTokens = [];
 
-    // Process tokens in batches
-    const batchSize = 500; // Limit for FCM batch processing
-    const tokenBatches = Array(Math.ceil(user.deviceTokens.length / batchSize))
-      .fill()
-      .map((_, i) => user.deviceTokens.slice(i * batchSize, (i + 1) * batchSize));
-
+    // Process each batch of tokens
     for (const batch of tokenBatches) {
       try {
-        const responses = await messaging.sendMulticast({
-          tokens: batch,
+        const messages = batch.map(token => ({
           ...notificationMessage,
-        });
+          token,
+        }));
 
-        responses.responses.forEach((response, index) => {
-          if (!response.success) {
-            const error = response.error;
+        // Use Promise.allSettled to handle individual message success/failure
+        const responses = await Promise.allSettled(
+          messages.map(msg => messaging.send(msg))
+        );
+
+        responses.forEach((response, index) => {
+          if (response.status === 'rejected') {
+            const error = response.reason;
             if (
-              error.code === 'messaging/invalid-registration-token' ||
-              error.code === 'messaging/registration-token-not-registered'
+              error.code?.includes('messaging/invalid-registration-token') ||
+              error.code?.includes('messaging/registration-token-not-registered')
             ) {
               invalidTokens.push(batch[index]);
             }
