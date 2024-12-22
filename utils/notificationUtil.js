@@ -17,22 +17,11 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
 
     // Construct the FCM message
     const notificationMessage = {
-      notification: {
+      data: {
         title: messageData.title,
         body: messageData.body,
-      },
-      data: stringifiedData,
-      webpush: {
-        headers: {
-          Urgency: 'high',
-        },
-        notification: {
-          requireInteraction: true,
-        },
-        fcm_options: {
-          link: stringifiedData.link || '',
-        },
-      },
+        ...stringifiedData  // Include the stringified data
+      }
     };
 
     const batchSize = 500; // Limit for FCM batch processing
@@ -52,17 +41,28 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
           token,
         }));
 
-        // Use Promise.allSettled to handle individual message success/failure
-        const responses = await Promise.allSettled(
-          messages.map(msg => messaging.send(msg))
+        // Send messages in batch
+        const responses = await Promise.all(
+          messages.map(async (msg) => {
+            try {
+              await messaging.send(msg);
+              return { status: 'fulfilled' };
+            } catch (error) {
+              return { 
+                status: 'rejected', 
+                error: error 
+              };
+            }
+          })
         );
 
+        // Check for invalid tokens
         responses.forEach((response, index) => {
           if (response.status === 'rejected') {
-            const error = response.reason;
+            const error = response.error;
             if (
-              error.code?.includes('messaging/invalid-registration-token') ||
-              error.code?.includes('messaging/registration-token-not-registered')
+              error.code === 'messaging/invalid-registration-token' ||
+              error.code === 'messaging/registration-token-not-registered'
             ) {
               invalidTokens.push(batch[index]);
             }
