@@ -15,16 +15,30 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
       return acc;
     }, {});
 
-    // Construct the FCM message
+    // Construct the FCM message with high priority for background delivery
     const notificationMessage = {
       data: {
         title: messageData.title,
         body: messageData.body,
-        ...stringifiedData  // Include the stringified data
+        icon: messageData.icon || '/default-icon.png',
+        ...stringifiedData
+      },
+      android: {
+        priority: 'high'
+      },
+      apns: {
+        headers: {
+          'apns-priority': '10'
+        }
+      },
+      webpush: {
+        headers: {
+          Urgency: 'high'
+        }
       }
     };
 
-    const batchSize = 500; // Limit for FCM batch processing
+    const batchSize = 500;
     const tokenBatches = [];
     for (let i = 0; i < user.deviceTokens.length; i += batchSize) {
       tokenBatches.push(user.deviceTokens.slice(i, i + batchSize));
@@ -33,7 +47,6 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
     const messaging = admin.messaging();
     const invalidTokens = [];
 
-    // Process each batch of tokens
     for (const batch of tokenBatches) {
       try {
         const messages = batch.map(token => ({
@@ -41,7 +54,6 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
           token,
         }));
 
-        // Send messages in batch
         const responses = await Promise.all(
           messages.map(async (msg) => {
             try {
@@ -56,7 +68,6 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
           })
         );
 
-        // Check for invalid tokens
         responses.forEach((response, index) => {
           if (response.status === 'rejected') {
             const error = response.error;
@@ -73,7 +84,6 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
       }
     }
 
-    // Remove invalid tokens from the database
     if (invalidTokens.length > 0) {
       await User.findByIdAndUpdate(userId, {
         $pull: { deviceTokens: { $in: invalidTokens } },
