@@ -90,6 +90,8 @@ const ioHandler = (server) => {
     socket.on(
       "loadMessages",
       handleOn(async (page) => {
+        if ((await Chat.countDocuments(searchQuery)) < (page - 1) * 20)
+          throw new appError("there is no more messages", 400);
         let loadMessages = await Chat.find(searchQuery)
           .sort("-_id")
           .skip((page - 1) * 20)
