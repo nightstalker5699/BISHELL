@@ -18,9 +18,9 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
     // Construct the FCM message
     const notificationMessage = {
       data: {
-        title: messageData.title,
-        body: messageData.body,
-        ...stringifiedData  // Include the stringified data
+        title: String(messageData.title || 'New Notification'),
+        body: String(messageData.body || ''),
+        link: String(data.link || ''),
       }
     };
 
