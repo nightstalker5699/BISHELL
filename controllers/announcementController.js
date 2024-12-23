@@ -56,43 +56,44 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
     groups: groups,
   });
 
-  // Fetch users in the specified groups
-  const usersToNotify = await User.find({ group: { $in: groups } });
-
-  let notificationTitle = 'New Announcement';
-let clickAction = `/announcements`;
-
-if (announcement.courseId) {
-  const course = await Course.findById(announcement.courseId);
-  if (course) {
-    notificationTitle = `New ${course.courseName} Announcement`;
-    clickAction = `/announcements/${course._id}`;
-  }
-}
-
-const notificationPromises = usersToNotify.map(user => {
-  const messageData = {
-    title: notificationTitle,
-    body: `Title: ${announcement.title}\n${announcement.body}`,
-    click_action: clickAction,
-  };
-
-  const additionalData = {
-    action_url: clickAction,
-    type: announcement.courseId ? 'course_announcement' : 'general_announcement'
-  };
-
-  return sendNotificationToUser(user._id, messageData, additionalData);
-});
-
-// Process notifications in background
-Promise.all(notificationPromises).catch(err => {
-  console.error('Error sending notifications:', err);
-});
 
   res.status(200).json({
     status: "success",
     data: announcement,
+  });
+
+  // Handle notifications in background after response
+  const usersToNotify = await User.find({ group: { $in: groups } });
+
+  let notificationTitle = 'New Announcement';
+  let clickAction = `/announcements`;
+
+  if (announcement.courseId) {
+    const course = await Course.findById(announcement.courseId);
+    if (course) {
+      notificationTitle = `New ${course.courseName} Announcement`;
+      clickAction = `/announcements/${course._id}`;
+    }
+  }
+
+  const notificationPromises = usersToNotify.map(user => {
+    const messageData = {
+      title: notificationTitle,
+      body: `Title: ${announcement.title}\n${announcement.body}`,
+      click_action: clickAction,
+    };
+
+    const additionalData = {
+      action_url: clickAction,
+      type: announcement.courseId ? 'course_announcement' : 'general_announcement'
+    };
+
+    return sendNotificationToUser(user._id, messageData, additionalData);
+  });
+
+  // Process notifications in background
+  Promise.all(notificationPromises).catch(err => {
+    console.error('Error sending notifications:', err);
   });
 });
 
