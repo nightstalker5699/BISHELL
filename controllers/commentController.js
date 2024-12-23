@@ -7,6 +7,8 @@ const factory = require("./handlerFactory");
 const Question = require('../models/questionModel')
 const path = require('path');
 const Point = require("../models/pointModel");
+const { sendNotificationToUser } = require('../utils/notificationUtil');
+
 
 
 exports.addComment = catchAsync(async (req, res, next) => {
@@ -224,6 +226,13 @@ exports.addReply = catchAsync(async (req, res, next) => {
     description: "Posted a reply to a comment"
   });
 
+  const messageData = {
+    title: 'Your Comment was Replied',
+    body: `${req.user.username} replied to your comment.`,
+    click_action: `/questions/${req.params.questionId}#comment-${parentComment._id}`,
+  };
+  await sendNotificationToUser(parentComment.userId, messageData);
+  
   res.status(201).json({
     status: 'success',
     data: { reply: response }
@@ -328,6 +337,16 @@ exports.likeComment = catchAsync(async (req, res, next) => {
     point: 1, 
     description: "You liked someone's comment"
 });
+
+// Send notification to the comment owner
+if (comment.userId.toString() !== req.user._id.toString()) {
+  const messageData = {
+    title: 'Your Comment was Liked',
+    body: `${req.user.username} liked your comment.`,
+    click_action: `/questions/${req.params.questionId}`,
+  };
+  await sendNotificationToUser(comment.userId, messageData);
+}
 
   res.status(200).json({
     status: 'success',

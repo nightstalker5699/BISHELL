@@ -55,19 +55,26 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
     groups: groups,
   });
 
-  // Fetch users in the specified groups
-  const usersToNotify = await User.find({ group: { $in: groups } });
+  // // Fetch users in the specified groups
+  // const usersToNotify = await User.find({ group: { $in: groups } });
+
+  let notificationTitle = 'New Announcement';
+  let clickAction = `/announcements/${announcement._id}`;
+
+  if (announcement.courseId) {
+    const course = await Course.findById(announcement.courseId);
+    if (course) {
+      notificationTitle = `New ${course.name} Announcement`;
+      clickAction = `/courses/${course._id}/announcements/${announcement._id}`;
+    }
+  }
 
   // Create the notification message
   const message = {
-    title: 'New Announcement',
+    title: notificationTitle,
     body: `Title: ${announcement.title}\n${announcement.body}`,
+    click_action: clickAction, // Added click_action
   };
-
-  // Send notifications to each user
-  usersToNotify.forEach(user => {
-    sendNotificationToUser(user._id, message);
-  });
 
   res.status(200).json({
     status: "success",

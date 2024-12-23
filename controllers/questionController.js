@@ -10,6 +10,8 @@ const AppError = require("../utils/appError");
 const mime = require("mime-types");
 const APIFeatures = require("../utils/apiFeatures");
 const Point = require("../models/pointModel");
+const { sendNotificationToUser } = require('../utils/notificationUtil');
+
 
 const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
 if (!fs.existsSync(attachFileDir)) {
@@ -303,6 +305,21 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
     description: "Created a new question"
   });
 
+   // Fetch the user's followers
+   const user = await User.findById(userId).populate('followers');
+
+   // Send notifications to each follower
+   const notificationPromises = user.followers.map(follower => {
+     const messageData = {
+       title: 'New Question Posted',
+       body: `${user.username} has posted a new question.`,
+       click_action: `/questions/${newQuestion._id}`,
+     };
+     return sendNotificationToUser(follower._id, messageData);
+   });
+ 
+   await Promise.all(notificationPromises);
+   
   res.status(201).json({
     status: "success",
     data: {
