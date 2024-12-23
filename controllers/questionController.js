@@ -312,22 +312,29 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
     },
   });
 
-  // Handle notifications in background
-  const user = await User.findById(userId).populate('followers');
-  const notificationPromises = user.followers.map(follower => {
-    const messageData = {
-      title: 'New Question Posted',
-      body: `${user.username} has posted a new question.`,
-      click_action: `/questions/${newQuestion._id}`,
-    };
-    return sendNotificationToUser(follower._id, messageData);
-  });
+   // Handle notifications in background
+   const user = await User.findById(userId).populate('followers');
+   const notificationPromises = user.followers.map(follower => {
+     const clickUrl = `/questions/${newQuestion._id}`;
+     const messageData = {
+       title: 'New Question Posted',
+       body: `${user.username} has posted a new question.`,
+       click_action: clickUrl,
+     };
+ 
+     const additionalData = {
+       action_url: clickUrl,
+       type: 'question_created'
+     };
+ 
+     return sendNotificationToUser(follower._id, messageData, additionalData);
+   });
+ 
+   // Process notifications in background
+   Promise.all(notificationPromises).catch(err => {
+     console.error('Error sending notifications:', err);
+   });
 
-  // Process notifications in background
-  Promise.all(notificationPromises).catch(err => {
-    console.error('Error sending notifications:', err);
-  });
-  
 });
 
 exports.verifyComment = catchAsync(async (req, res, next) => {
@@ -831,12 +838,48 @@ exports.likeQuestion = catchAsync(async (req, res, next) => {
   question.likes.push(req.user._id);
   await question.save({ validateBeforeSave: false });
 
+  // Add points if liking someone else's question
+  if (question.userId.toString() !== req.user._id.toString()) {
+    await Point.create({
+      userId: question.userId,
+      point: 2,
+      description: "Your question received a like"
+    });
+  }
+
+  await Point.create({
+    userId: req.user._id,
+    point: 1,
+    description: "You liked a question"
+  });
+
   res.status(200).json({
     status: "success",
     data: {
       likes: question.likes.length,
     },
   });
+
+  // Send notification if not liking own question
+  if (question.userId.toString() !== req.user._id.toString()) {
+    const clickUrl = `/questions/${question._id}`;
+    const messageData = {
+      title: 'Your Question was Liked',
+      body: `${req.user.username} liked your question.`,
+      click_action: clickUrl,
+    };
+
+    const additionalData = {
+      action_url: clickUrl,
+      type: 'question_liked'
+    };
+
+    // Send notification asynchronously
+    sendNotificationToUser(question.userId, messageData, additionalData)
+      .catch(err => {
+        console.error('Error sending notification:', err);
+      });
+  }
 });
 
 exports.unlikeQuestion = catchAsync(async (req, res, next) => {

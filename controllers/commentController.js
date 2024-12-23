@@ -226,19 +226,29 @@ exports.addReply = catchAsync(async (req, res, next) => {
     description: "Posted a reply to a comment"
   });
 
-  // Send notification to the comment owner
-  const messageData = {
-    title: 'Your Comment was Replied',
-    body: `${req.user.username} replied to your comment.`,
-    click_action: `/questions/${req.params.questionId}#comment-${parentComment._id}`,
-  };
-  await sendNotificationToUser(parentComment.userId, messageData);
-
-
   res.status(201).json({
     status: 'success',
     data: { reply: response }
   });
+
+  // Handle notifications in background
+  const clickUrl = `/questions/${req.params.questionId}`;
+  const messageData = {
+    title: 'Your Comment was Replied',
+    body: `${req.user.username} replied to your comment.`,
+    click_action: clickUrl,
+  };
+
+  const additionalData = {
+    action_url: clickUrl,
+    type: 'comment_replied'
+  };
+
+  // Send notification asynchronously
+  sendNotificationToUser(parentComment.userId, messageData, additionalData)
+    .catch(err => {
+      console.error('Error sending notification:', err);
+    });
 });
 
 
@@ -310,10 +320,6 @@ exports.likeComment = catchAsync(async (req, res, next) => {
     return next(new AppError('Comment not found', 404));
   }
 
-  // if (comment.userId.toString() === req.user._id.toString()) {
-  //   return next(new AppError('You cannot like your own comment', 400));
-  // }
-
   // Check if already liked
   if (comment.likes.includes(req.user._id)) {
     return next(new AppError('You already liked this comment', 400));
@@ -333,28 +339,40 @@ exports.likeComment = catchAsync(async (req, res, next) => {
     });
   }
 
-
   await Point.create({
     userId: req.user._id,  // liker gets the points
     point: 1, 
     description: "You liked someone's comment"
-});
+  });
 
-// Send notification to the comment owner
-  if (comment.userId.toString() !== req.user._id.toString()) {
-    const messageData = {
-      title: 'Your Comment was Liked',
-      body: `${req.user.username} liked your comment.`,
-      click_action: `/questions/${req.params.questionId}`,
-    };
-    await sendNotificationToUser(comment.userId, messageData);
-  }
+  // Send response first
   res.status(200).json({
     status: 'success',
     data: {
       likes: comment.likes.length
     }
   });
+
+  // Send notification to the comment owner if it's not their own comment
+  if (comment.userId.toString() !== req.user._id.toString()) {
+    const clickUrl = `/questions/${req.params.questionId}`;
+    const messageData = {
+      title: 'Your Comment was Liked',
+      body: `${req.user.username} liked your comment.`,
+      click_action: clickUrl,
+    };
+
+    const additionalData = {
+      action_url: clickUrl,
+      type: 'comment_liked'
+    };
+
+    // Send notification asynchronously
+    sendNotificationToUser(comment.userId, messageData, additionalData)
+      .catch(err => {
+        console.error('Error sending notification:', err);
+      });
+  }
 });
 
 exports.unlikeComment = catchAsync(async (req, res, next) => {
