@@ -226,6 +226,15 @@ exports.addReply = catchAsync(async (req, res, next) => {
     description: "Posted a reply to a comment"
   });
 
+  // Send notification to the comment owner
+  const messageData = {
+    title: 'Your Comment was Replied',
+    body: `${req.user.username} replied to your comment.`,
+    click_action: `/questions/${req.params.questionId}#comment-${parentComment._id}`,
+  };
+  await sendNotificationToUser(parentComment.userId, messageData);
+
+
   res.status(201).json({
     status: 'success',
     data: { reply: response }
