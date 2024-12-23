@@ -37,6 +37,7 @@
     "openssl": "^2.0.0",
     "sharp": "^0.33.5",
     "slugify": "^1.6.6",
+    "socket.io": "^4.8.1",
     "validator": "^13.12.0",
     "xss-clean": "^0.1.4"
   }

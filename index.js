@@ -9,7 +9,7 @@ process.on("uncaughtException", (err) => {
     process.exit(1);
   });
 });
-
+const chatHandler = require("./controllers/chatHandler");
 const app = require(`./app`);
 
 const DB = process.env.DATABASE.replace(
@@ -23,6 +23,7 @@ const port = process.env.PORT;
 const server = app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
+chatHandler(server);
 
 process.on("unhandledRejection", (err) => {
   console.log(`UNHANDLED REJECTION! Shutting down...`);
