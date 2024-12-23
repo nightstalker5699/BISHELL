@@ -65,7 +65,7 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
   if (announcement.courseId) {
     const course = await Course.findById(announcement.courseId);
     if (course) {
-      notificationTitle = `New ${course.name} Announcement`;
+      notificationTitle = `New ${course.courseName} Announcement`;
       clickAction = `/courses/${course._id}/announcements/${announcement._id}`;
     }
   }
