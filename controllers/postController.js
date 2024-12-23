@@ -7,7 +7,7 @@ const multer = require("multer");
 const sharp = require("sharp");
 const fsPromises = require("fs").promises;
 const path = require("path");
-const { sendNotificationToUser } = require('../utils/notificationUtil');
+const { sendNotificationToUser } = require("../utils/notificationUtil");
 
 // Image Upload Configuration
 const storage = multer.memoryStorage();
@@ -63,7 +63,6 @@ const createUploadDirs = async () => {
   const uploadDir = path.join(__dirname, "..", "static", "img", "posts");
   try {
     await fsPromises.access(uploadDir);
-
   } catch (err) {
     await fsPromises.mkdir(uploadDir, { recursive: true });
   }
@@ -132,9 +131,9 @@ exports.getPostByUsernameAndSlug = catchAsync(async (req, res, next) => {
   const { username, slug } = req.params;
 
   // Find the user by username
-  const user = await User.findOne({ username }).select('_id');
+  const user = await User.findOne({ username }).select("_id");
   if (!user) {
-    return next(new AppError('User not found', 404));
+    return next(new AppError("User not found", 404));
   }
 
   // Find the post by userId and slug
@@ -149,7 +148,9 @@ exports.getPostByUsernameAndSlug = catchAsync(async (req, res, next) => {
     });
 
   if (!post) {
-    return next(new AppError('No post found with that slug for this user', 404));
+    return next(
+      new AppError("No post found with that slug for this user", 404)
+    );
   }
 
   // Increment views and save
@@ -217,7 +218,6 @@ exports.getUserPosts = catchAsync(async (req, res, next) => {
   });
 });
 
-
 exports.createPost = catchAsync(async (req, res, next) => {
   // Validate required fields
   if (!req.body.title) {
@@ -232,7 +232,9 @@ exports.createPost = catchAsync(async (req, res, next) => {
   try {
     contentBlocks = JSON.parse(req.body.content);
   } catch (err) {
-    return next(new AppError("Invalid content format - must be valid JSON", 400));
+    return next(
+      new AppError("Invalid content format - must be valid JSON", 400)
+    );
   }
 
   const processedBlocks = [];
@@ -263,7 +265,7 @@ exports.createPost = catchAsync(async (req, res, next) => {
     contentBlocks: processedBlocks,
     userId: req.user.id,
     label: req.body.label,
-    courseId: req.body.courseId
+    courseId: req.body.courseId,
   });
 
   res.status(201).json({
@@ -271,21 +273,28 @@ exports.createPost = catchAsync(async (req, res, next) => {
     data: { post },
   });
 
+  const user = await User.findById(req.user.id).populate("followers");
 
-  const user = await User.findById(req.user.id).populate('followers');
-  
-  const notificationPromises = user.followers.map(follower => {
+  const notificationPromises = user.followers.map((follower) => {
+    const clickUrl = `/note/${user.username}/${post.slug}`;
     const messageData = {
-      title: 'New Note Posted',
+      title: "New Note Posted",
       body: `${user.username} has posted a new note: ${post.title}`,
-      click_action: `/note/${user.username}/${post.slug}`,
+      click_action: clickUrl,
     };
-    return sendNotificationToUser(follower._id, messageData);
+
+    // Add additional data for Firebase
+    const additionalData = {
+      action_url: clickUrl,
+      type: "note_created",
+    };
+
+    return sendNotificationToUser(follower._id, messageData, additionalData);
   });
 
   // Process notifications in background
-  Promise.all(notificationPromises).catch(err => {
-    console.error('Error sending notifications:', err);
+  Promise.all(notificationPromises).catch((err) => {
+    console.error("Error sending notifications:", err);
   });
 });
 
@@ -322,7 +331,6 @@ exports.updatePost = catchAsync(async (req, res, next) => {
     data: { post },
   });
 });
-
 
 exports.deletePost = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.id);
