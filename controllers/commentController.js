@@ -182,7 +182,7 @@ exports.addReply = catchAsync(async (req, res, next) => {
   const parentComment = await Comment.findById(req.params.commentId)
     .populate({
       path: 'userId',
-      select: 'username deviceTokens _id'
+      select: 'username deviceTokens _id email' // Added email for debugging
     });
   
   if (!parentComment) {
@@ -209,10 +209,12 @@ exports.addReply = catchAsync(async (req, res, next) => {
 
   await reply.populate('userId', 'username fullName photo');
 
-  // Debug logs
-  console.log('Parent Comment User ID:', parentComment.userId._id);
-  console.log('Parent Comment User DeviceTokens:', parentComment.userId.deviceTokens);
-
+  // Enhanced debugging
+  console.log('Debug Info:');
+  console.log('1. Comment Owner ID from parentComment:', parentComment.userId._id);
+  console.log('2. Comment Owner Email:', parentComment.userId.email);
+  console.log('3. Comment Owner Username:', parentComment.userId.username);
+  
   // Send notification if not self-reply
   if (parentComment.userId._id.toString() !== req.user._id.toString()) {
     const messageData = {
@@ -222,21 +224,24 @@ exports.addReply = catchAsync(async (req, res, next) => {
     };
 
     try {
-      // Get fresh user data to ensure we have latest device tokens
-      const commentOwner = await User.findById(parentComment.userId._id);
-      if (!commentOwner || !commentOwner.deviceTokens?.length) {
-        console.log('No device tokens found for user with fresh lookup:', parentComment.userId._id);
+      // Direct user lookup by email for accuracy
+      const commentOwner = await User.findOne({ 
+        email: parentComment.userId.email 
+      }).select('+deviceTokens');
+
+      console.log('4. Found User by Email:', commentOwner ? 'Yes' : 'No');
+      console.log('5. Device Tokens:', commentOwner?.deviceTokens);
+
+      if (commentOwner && commentOwner.deviceTokens?.length) {
+        await sendNotificationToUser(commentOwner._id, messageData);
+      } else {
+        console.log('No device tokens found for user:', parentComment.userId._id);
       }
-      await sendNotificationToUser(commentOwner._id, messageData);
     } catch (error) {
       console.error('Notification error details:', error);
     }
   }
 
-  // Rest of your response handling code...
-  const response = {
-    // ... existing response object ...
-  };
 
   await Point.create({
     userId: req.user._id,
