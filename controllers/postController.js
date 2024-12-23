@@ -274,27 +274,19 @@ exports.createPost = catchAsync(async (req, res, next) => {
 
   const user = await User.findById(req.user.id).populate('followers');
   
-const notificationPromises = user.followers.map(follower => {
-  const clickUrl = `/note/${user.username}/${post.slug}`;
-  const messageData = {
-    title: 'New Note Posted',
-    body: `${user.username} has posted a new note: ${post.title}`,
-    click_action: clickUrl
-  };
+  const notificationPromises = user.followers.map(follower => {
+    const messageData = {
+      title: 'New Note Posted',
+      body: `${user.username} has posted a new note: ${post.title}`,
+      click_action: `/note/${user.username}/${post.slug}`,
+    };
+    return sendNotificationToUser(follower._id, messageData);
+  });
 
-  // Add additional data for Firebase
-  const additionalData = {
-    action_url: clickUrl,
-    type: 'note_created'
-  };
-
-  return sendNotificationToUser(follower._id, messageData, additionalData);
-});
-
-// Process notifications in background
-Promise.all(notificationPromises).catch(err => {
-  console.error('Error sending notifications:', err);
-});
+  // Process notifications in background
+  Promise.all(notificationPromises).catch(err => {
+    console.error('Error sending notifications:', err);
+  });
 });
 
 exports.updatePost = catchAsync(async (req, res, next) => {
