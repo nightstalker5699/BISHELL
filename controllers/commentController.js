@@ -226,13 +226,19 @@ exports.addReply = catchAsync(async (req, res, next) => {
     description: "Posted a reply to a comment"
   });
 
+  // Add Logging to Verify parentComment.userId
+  console.log('Parent Comment User ID:', parentComment.userId);
+
   const messageData = {
     title: 'Your Comment was Replied',
     body: `${req.user.username} replied to your comment.`,
     click_action: `/questions/${req.params.questionId}#comment-${parentComment._id}`,
   };
-  await sendNotificationToUser(parentComment.userId, messageData);
-  
+
+  // Send notification and log the result
+  const notificationResult = await sendNotificationToUser(parentComment.userId, messageData);
+  console.log('Notification Result:', notificationResult);
+
   res.status(201).json({
     status: 'success',
     data: { reply: response }

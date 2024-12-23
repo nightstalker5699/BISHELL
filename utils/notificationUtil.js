@@ -4,10 +4,14 @@ const User = require('../models/userModel');
 exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
   try {
     const user = await User.findById(userId);
+    console.log('Retrieved User:', user); // Log the retrieved user
+
     if (!user || !user.deviceTokens?.length) {
       console.error('No device tokens found for user:', userId);
-      return;
+      return { success: false, message: 'No device tokens found' };
     }
+
+    console.log('Device Tokens:', user.deviceTokens); // Log device tokens
 
     // Convert data fields to string to meet FCM requirements
     const stringifiedData = Object.keys(data).reduce((acc, key) => {
@@ -78,6 +82,7 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
       await User.findByIdAndUpdate(userId, {
         $pull: { deviceTokens: { $in: invalidTokens } },
       });
+      console.log(`Removed ${invalidTokens.length} invalid tokens for user ${userId}`);
     }
 
     return {
