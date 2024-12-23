@@ -177,7 +177,8 @@ exports.updateQuestionComment = catchAsync(async (req, res, next) => {
 });
 
 exports.addReply = catchAsync(async (req, res, next) => {
-  const parentComment = await Comment.findById(req.params.commentId);
+  const parentComment = await Comment.findById(req.params.commentId)
+    .populate('userId', 'username deviceTokens'); // Add deviceTokens to population
   
   if (!parentComment) {
     return next(new AppError('Comment not found', 404));
@@ -226,19 +227,22 @@ exports.addReply = catchAsync(async (req, res, next) => {
     description: "Posted a reply to a comment"
   });
 
-  // Add Logging to Verify parentComment.userId
-  console.log('Parent Comment User ID:', parentComment.userId);
+  // Send notification only if the parent comment owner is not the same as reply owner
+  if (parentComment.userId._id.toString() !== req.user._id.toString()) {
+    const messageData = {
+      title: 'Your Comment was Replied',
+      body: `${req.user.username} replied to your comment.`,
+      click_action: `/questions/${req.params.questionId}#comment-${parentComment._id}`,
+    };
 
-  const messageData = {
-    title: 'Your Comment was Replied',
-    body: `${req.user.username} replied to your comment.`,
-    click_action: `/questions/${req.params.questionId}#comment-${parentComment._id}`,
-  };
-
-  // Send notification and log the result
-  const notificationResult = await sendNotificationToUser(parentComment.userId, messageData);
-  console.log('Notification Result:', notificationResult);
-
+    try {
+      await sendNotificationToUser(parentComment.userId._id, messageData);
+    } catch (error) {
+      console.error('Failed to send notification:', error);
+      // Don't throw error - continue with the response
+    }
+  }
+  
   res.status(201).json({
     status: 'success',
     data: { reply: response }
