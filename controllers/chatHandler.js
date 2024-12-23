@@ -69,7 +69,7 @@ const ioHandler = (server) => {
       socket.join(room);
       let messages = await Chat.find(searchQuery)
         .sort("-_id")
-        .limit(20)
+        .limit(50)
         .populate({ path: "sender", select: "username photo" })
         .populate({
           path: "replyTo",
@@ -90,11 +90,11 @@ const ioHandler = (server) => {
     socket.on(
       "loadMessages",
       handleOn(async (page) => {
-        if ((await Chat.countDocuments(searchQuery)) < (page - 1) * 20)
+        if ((await Chat.countDocuments(searchQuery)) < (page - 1) * 50)
           throw new appError("there is no more messages", 400);
         let loadMessages = await Chat.find(searchQuery)
           .sort("-_id")
-          .skip((page - 1) * 20)
+          .skip((page - 1) * 50)
           .limit(20)
           .populate({ path: "sender", select: "username photo" })
           .populate({
