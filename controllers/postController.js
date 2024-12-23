@@ -7,6 +7,7 @@ const multer = require("multer");
 const sharp = require("sharp");
 const fsPromises = require("fs").promises;
 const path = require("path");
+const { sendNotificationToUser } = require('../utils/notificationUtil');
 
 // Image Upload Configuration
 const storage = multer.memoryStorage();
@@ -268,6 +269,23 @@ exports.createPost = catchAsync(async (req, res, next) => {
   res.status(201).json({
     status: "success",
     data: { post },
+  });
+
+
+  const user = await User.findById(req.user.id).populate('followers');
+  
+  const notificationPromises = user.followers.map(follower => {
+    const messageData = {
+      title: 'New Note Posted',
+      body: `${user.username} has posted a new note: ${post.title}`,
+      click_action: `/note/${user.username}/${post.slug}`,
+    };
+    return sendNotificationToUser(follower._id, messageData);
+  });
+
+  // Process notifications in background
+  Promise.all(notificationPromises).catch(err => {
+    console.error('Error sending notifications:', err);
   });
 });
 
