@@ -305,27 +305,29 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
     description: "Created a new question"
   });
 
-   // Fetch the user's followers
-   const user = await User.findById(userId).populate('followers');
-
-   // Send notifications to each follower
-   const notificationPromises = user.followers.map(follower => {
-     const messageData = {
-       title: 'New Question Posted',
-       body: `${user.username} has posted a new question.`,
-       click_action: `/questions/${newQuestion._id}`,
-     };
-     return sendNotificationToUser(follower._id, messageData);
-   });
- 
-   await Promise.all(notificationPromises);
-   
   res.status(201).json({
     status: "success",
     data: {
       question: response,
     },
   });
+
+  // Handle notifications in background
+  const user = await User.findById(userId).populate('followers');
+  const notificationPromises = user.followers.map(follower => {
+    const messageData = {
+      title: 'New Question Posted',
+      body: `${user.username} has posted a new question.`,
+      click_action: `/questions/${newQuestion._id}`,
+    };
+    return sendNotificationToUser(follower._id, messageData);
+  });
+
+  // Process notifications in background
+  Promise.all(notificationPromises).catch(err => {
+    console.error('Error sending notifications:', err);
+  });
+  
 });
 
 exports.verifyComment = catchAsync(async (req, res, next) => {
