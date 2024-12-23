@@ -8,6 +8,7 @@ const Question = require('../models/questionModel')
 const path = require('path');
 const Point = require("../models/pointModel");
 const { sendNotificationToUser } = require('../utils/notificationUtil');
+const User = require('../models/userModel');
 
 
 
@@ -177,8 +178,12 @@ exports.updateQuestionComment = catchAsync(async (req, res, next) => {
 });
 
 exports.addReply = catchAsync(async (req, res, next) => {
+  // Get parent comment with full user data
   const parentComment = await Comment.findById(req.params.commentId)
-    .populate('userId', 'username deviceTokens'); // Add deviceTokens to population
+    .populate({
+      path: 'userId',
+      select: 'username deviceTokens _id'
+    });
   
   if (!parentComment) {
     return next(new AppError('Comment not found', 404));
@@ -188,6 +193,7 @@ exports.addReply = catchAsync(async (req, res, next) => {
     return next(new AppError('Cannot reply to a reply', 400));
   }
 
+  // Create reply
   const reply = await Comment.create({
     userId: req.user._id,
     questionId: req.params.questionId,
@@ -203,31 +209,11 @@ exports.addReply = catchAsync(async (req, res, next) => {
 
   await reply.populate('userId', 'username fullName photo');
 
-  const response = {
-    id: reply._id,
-    content: reply.content,
-    user: {
-      username: reply.userId.username,
-      fullName: reply.userId.fullName,
-      photo: reply.userId.photo
-    },
-    parentId: reply.parentId,
-    createdAt: reply.createdAt,
-    attachment: reply.attach_file && reply.attach_file.name ? {
-      name: reply.attach_file.name,
-      size: reply.attach_file.size,
-      mimeType: reply.attach_file.mimeType,
-      url: `${req.protocol}://${req.get('host')}/static/attachFile/${reply.attach_file.name}`
-    } : null
-  };
+  // Debug logs
+  console.log('Parent Comment User ID:', parentComment.userId._id);
+  console.log('Parent Comment User DeviceTokens:', parentComment.userId.deviceTokens);
 
-  await Point.create({
-    userId: req.user._id,
-    point: 1,
-    description: "Posted a reply to a comment"
-  });
-
-  // Send notification only if the parent comment owner is not the same as reply owner
+  // Send notification if not self-reply
   if (parentComment.userId._id.toString() !== req.user._id.toString()) {
     const messageData = {
       title: 'Your Comment was Replied',
@@ -236,12 +222,27 @@ exports.addReply = catchAsync(async (req, res, next) => {
     };
 
     try {
-      await sendNotificationToUser(parentComment.userId._id, messageData);
+      // Get fresh user data to ensure we have latest device tokens
+      const commentOwner = await User.findById(parentComment.userId._id);
+      if (!commentOwner || !commentOwner.deviceTokens?.length) {
+        console.log('No device tokens found for user with fresh lookup:', parentComment.userId._id);
+      }
+      await sendNotificationToUser(commentOwner._id, messageData);
     } catch (error) {
-      console.error('Failed to send notification:', error);
-      // Don't throw error - continue with the response
+      console.error('Notification error details:', error);
     }
   }
+
+  // Rest of your response handling code...
+  const response = {
+    // ... existing response object ...
+  };
+
+  await Point.create({
+    userId: req.user._id,
+    point: 1,
+    description: "Posted a reply to a comment"
+  });
   
   res.status(201).json({
     status: 'success',
