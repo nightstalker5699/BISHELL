@@ -1,81 +1,30 @@
-const User = require('../models/userModel');
 const admin = require('../firebase');
+const User = require('../models/userModel');
 
-exports.cleanupInvalidTokens = async (userId) => {
+exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
   try {
     const user = await User.findById(userId);
-    if (!user?.deviceTokens?.length) return;
-
-    const messaging = admin.messaging();
-    const invalidTokens = [];
-
-    // Test each token
-    const tokenTests = await Promise.allSettled(
-      user.deviceTokens.map(async token => {
-        try {
-          await messaging.send({ token }, true); // dry run
-          return { token, valid: true };
-        } catch (error) {
-          if (error.code?.includes('messaging/invalid-registration') || 
-              error.code?.includes('messaging/registration-token-not-registered')) {
-            return { token, valid: false };
-          }
-          return { token, valid: true }; // assume valid on other errors
-        }
-      })
-    );
-
-    tokenTests.forEach(result => {
-      if (result.status === 'fulfilled' && !result.value.valid) {
-        invalidTokens.push(result.value.token);
-      }
-    });
-
-    if (invalidTokens.length > 0) {
-      await User.findByIdAndUpdate(userId, {
-        $pull: { deviceTokens: { $in: invalidTokens } }
-      });
-      console.log(`Cleaned up ${invalidTokens.length} invalid tokens for user ${userId}`);
-    }
-  } catch (error) {
-    console.error('Token cleanup error:', error);
-  }
-};
-
-exports.sendNotificationToUser = async (userId, notification, data = {}) => {
-  try {
-    const user = await User.findById(userId);
-    if (!user?.deviceTokens?.length) {
-      return { success: false, message: 'No valid tokens found' };
+    if (!user || !user.deviceTokens?.length) {
+      console.error('No device tokens found for user:', userId);
+      return;
     }
 
+    // Convert data fields to string to meet FCM requirements
     const stringifiedData = Object.keys(data).reduce((acc, key) => {
       acc[key] = String(data[key]);
       return acc;
     }, {});
 
-    // Simplified message structure
-    const message = {
-      notification: {
-        title: notification.title,
-        body: notification.body,
-      },
-      data: stringifiedData,
-      webpush: {
-        headers: {
-          Urgency: 'high',
-        },
-        notification: {
-          requireInteraction: true,
-        },
-        fcm_options: {
-          link: stringifiedData.link || ''
-        }
+    // Construct the FCM message
+    const notificationMessage = {
+      data: {
+        title: messageData.title,
+        body: messageData.body,
+        ...stringifiedData  // Include the stringified data
       }
     };
 
-    // Keep token batching and cleanup logic
-    const batchSize = 500;
+    const batchSize = 500; // Limit for FCM batch processing
     const tokenBatches = [];
     for (let i = 0; i < user.deviceTokens.length; i += batchSize) {
       tokenBatches.push(user.deviceTokens.slice(i, i + batchSize));
@@ -83,23 +32,38 @@ exports.sendNotificationToUser = async (userId, notification, data = {}) => {
 
     const messaging = admin.messaging();
     const invalidTokens = [];
-    
+
+    // Process each batch of tokens
     for (const batch of tokenBatches) {
       try {
         const messages = batch.map(token => ({
-          ...message,
-          token
+          ...notificationMessage,
+          token,
         }));
 
-        const responses = await Promise.allSettled(
-          messages.map(msg => messaging.send(msg))
+        // Send messages in batch
+        const responses = await Promise.all(
+          messages.map(async (msg) => {
+            try {
+              await messaging.send(msg);
+              return { status: 'fulfilled' };
+            } catch (error) {
+              return { 
+                status: 'rejected', 
+                error: error 
+              };
+            }
+          })
         );
 
+        // Check for invalid tokens
         responses.forEach((response, index) => {
           if (response.status === 'rejected') {
-            const error = response.reason;
-            if (error.code?.includes('messaging/invalid-registration-token') ||
-                error.code?.includes('messaging/registration-token-not-registered')) {
+            const error = response.error;
+            if (
+              error.code === 'messaging/invalid-registration-token' ||
+              error.code === 'messaging/registration-token-not-registered'
+            ) {
               invalidTokens.push(batch[index]);
             }
           }
@@ -109,20 +73,20 @@ exports.sendNotificationToUser = async (userId, notification, data = {}) => {
       }
     }
 
+    // Remove invalid tokens from the database
     if (invalidTokens.length > 0) {
       await User.findByIdAndUpdate(userId, {
-        $pull: { deviceTokens: { $in: invalidTokens } }
+        $pull: { deviceTokens: { $in: invalidTokens } },
       });
     }
 
     return {
       success: true,
       message: 'Notifications sent',
-      invalidTokensRemoved: invalidTokens.length
+      invalidTokensRemoved: invalidTokens.length,
     };
-
   } catch (error) {
-    console.error('Notification error:', error);
-    return { success: false, message: error.message };
+    console.error('Error sending notification:', error);
+    return { success: false, message: 'Error sending notification', error };
   }
 };

@@ -9,6 +9,8 @@ const APIFeatures = require("../utils/apiFeatures");
 const multer = require("multer");
 const sharp = require("sharp");
 const appError = require("../utils/appError");
+const { sendNotificationToUser } = require('../utils/notificationUtil');
+
 
 const storage = multer.memoryStorage({});
 
@@ -127,6 +129,15 @@ exports.followUser = catchAsync(async (req, res, next) => {
     await currentUser.save({ validateBeforeSave: false });
     await userToFollow.save({ validateBeforeSave: false });
 
+    // Send notification to followed user
+    const messageData = {
+      title: 'New Follower',
+      body: `${currentUser.username} started following you`,
+      click_action: `/profile/${currentUser.username}` // Link to follower's profile
+    };
+    
+    await sendNotificationToUser(userToFollow._id, messageData);
+    
     res.status(200).json({
       status: "success",
       message: "User followed successfully",

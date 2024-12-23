@@ -276,3 +276,44 @@ exports.logout = catchAsync(async (req, res, next) => {
     message: 'Successfully logged out'
   });
 });
+
+exports.optionalProtect = catchAsync(async (req, res, next) => {
+  let token;
+  
+  // Check for token
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
+  } else if (req.cookies.jwt) {
+    token = req.cookies.jwt;
+  }
+
+  // If no token, continue without user
+  if (!token) {
+    return next();
+  }
+
+  try {
+    // Verify token
+    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+    
+    // Get user
+    const currentUser = await User.findById(decoded.id);
+    if (!currentUser) {
+      return next();
+    }
+
+    // Check password change
+    if (currentUser.changedPasswordAfter(decoded.iat)) {
+      return next();
+    }
+
+    // Add user to request
+    req.user = currentUser;
+    next();
+  } catch (err) {
+    next();
+  }
+});

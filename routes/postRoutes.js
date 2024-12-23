@@ -5,36 +5,38 @@ const postController = require("../controllers/postController");
 const authController = require("../controllers/authController");
 const posts = require('../models/postModel')
 
-// Protected routes
-router.use(authController.protect);
 
-router.get("/user/:userId/:courseName", postController.getUserPosts);
-router.get("/user/:userId", postController.getUserPosts);
-//router.get("/:slug", postController.getPost);
-router.get("/:username/:slug", postController.getPostByUsernameAndSlug);
-
+router.get("/user/:userId/:courseName", authController.protect, postController.getUserPosts);
+router.get("/user/:userId", authController.protect, postController.getUserPosts);
+router.get("/:username/:slug", authController.optionalProtect, postController.getPostByUsernameAndSlug);
 
 router
-.route("/:id")
-.patch(
-  postController.uploadPostImages,
-  postController.processPostImages,
-  postController.updatePost
-)
-.delete(authController.isOwner(posts),postController.deletePost);
+  .route("/:id")
+  .patch(
+    authController.protect,
+    postController.uploadPostImages,
+    postController.processPostImages,
+    postController.updatePost
+  )
+  .delete(
+    authController.protect,
+    authController.isOwner(posts),
+    postController.deletePost
+  );
 
-router.post("/:id/toggle-like", postController.toggleLike);
+router.post("/:id/toggle-like", authController.protect, postController.toggleLike);
 
-router.use("/:questionId/comments", require("./commentRoutes"));
+router.use("/:questionId/comments", authController.protect, require("./commentRoutes"));
 
 router
-.route("/")
-.post(
-  postController.uploadPostImages,    
-  postController.processPostImages,   
-  postController.createPost           
-);
+  .route("/")
+  .post(
+    authController.protect,
+    postController.uploadPostImages,    
+    postController.processPostImages,   
+    postController.createPost           
+  );
 
-router.get("/", authController.restrictTo("admin"),postController.getAllPosts);
+router.get("/", authController.protect, authController.restrictTo("admin"), postController.getAllPosts);
 
 module.exports = router;

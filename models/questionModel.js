@@ -41,7 +41,26 @@ const questionSchema = new mongoose.Schema(
   }
 );
 
+questionSchema.virtual('likesCount').get(function() {
+  return this.likes.length;
+});
 
+questionSchema.index({ createdAt: -1 });
+questionSchema.index({ likes: 1 });
+
+questionSchema.statics.findAllSortedByLikes = async function(filter, skip, limit) {
+  return this.aggregate([
+    { $match: filter },
+    {
+      $addFields: {
+        likesCount: { $size: "$likes" }
+      }
+    },
+    { $sort: { likesCount: -1 } },
+    { $skip: skip },
+    { $limit: limit }
+  ]);
+};
 
 const Question = mongoose.model('Question', questionSchema);
 module.exports = Question;

@@ -36,6 +36,25 @@ exports.getUserLog = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.givePointToUser = catchAsync(async (req, res, next) => {
+  const { userId, point, description } = req.body;
+
+  if (!userId || !point || !description) {
+    return next(new AppError("Please provide userId, point, and description", 400));
+  }
+
+  const log = await Point.create({
+    userId,
+    point,
+    description,
+  });
+
+  res.status(201).json({
+    status: "success",
+    data: log,
+  });
+});
+
 exports.getAllpoint = factory.getAll(Point);
 exports.deletepoint = factory.deleteOne(Point);
 exports.updatepoint = factory.updateOne(Point);

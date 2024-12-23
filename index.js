@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const dotenv = require(`dotenv`);
 dotenv.config({ path: `${__dirname}/config.env` });
-
+process.env.TZ = "Africa/Cairo";
 process.on("uncaughtException", (err) => {
   console.log("UNCAUGHT EXCEPTION! Shutting down...", err);
   console.log(err.name, err.message);

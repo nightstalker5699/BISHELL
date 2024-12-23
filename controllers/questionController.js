@@ -9,6 +9,9 @@ const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const mime = require("mime-types");
 const APIFeatures = require("../utils/apiFeatures");
+const Point = require("../models/pointModel");
+const { sendNotificationToUser } = require('../utils/notificationUtil');
+
 
 const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
 if (!fs.existsSync(attachFileDir)) {
@@ -30,12 +33,10 @@ const upload = multer({ storage }).single("attach_file");
 exports.uploadAttachFile = upload;
 
 exports.getAllQuestions = catchAsync(async (req, res, next) => {
-  // Default pagination values
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const skip = (page - 1) * limit;
 
-  // Base filter
   const filter = {};
   if (req.query.answered === "true") {
     filter.verifiedComment = { $exists: true };
@@ -43,48 +44,82 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
     filter.verifiedComment = { $exists: false };
   }
 
-  // Get total docs for pagination
   const total = await Question.countDocuments(filter);
 
-  // Get paginated questions
-  const questions = await Question.find(filter)
-    .select(
-      "content userId likes comments createdAt verifiedComment attach_file"
-    )
-    .populate({
-      path: "userId",
-      select: "username photo fullName -_id",
-    })
-    .populate({
-      path: "verifiedComment",
-      select: "content userId attach_file likes replies",
-      populate: [
-        {
-          path: "userId",
-          select: "username photo fullName -_id",
-        },
-        {
-          path: "replies",
-          match: { parentId: { $ne: null } },
-        },
-      ],
-    })
-    .populate({
-      path: "comments",
-      populate: [
-        {
-          path: "userId",
-          select: "username photo fullName -_id",
-        },
-        {
-          path: "replies",
-          match: { parentId: { $ne: null } },
-        },
-      ],
-    })
-    .sort(req.query.sort ? req.query.sort.split(",").join(" ") : "-createdAt")
-    .skip(skip)
-    .limit(limit);
+  let questions;
+  if (req.query.sort === '-likes') {
+    questions = await Question.findAllSortedByLikes(filter, skip, limit);
+    questions = await Question.populate(questions, [
+      {
+        path: "userId",
+        select: "username photo fullName role",
+      },
+      {
+        path: "verifiedComment",
+        select: "content userId attach_file likes replies",
+        populate: [
+          {
+            path: "userId",
+            select: "username photo fullName role",
+          },
+          {
+            path: "replies",
+            match: { parentId: { $ne: null } },
+          },
+        ],
+      },
+      {
+        path: "comments",
+        populate: [
+          {
+            path: "userId",
+            select: "username photo fullName role",
+          },
+          {
+            path: "replies",
+            match: { parentId: { $ne: null } },
+          },
+        ],
+      },
+    ]);
+  } else {
+    questions = await Question.find(filter)
+      .select("content userId likes comments createdAt verifiedComment attach_file")
+      .populate({
+        path: "userId",
+        select: "username photo fullName role",
+      })
+      .populate({
+        path: "verifiedComment",
+        select: "content userId attach_file likes replies",
+        populate: [
+          {
+            path: "userId",
+            select: "username photo fullName role",
+          },
+          {
+            path: "replies",
+            match: { parentId: { $ne: null } },
+          },
+        ],
+      })
+      .populate({
+        path: "comments",
+        populate: [
+          {
+            path: "userId",
+            select: "username photo fullName role",
+          },
+          {
+            path: "replies",
+            match: { parentId: { $ne: null } },
+          },
+        ],
+      })
+      .sort(req.query.sort ? req.query.sort.split(",").join(" ") : "-createdAt")
+      .skip(skip)
+      .limit(limit);
+  }
 
   const formattedQuestions = await Promise.all(
     questions.map(async (question) => {
@@ -95,6 +130,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
           username: question.userId.username,
           fullName: question.userId.fullName,
           photo: question.userId.photo,
+          role: question.userId.role
         },
         stats: {
           likesCount: question.likes?.length || 0,
@@ -235,7 +271,7 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
   const newQuestion = await Question.create(questionData);
   await newQuestion.populate({
     path: "userId",
-    select: "username fullName photo",
+    select: "username fullName photo role",
   });
 
   const response = {
@@ -263,12 +299,42 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
     },
   };
 
+  await Point.create({
+    userId: userId,
+    point: 5,
+    description: "Created a new question"
+  });
+
   res.status(201).json({
     status: "success",
     data: {
       question: response,
     },
   });
+
+   // Handle notifications in background
+   const user = await User.findById(userId).populate('followers');
+   const notificationPromises = user.followers.map(follower => {
+     const clickUrl = `/questions/${newQuestion._id}`;
+     const messageData = {
+       title: 'New Question Posted',
+       body: `${user.username} has posted a new question.`,
+       click_action: clickUrl,
+     };
+ 
+     const additionalData = {
+       action_url: clickUrl,
+       type: 'question_created'
+     };
+ 
+     return sendNotificationToUser(follower._id, messageData, additionalData);
+   });
+ 
+   // Process notifications in background
+   Promise.all(notificationPromises).catch(err => {
+     console.error('Error sending notifications:', err);
+   });
+
 });
 
 exports.verifyComment = catchAsync(async (req, res, next) => {
@@ -285,7 +351,8 @@ exports.verifyComment = catchAsync(async (req, res, next) => {
   // Check if user is question owner or doctor
   if (
     question.userId.toString() !== req.user._id.toString() &&
-    req.user.role !== "doctor"
+    req.user.role !== "instructor" &&
+    req.user.role !== "group-leader"
   ) {
     return next(new AppError("You are not authorized to verify answers", 403));
   }
@@ -302,6 +369,12 @@ exports.verifyComment = catchAsync(async (req, res, next) => {
   question.verifiedComment = comment._id;
   await question.save({ validateBeforeSave: false });
 
+  await Point.create({
+    userId: comment.userId,
+    point: 10,
+    description: "Your comment was verified as the correct answer"
+  });
+
   res.status(200).json({
     status: "success",
     data: { question },
@@ -317,7 +390,8 @@ exports.unverifyComment = catchAsync(async (req, res, next) => {
   // Check if user is question owner or doctor
   if (
     question.userId.toString() !== req.user._id.toString() &&
-    req.user.role !== "doctor"
+    req.user.role !== "instructor" &&
+    req.user.role !== "group-leader"
   ) {
     return next(
       new AppError("You are not authorized to unverify answers", 403)
@@ -331,6 +405,15 @@ exports.unverifyComment = catchAsync(async (req, res, next) => {
 
   question.verifiedComment = null;
   await question.save({ validateBeforeSave: false });
+
+  // Deduct points from comment owner
+  if (verifiedComment) {
+    await Point.create({
+      userId: verifiedComment.userId,
+      point: -10, // Deduct same points given for verification
+      description: "Comment unverified as answer"
+    });
+  }
 
   res.status(200).json({
     status: "success",
@@ -347,7 +430,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
   const question = await Question.findById(req.params.id)
     .populate({
       path: "userId",
-      select: "username fullName photo",
+      select: "username fullName photo role",
     })
     .populate({
       path: "verifiedComment",
@@ -355,14 +438,14 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       populate: [
         {
           path: "userId",
-          select: "username fullName photo",
+          select: "username fullName photo role",
         },
         {
           path: "replies",
           options: { sort: sort },
           populate: {
             path: "userId",
-            select: "username fullName photo",
+            select: "username fullName photo role",
           },
         },
       ],
@@ -388,7 +471,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
   })
     .populate({
       path: "userId",
-      select: "username fullName photo",
+      select: "username fullName photo role",
     })
     .populate({
       path: "replies",
@@ -396,7 +479,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       options: { sort: sort }, // Add sorting here
       populate: {
         path: "userId",
-        select: "username fullName photo",
+        select: "username fullName photo role",
       },
     })
     .sort(sort)
@@ -409,6 +492,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       username: question.userId.username,
       fullName: question.userId.fullName,
       photo: question.userId.photo,
+      role: question.userId.role
     },
     stats: {
       likesCount: question.likes.length,
@@ -442,6 +526,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         username: question.verifiedComment.userId.username,
         fullName: question.verifiedComment.userId.fullName,
         photo: question.verifiedComment.userId.photo,
+        role: question.verifiedComment.userId.role
       },
       stats: {
         likesCount: question.verifiedComment.likes.length,
@@ -457,6 +542,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
           username: reply.userId.username,
           fullName: reply.userId.fullName,
           photo: reply.userId.photo,
+          role: reply.userId.role
         },
         stats: {
           likesCount: reply.likes.length,
@@ -511,6 +597,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         username: comment.userId.username,
         fullName: comment.userId.fullName,
         photo: comment.userId.photo,
+        role: comment.userId.role
       },
       stats: {
         likesCount: comment.likes.length,
@@ -537,6 +624,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
           username: reply.userId.username,
           fullName: reply.userId.fullName,
           photo: reply.userId.photo,
+          role: reply.userId.role
         },
         stats: {
           likesCount: reply.likes.length,
@@ -619,7 +707,7 @@ exports.updateQuestion = catchAsync(async (req, res, next) => {
   await question.save();
   await question.populate({
     path: "userId",
-    select: "username fullName photo",
+    select: "username fullName photo role",
   });
 
   const formattedQuestion = {
@@ -629,6 +717,7 @@ exports.updateQuestion = catchAsync(async (req, res, next) => {
       username: question.userId.username,
       fullName: question.userId.fullName,
       photo: question.userId.photo,
+      role: question.userId.role
     },
     attachment:
       question.attach_file && question.attach_file.name
@@ -662,73 +751,75 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
     return next(new AppError("Question not found", 404));
   }
 
-  // Check if user owns the question
-  if (question.userId.toString() !== req.user._id.toString()) {
-    return next(new AppError("You can only delete your own questions", 403));
+  // Check authorization
+  if (question.userId.toString() !== req.user._id.toString() && 
+      req.user.role !== 'admin' &&
+      req.user.role !== 'group-leader') {
+    return next(new AppError("You are not authorized to delete this question", 403));
   }
 
-  // Helper function to delete attachment file
   const deleteAttachment = async (filePath) => {
     try {
       await fsp.access(filePath);
-      await fsp.unlink(filePath);
+      await fsp.unlink(filePath);  
     } catch (err) {
       console.log(`Could not delete file ${filePath}: ${err.message}`);
     }
   };
 
   try {
-    // 1. Delete question's attachment if exists
+    // Deduct points from question creator
+    await Point.create({
+      userId: question.userId,
+      point: -5, // Deduct same amount given for creating question
+      description: "Question deleted"
+    });
+
+    // Delete question's attachment if exists
     if (question.attach_file && question.attach_file.name) {
       const questionFilePath = path.join(
         __dirname,
         "..",
-        "static",
+        "static", 
         "attachFile",
         question.attach_file.name
       );
       await deleteAttachment(questionFilePath);
     }
 
-    // 2. Get all comments including replies
+    // Delete all comments' attachments
     const comments = await Comment.find({
-      $or: [
-        { questionId: question._id },
-        { questionId: question._id, parentId: { $exists: true } },
-      ],
+      questionId: question._id
     });
 
-    // 3. Delete all comments' attachments
     for (const comment of comments) {
       if (comment.attach_file && comment.attach_file.name) {
         const commentFilePath = path.join(
           __dirname,
           "..",
           "static",
-          "attachFile",
+          "attachFile", 
           comment.attach_file.name
         );
         await deleteAttachment(commentFilePath);
       }
     }
 
-    // 4. Delete all comments and replies
+    // Delete all comments and replies
     await Comment.deleteMany({ questionId: question._id });
 
-    // 5. Delete the question
+    // Delete the question
     await question.deleteOne();
 
     res.status(204).json({
       status: "success",
-      data: null,
+      data: null
     });
   } catch (error) {
-    return next(
-      new AppError("Error deleting question and associated data", 500)
-    );
+    return next(new AppError("Error deleting question and associated data", 500));
   }
 });
-
+// protection On deleting Question for points done
 // LIKESSSS
 
 exports.likeQuestion = catchAsync(async (req, res, next) => {
@@ -747,12 +838,48 @@ exports.likeQuestion = catchAsync(async (req, res, next) => {
   question.likes.push(req.user._id);
   await question.save({ validateBeforeSave: false });
 
+  // Add points if liking someone else's question
+  if (question.userId.toString() !== req.user._id.toString()) {
+    await Point.create({
+      userId: question.userId,
+      point: 2,
+      description: "Your question received a like"
+    });
+  }
+
+  await Point.create({
+    userId: req.user._id,
+    point: 1,
+    description: "You liked a question"
+  });
+
   res.status(200).json({
     status: "success",
     data: {
       likes: question.likes.length,
     },
   });
+
+  // Send notification if not liking own question
+  if (question.userId.toString() !== req.user._id.toString()) {
+    const clickUrl = `/questions/${question._id}`;
+    const messageData = {
+      title: 'Your Question was Liked',
+      body: `${req.user.username} liked your question.`,
+      click_action: clickUrl,
+    };
+
+    const additionalData = {
+      action_url: clickUrl,
+      type: 'question_liked'
+    };
+
+    // Send notification asynchronously
+    sendNotificationToUser(question.userId, messageData, additionalData)
+      .catch(err => {
+        console.error('Error sending notification:', err);
+      });
+  }
 });
 
 exports.unlikeQuestion = catchAsync(async (req, res, next) => {

@@ -6,6 +6,10 @@ const Post = require("./../models/postModel");
 const factory = require("./handlerFactory");
 const Question = require('../models/questionModel')
 const path = require('path');
+const Point = require("../models/pointModel");
+const { sendNotificationToUser } = require('../utils/notificationUtil');
+
+
 
 exports.addComment = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.questionId);
@@ -113,6 +117,12 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
     }
   };
 
+  await Point.create({
+    userId: req.user._id,
+    point: 1,
+    description: "Posted a comment on a question"
+  });
+
   res.status(201).json({
     status: 'success',
     data: { comment: response }
@@ -210,10 +220,35 @@ exports.addReply = catchAsync(async (req, res, next) => {
     } : null
   };
 
+  await Point.create({
+    userId: req.user._id,
+    point: 1,
+    description: "Posted a reply to a comment"
+  });
+
   res.status(201).json({
     status: 'success',
     data: { reply: response }
   });
+
+  // Handle notifications in background
+  const clickUrl = `/questions/${req.params.questionId}`;
+  const messageData = {
+    title: 'Your Comment was Replied',
+    body: `${req.user.username} replied to your comment.`,
+    click_action: clickUrl,
+  };
+
+  const additionalData = {
+    action_url: clickUrl,
+    type: 'comment_replied'
+  };
+
+  // Send notification asynchronously
+  sendNotificationToUser(parentComment.userId, messageData, additionalData)
+    .catch(err => {
+      console.error('Error sending notification:', err);
+    });
 });
 
 
@@ -227,44 +262,43 @@ exports.deleteQuestionComment = catchAsync(async (req, res, next) => {
     return next(new AppError('Comment not found', 404));
   }
 
-  // Check if user owns the comment
   if (comment.userId.toString() !== req.user._id.toString()) {
     return next(new AppError('You can only delete your own comments', 403));
   }
 
-  // Get all replies to this comment
   const replies = await Comment.find({ parentId: comment._id });
   
-  // Helper function to delete attachment file
   const deleteAttachment = async (comment) => {
     if (comment.attach_file && comment.attach_file.name) {
       const filePath = path.join(__dirname, '..', 'static', 'attachFile', comment.attach_file.name);
       try {
-        await fs.access(filePath); // Check if file exists
-        await fs.unlink(filePath); // Delete file
+        await fs.access(filePath);
+        await fs.unlink(filePath);
       } catch (err) {
-        // File doesn't exist or other error - continue execution
         console.log(`Could not delete file ${filePath}: ${err.message}`);
       }
     }
   };
 
   try {
-    // Delete main comment's attachment
+    // Deduct points for main comment deletion
+    await Point.create({
+      userId: comment.userId,
+      point: -1,
+      description: "Comment deleted"
+    });
+
     await deleteAttachment(comment);
 
-    // Delete replies' attachments and the replies themselves
     for (const reply of replies) {
       await deleteAttachment(reply);
       await reply.deleteOne();
     }
 
-    // Remove comment from question's comments array
     await Question.findByIdAndUpdate(req.params.questionId, {
       $pull: { comments: comment._id }
     });
 
-    // Delete the main comment
     await comment.deleteOne();
 
     res.status(204).json({
@@ -275,7 +309,6 @@ exports.deleteQuestionComment = catchAsync(async (req, res, next) => {
     return next(new AppError('Error deleting comment and associated data', 500));
   }
 });
-
 
 exports.likeComment = catchAsync(async (req, res, next) => {
   const comment = await Comment.findOne({
@@ -296,12 +329,50 @@ exports.likeComment = catchAsync(async (req, res, next) => {
   comment.likes.push(req.user._id);
   await comment.save({ validateBeforeSave: false });
 
+  // Check if user is liking their own comment
+  if (comment.userId.toString() !== req.user._id.toString()) {
+    // Liked someone else's comment
+    await Point.create({
+      userId: comment.userId,
+      point: 2,
+      description: "Your comment/reply received a like"
+    });
+  }
+
+  await Point.create({
+    userId: req.user._id,  // liker gets the points
+    point: 1, 
+    description: "You liked someone's comment"
+  });
+
+  // Send response first
   res.status(200).json({
     status: 'success',
     data: {
       likes: comment.likes.length
     }
   });
+
+  // Send notification to the comment owner if it's not their own comment
+  if (comment.userId.toString() !== req.user._id.toString()) {
+    const clickUrl = `/questions/${req.params.questionId}`;
+    const messageData = {
+      title: 'Your Comment was Liked',
+      body: `${req.user.username} liked your comment.`,
+      click_action: clickUrl,
+    };
+
+    const additionalData = {
+      action_url: clickUrl,
+      type: 'comment_liked'
+    };
+
+    // Send notification asynchronously
+    sendNotificationToUser(comment.userId, messageData, additionalData)
+      .catch(err => {
+        console.error('Error sending notification:', err);
+      });
+  }
 });
 
 exports.unlikeComment = catchAsync(async (req, res, next) => {
@@ -323,6 +394,18 @@ exports.unlikeComment = catchAsync(async (req, res, next) => {
   comment.likes = comment.likes.filter(id => !id.equals(req.user._id));
   await comment.save({ validateBeforeSave: false });
 
+  await Point.create({
+    userId: comment.userId,
+    point: -2, // Deduct points from comment owner
+    description: "Comment/reply lost a like"
+  });
+
+  await Point.create({
+    userId: req.user._id,
+    point: -1, // Deduct point from user who unliked
+    description: "Unliked a comment"
+  });
+
   res.status(200).json({
     status: 'success',
     data: {
@@ -330,3 +413,5 @@ exports.unlikeComment = catchAsync(async (req, res, next) => {
     }
   });
 });
+
+// protection on comments and likes
