@@ -8,7 +8,6 @@ const Question = require('../models/questionModel')
 const path = require('path');
 const Point = require("../models/pointModel");
 const { sendNotificationToUser } = require('../utils/notificationUtil');
-const User = require('../models/userModel');
 
 
 
@@ -178,12 +177,7 @@ exports.updateQuestionComment = catchAsync(async (req, res, next) => {
 });
 
 exports.addReply = catchAsync(async (req, res, next) => {
-  // Get parent comment with full user data
-  const parentComment = await Comment.findById(req.params.commentId)
-    .populate({
-      path: 'userId',
-      select: 'username deviceTokens _id email' // Added email for debugging
-    });
+  const parentComment = await Comment.findById(req.params.commentId);
   
   if (!parentComment) {
     return next(new AppError('Comment not found', 404));
@@ -193,7 +187,6 @@ exports.addReply = catchAsync(async (req, res, next) => {
     return next(new AppError('Cannot reply to a reply', 400));
   }
 
-  // Create reply
   const reply = await Comment.create({
     userId: req.user._id,
     questionId: req.params.questionId,
@@ -209,45 +202,36 @@ exports.addReply = catchAsync(async (req, res, next) => {
 
   await reply.populate('userId', 'username fullName photo');
 
-  // Enhanced debugging
-  console.log('Debug Info:');
-  console.log('1. Comment Owner ID from parentComment:', parentComment.userId._id);
-  console.log('2. Comment Owner Email:', parentComment.userId.email);
-  console.log('3. Comment Owner Username:', parentComment.userId.username);
-  
-  // Send notification if not self-reply
-  if (parentComment.userId._id.toString() !== req.user._id.toString()) {
-    const messageData = {
-      title: 'Your Comment was Replied',
-      body: `${req.user.username} replied to your comment.`,
-      click_action: `/questions/${req.params.questionId}#comment-${parentComment._id}`,
-    };
-
-    try {
-      // Direct user lookup by email for accuracy
-      const commentOwner = await User.findOne({ 
-        email: parentComment.userId.email 
-      }).select('+deviceTokens');
-
-      console.log('4. Found User by Email:', commentOwner ? 'Yes' : 'No');
-      console.log('5. Device Tokens:', commentOwner?.deviceTokens);
-
-      if (commentOwner && commentOwner.deviceTokens?.length) {
-        await sendNotificationToUser(commentOwner._id, messageData);
-      } else {
-        console.log('No device tokens found for user:', parentComment.userId._id);
-      }
-    } catch (error) {
-      console.error('Notification error details:', error);
-    }
-  }
-
+  const response = {
+    id: reply._id,
+    content: reply.content,
+    user: {
+      username: reply.userId.username,
+      fullName: reply.userId.fullName,
+      photo: reply.userId.photo
+    },
+    parentId: reply.parentId,
+    createdAt: reply.createdAt,
+    attachment: reply.attach_file && reply.attach_file.name ? {
+      name: reply.attach_file.name,
+      size: reply.attach_file.size,
+      mimeType: reply.attach_file.mimeType,
+      url: `${req.protocol}://${req.get('host')}/static/attachFile/${reply.attach_file.name}`
+    } : null
+  };
 
   await Point.create({
     userId: req.user._id,
     point: 1,
     description: "Posted a reply to a comment"
   });
+
+  const messageData = {
+    title: 'Your Comment was Replied',
+    body: `${req.user.username} replied to your comment.`,
+    click_action: `/questions/${req.params.questionId}#comment-${parentComment._id}`,
+  };
+  await sendNotificationToUser(parentComment.userId, messageData);
   
   res.status(201).json({
     status: 'success',
