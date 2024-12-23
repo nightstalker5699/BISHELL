@@ -8,6 +8,7 @@ const multer = require("multer");
 const APIFeatures = require("../utils/apiFeatures");
 const { sendNotificationToUser } = require('../utils/notificationUtil');
 const User = require('../models/userModel');
+const Course = require('../models/courseModel');
 
 const attach_file = path.join(__dirname, "..", "static/attachFile");
 if (!fs.existsSync(attach_file)) {
