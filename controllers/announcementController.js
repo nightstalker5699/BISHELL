@@ -60,28 +60,35 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
   const usersToNotify = await User.find({ group: { $in: groups } });
 
   let notificationTitle = 'New Announcement';
-  let clickAction = `/announcements/${announcement._id}`;
+let clickAction = `/announcements`;
 
-  if (announcement.courseId) {
-    const course = await Course.findById(announcement.courseId);
-    if (course) {
-      notificationTitle = `New ${course.courseName} Announcement`;
-      clickAction = `/courses/${course._id}/announcements/${announcement._id}`;
-    }
+if (announcement.courseId) {
+  const course = await Course.findById(announcement.courseId);
+  if (course) {
+    notificationTitle = `New ${course.courseName} Announcement`;
+    clickAction = `/announcements/${course._id}`;
   }
+}
 
-  // Create the notification message
-  const message = {
+const notificationPromises = usersToNotify.map(user => {
+  const messageData = {
     title: notificationTitle,
     body: `Title: ${announcement.title}\n${announcement.body}`,
-    click_action: clickAction, // Added click_action
+    click_action: clickAction,
   };
 
+  const additionalData = {
+    action_url: clickAction,
+    type: announcement.courseId ? 'course_announcement' : 'general_announcement'
+  };
 
-  // Send notifications to each user
-  usersToNotify.forEach(user => {
-    sendNotificationToUser(user._id, message);
-  });
+  return sendNotificationToUser(user._id, messageData, additionalData);
+});
+
+// Process notifications in background
+Promise.all(notificationPromises).catch(err => {
+  console.error('Error sending notifications:', err);
+});
 
   res.status(200).json({
     status: "success",
