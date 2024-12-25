@@ -7,6 +7,7 @@ const appError = require("../utils/appError");
 const jwt = require("jsonwebtoken");
 const { promisify } = require("util");
 const errorHandler = require("./errorController");
+const { sendNotificationToUser } = require("../utils/notificationUtil");
 
 const handleOn = (fn, socket) => (data) => {
   fn(data).catch((err) => {
@@ -120,6 +121,33 @@ const ioHandler = (server) => {
         await message.populate({ path: "sender", select: "username photo" });
 
         io.to(room).emit("receivedMessage", message);
+        const followers = message.sender.followers || [];
+        const courseInfo =
+          room === "general" ? "General Chat" : `Course: ${room}`;
+
+        // Prepare notification data
+        const clickUrl = `/chat/${room}`;
+        const messageData = {
+          title: `New Message from ${message.sender.username}`,
+          body: `${message.sender.username} sent: ${Message.slice(0, 50)}${
+            Message.length > 50 ? "..." : ""
+          }`,
+          click_action: clickUrl,
+        };
+
+        const additionalData = {
+          action_url: clickUrl,
+          type: "new_chat_message",
+          room: room,
+          sender: message.sender.username,
+        };
+
+        // Send notifications to all followers
+        followers.forEach((followerId) => {
+          sendNotificationToUser(followerId, messageData, additionalData).catch(
+            (err) => console.error("Error sending notification:", err)
+          );
+        });
       }, socket)
     );
     socket.on(
