@@ -482,7 +482,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         select: "username fullName photo role",
       },
     })
-    .sort("-createdAt")
+    .sort("createdAt")
     .skip(skip)
     .limit(limit);
   const formattedQuestion = {
