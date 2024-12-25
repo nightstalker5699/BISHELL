@@ -476,7 +476,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
     .populate({
       path: "replies",
       match: { parentId: { $ne: null } },
-      options: { sort: sort }, // Add sorting here
+      options: { sort: "-createdAt" }, // Add sorting here
       populate: {
         path: "userId",
         select: "username fullName photo role",
