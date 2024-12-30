@@ -58,7 +58,7 @@ exports.deleteComment = catchAsync(async (req, res, next) => {
 
 exports.getAllComments = catchAsync(async (req, res, next) => {
   const comments = await Comment.find({ questionId: req.params.questionId })
-    .populate('userId', 'username fullName photo')
+    .populate('userId', 'username fullName photo userFrame')
     .sort('-createdAt');
 
   res.status(200).json({
@@ -93,7 +93,7 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
   question.comments.push(comment._id);
   await question.save({ validateBeforeSave: false });
 
-  await comment.populate('userId', 'username fullName photo');
+  await comment.populate('userId', 'username fullName photo userFrame');
 
   const response = {
     _id: comment._id,
@@ -102,7 +102,7 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
       _id: comment.userId._id,
       username: comment.userId.username,
       fullName: comment.userId.fullName,
-      photo: comment.userId.photo
+      userFrame: comment.userId.userFrame
     },
     questionId: comment.questionId,
     attachment: comment.attach_file && comment.attach_file.name ? {
@@ -148,7 +148,7 @@ exports.updateQuestionComment = catchAsync(async (req, res, next) => {
   // Update only the content
   comment.content = req.body.content;
   await comment.save();
-  await comment.populate('userId', 'username fullName photo');
+  await comment.populate('userId', 'username fullName photo userFrame');
 
   const response = {
     id: comment._id,
@@ -156,7 +156,8 @@ exports.updateQuestionComment = catchAsync(async (req, res, next) => {
     user: {
       username: comment.userId.username,
       fullName: comment.userId.fullName,
-      photo: comment.userId.photo
+      photo: comment.userId.photo,
+      userFrame: comment.userId.userFrame
     },
     attachment: comment.attach_file && comment.attach_file.name ? {
       name: comment.attach_file.name,
@@ -208,7 +209,8 @@ exports.addReply = catchAsync(async (req, res, next) => {
     user: {
       username: reply.userId.username,
       fullName: reply.userId.fullName,
-      photo: reply.userId.photo
+      photo: reply.userId.photo,
+      userFrame: reply.userId.userFrame
     },
     parentId: reply.parentId,
     createdAt: reply.createdAt,

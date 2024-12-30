@@ -34,6 +34,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "default.jpg",
     },
+    userFrame: {
+      type: String,
+      default: "null"
+    },
     caption: {
       type: String,
       required: [false],
