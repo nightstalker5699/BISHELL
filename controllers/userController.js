@@ -9,8 +9,7 @@ const APIFeatures = require("../utils/apiFeatures");
 const multer = require("multer");
 const sharp = require("sharp");
 const appError = require("../utils/appError");
-const { sendNotificationToUser } = require('../utils/notificationUtil');
-
+const { sendNotificationToUser } = require("../utils/notificationUtil");
 
 const storage = multer.memoryStorage({});
 
@@ -131,13 +130,13 @@ exports.followUser = catchAsync(async (req, res, next) => {
 
     // Send notification to followed user
     const messageData = {
-      title: 'New Follower',
+      title: "New Follower",
       body: `${currentUser.username} started following you`,
-      click_action: `/profile/${currentUser.username}` // Link to follower's profile
+      click_action: `/profile/${currentUser.username}`, // Link to follower's profile
     };
-    
+
     await sendNotificationToUser(userToFollow._id, messageData);
-    
+
     res.status(200).json({
       status: "success",
       message: "User followed successfully",
@@ -169,7 +168,7 @@ exports.unfollowUser = catchAsync(async (req, res, next) => {
 });
 
 exports.getFollowers = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.params.id);
+  const user = await User.findOne({ username: req.params.username });
 
   if (!user) {
     return next(new AppError("User not found", 404));
@@ -188,11 +187,14 @@ exports.getFollowers = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
+    result: user.followers.length, // Total count of followers
     data: {
       followers,
-      totalFollowers: user.followers.length, // Total count of followers
+    },
+    pagination: {
+      currentPage: req.query.page * 1,
       totalPages: Math.ceil(
-        user.followers.length / (req.query.limit * 1 || 100)
+        user.followers.length / (req.query.limit * 1 || 10)
       ),
     },
   });
@@ -201,7 +203,7 @@ exports.getFollowers = catchAsync(async (req, res, next) => {
 // userController.js
 
 exports.getFollowing = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.params.id);
+  const user = await User.findOne({ username: req.params.username });
 
   if (!user) {
     return next(new AppError("User not found", 404));
@@ -217,13 +219,16 @@ exports.getFollowing = catchAsync(async (req, res, next) => {
     .paginate();
 
   const following = await features.query;
-  const limit = req.query.limit * 1 || 100; // Add this line
+  const limit = req.query.limit * 1 || 10; // Add this line
 
   res.status(200).json({
     status: "success",
+    result: user.following.length,
     data: {
       following,
-      totalFollowing: user.following.length,
+    },
+    pagination: {
+      currentPage: req.query.page * 1,
       totalPages: Math.ceil(user.following.length / limit),
     },
   });
@@ -287,12 +292,11 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   });
 });
 
-
 exports.addDeviceToken = catchAsync(async (req, res, next) => {
   const { deviceToken } = req.body;
 
   if (!deviceToken) {
-    return next(new AppError('Device token is required', 400));
+    return next(new AppError("Device token is required", 400));
   }
 
   const user = await User.findById(req.user._id);
@@ -308,8 +312,8 @@ exports.addDeviceToken = catchAsync(async (req, res, next) => {
   }
 
   res.status(200).json({
-    status: 'success',
-    message: 'Device token added successfully'
+    status: "success",
+    message: "Device token added successfully",
   });
 });
 
@@ -317,15 +321,15 @@ exports.removeDeviceToken = catchAsync(async (req, res, next) => {
   const { deviceToken } = req.body;
 
   if (!deviceToken) {
-    return next(new AppError('Device token is required', 400));
+    return next(new AppError("Device token is required", 400));
   }
 
   await User.findByIdAndUpdate(req.user._id, {
-    $pull: { deviceTokens: deviceToken }
+    $pull: { deviceTokens: deviceToken },
   });
 
   res.status(200).json({
-    status: 'success',
-    message: 'Device token removed successfully'
+    status: "success",
+    message: "Device token removed successfully",
   });
 });

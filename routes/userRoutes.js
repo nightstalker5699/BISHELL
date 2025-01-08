@@ -14,8 +14,16 @@ router.post(
   authController.signup
 );
 
-router.post('/device-token', authController.protect, userController.addDeviceToken);
-router.delete('/device-token', authController.protect, userController.removeDeviceToken);
+router.post(
+  "/device-token",
+  authController.protect,
+  userController.addDeviceToken
+);
+router.delete(
+  "/device-token",
+  authController.protect,
+  userController.removeDeviceToken
+);
 
 router.patch(
   "/updateMe",
@@ -40,12 +48,12 @@ router.delete(
   userController.unfollowUser
 );
 router.get(
-  "/:id/followers",
+  "/:username/followers",
   authController.protect,
   userController.getFollowers
 );
 router.get(
-  "/:id/following",
+  "/:username/following",
   authController.protect,
   userController.getFollowing
 );
@@ -58,11 +66,9 @@ router.patch(
   authController.updatePassword
 );
 router.post(`/login`, authController.login);
-router.post('/logout', authController.protect, authController.logout);
+router.post("/logout", authController.protect, authController.logout);
 router.route(`/forgotPassword`).post(authController.forgotPassword);
 router.route(`/resetPassword/:token`).patch(authController.resetPassword);
-
-
 
 router
   .route(`/`)
