@@ -557,7 +557,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
             ? reply.likes.includes(req.user._id)
             : false,
         },
-        createdAt: reply.createdAt,
+        createdAt: new Date(reply.createdAt).toLocaleString(),
         attachment:
           reply.attach_file && reply.attach_file.name
             ? {
