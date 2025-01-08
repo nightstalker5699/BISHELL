@@ -419,6 +419,12 @@ exports.unverifyComment = catchAsync(async (req, res, next) => {
     });
   }
 
+  await Point.create({
+    userId: req.user._id,
+    point: -10,
+    description: "Your comment was unverified as the correct answer",
+  });
+
   res.status(200).json({
     status: "success",
     message: "Answer unverified successfully",
