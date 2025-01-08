@@ -10,7 +10,8 @@ const AppError = require("../utils/appError");
 const mime = require("mime-types");
 const APIFeatures = require("../utils/apiFeatures");
 const Point = require("../models/pointModel");
-const { sendNotificationToUser } = require("../utils/notificationUtil");
+const { sendNotificationToUser } = require('../utils/notificationUtil');
+
 
 const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
 if (!fs.existsSync(attachFileDir)) {
@@ -46,7 +47,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
   const total = await Question.countDocuments(filter);
 
   let questions;
-  if (req.query.sort === "-likes") {
+  if (req.query.sort === '-likes') {
     questions = await Question.findAllSortedByLikes(filter, skip, limit);
     questions = await Question.populate(questions, [
       {
@@ -83,9 +84,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
     ]);
   } else {
     questions = await Question.find(filter)
-      .select(
-        "content userId likes comments createdAt verifiedComment attach_file"
-      )
+      .select("content userId likes comments createdAt verifiedComment attach_file")
       .populate({
         path: "userId",
         select: "username photo fullName role userFrame",
@@ -132,7 +131,8 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
           fullName: question.userId.fullName,
           photo: question.userId.photo,
           role: question.userId.role,
-          userFrame: question.userId.userFrame,
+          userFrame: question.userId.userFrame
+
         },
         stats: {
           likesCount: question.likes?.length || 0,
@@ -167,7 +167,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
             username: question.verifiedComment.userId?.username,
             fullName: question.verifiedComment.userId?.fullName,
             photo: question.verifiedComment.userId?.photo,
-            userFrame: question.verifiedComment.userId?.userFrame,
+            userFrame: question.verifiedComment.userId?.userFrame
           },
           stats: {
             likesCount: question.verifiedComment.likes?.length || 0,
@@ -285,7 +285,7 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
       username: newQuestion.userId.username,
       fullName: newQuestion.userId.fullName,
       photo: newQuestion.userId.photo,
-      userFrame: newQuestion.userId.userFrame,
+      userFrame: newQuestion.userId.userFrame
     },
     attachment:
       newQuestion.attach_file && newQuestion.attach_file.name
@@ -307,7 +307,7 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
   await Point.create({
     userId: userId,
     point: 5,
-    description: "Created a new question",
+    description: "Created a new question"
   });
 
   res.status(201).json({
@@ -317,28 +317,29 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
     },
   });
 
-  // Handle notifications in background
-  const user = await User.findById(userId).populate("followers");
-  const notificationPromises = user.followers.map((follower) => {
-    const clickUrl = `/questions/${newQuestion._id}`;
-    const messageData = {
-      title: "New Question Posted",
-      body: `${user.username} has posted a new question.`,
-      click_action: clickUrl,
-    };
+   // Handle notifications in background
+   const user = await User.findById(userId).populate('followers');
+   const notificationPromises = user.followers.map(follower => {
+     const clickUrl = `/questions/${newQuestion._id}`;
+     const messageData = {
+       title: 'New Question Posted',
+       body: `${user.username} has posted a new question.`,
+       click_action: clickUrl,
+     };
+ 
+     const additionalData = {
+       action_url: clickUrl,
+       type: 'question_created'
+     };
+ 
+     return sendNotificationToUser(follower._id, messageData, additionalData);
+   });
+ 
+   // Process notifications in background
+   Promise.all(notificationPromises).catch(err => {
+     console.error('Error sending notifications:', err);
+   });
 
-    const additionalData = {
-      action_url: clickUrl,
-      type: "question_created",
-    };
-
-    return sendNotificationToUser(follower._id, messageData, additionalData);
-  });
-
-  // Process notifications in background
-  Promise.all(notificationPromises).catch((err) => {
-    console.error("Error sending notifications:", err);
-  });
 });
 
 exports.verifyComment = catchAsync(async (req, res, next) => {
@@ -376,7 +377,7 @@ exports.verifyComment = catchAsync(async (req, res, next) => {
   await Point.create({
     userId: comment.userId,
     point: 10,
-    description: "Your comment was verified as the correct answer",
+    description: "Your comment was verified as the correct answer"
   });
 
   res.status(200).json({
@@ -415,7 +416,7 @@ exports.unverifyComment = catchAsync(async (req, res, next) => {
     await Point.create({
       userId: verifiedComment.userId,
       point: -10, // Deduct same points given for verification
-      description: "Comment unverified as answer",
+      description: "Comment unverified as answer"
     });
   }
 
@@ -497,7 +498,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       fullName: question.userId.fullName,
       photo: question.userId.photo,
       role: question.userId.role,
-      userFrame: question.userId.userFrame,
+      userFrame: question.userId.userFrame
     },
     stats: {
       likesCount: question.likes.length,
@@ -532,7 +533,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         fullName: question.verifiedComment.userId.fullName,
         photo: question.verifiedComment.userId.photo,
         role: question.verifiedComment.userId.role,
-        userFrame: question.verifiedComment.userId.userFrame,
+        userFrame: question.verifiedComment.userId.userFrame
       },
       stats: {
         likesCount: question.verifiedComment.likes.length,
@@ -540,7 +541,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
           ? question.verifiedComment.likes.includes(req.user._id)
           : false,
       },
-      createdAt: new Date(question.verifiedComment.createdAt).toLocaleString(),
+      createdAt: question.verifiedComment.createdAt,
       replies: question.verifiedComment.replies?.map((reply) => ({
         id: reply._id,
         content: reply.content,
@@ -549,7 +550,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
           fullName: reply.userId.fullName,
           photo: reply.userId.photo,
           role: reply.userId.role,
-          userFrame: reply.userId.userFrame,
+          userFrame: reply.userId.userFrame
         },
         stats: {
           likesCount: reply.likes.length,
@@ -605,7 +606,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         fullName: comment.userId.fullName,
         photo: comment.userId.photo,
         role: comment.userId.role,
-        userFrame: comment.userId.userFrame,
+        userFrame: comment.userId.userFrame
       },
       stats: {
         likesCount: comment.likes.length,
@@ -613,7 +614,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
           ? comment.likes.includes(req.user._id)
           : false,
       },
-      createdAt: new Date(comment.createdAt).toLocaleString(),
+      createdAt: comment.createdAt,
       attachment:
         comment.attach_file && comment.attach_file.name
           ? {
@@ -633,7 +634,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
           fullName: reply.userId.fullName,
           photo: reply.userId.photo,
           role: reply.userId.role,
-          userFrame: reply.userId.userFrame,
+          userFrame: reply.userId.userFrame
         },
         stats: {
           likesCount: reply.likes.length,
@@ -641,7 +642,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
             ? reply.likes.includes(req.user._id)
             : false,
         },
-        createdAt: new Date(reply.createdAt).toLocaleString(),
+        createdAt: reply.createdAt,
         attachment:
           reply.attach_file && reply.attach_file.name
             ? {
@@ -727,7 +728,7 @@ exports.updateQuestion = catchAsync(async (req, res, next) => {
       fullName: question.userId.fullName,
       photo: question.userId.photo,
       role: question.userId.role,
-      userFrame: question.userId.userFrame,
+      userFrame: question.userId.userFrame
     },
     attachment:
       question.attach_file && question.attach_file.name
@@ -762,20 +763,16 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
   }
 
   // Check authorization
-  if (
-    question.userId.toString() !== req.user._id.toString() &&
-    req.user.role !== "admin" &&
-    req.user.role !== "group-leader"
-  ) {
-    return next(
-      new AppError("You are not authorized to delete this question", 403)
-    );
+  if (question.userId.toString() !== req.user._id.toString() && 
+      req.user.role !== 'admin' &&
+      req.user.role !== 'group-leader') {
+    return next(new AppError("You are not authorized to delete this question", 403));
   }
 
   const deleteAttachment = async (filePath) => {
     try {
       await fsp.access(filePath);
-      await fsp.unlink(filePath);
+      await fsp.unlink(filePath);  
     } catch (err) {
       console.log(`Could not delete file ${filePath}: ${err.message}`);
     }
@@ -786,7 +783,7 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
     await Point.create({
       userId: question.userId,
       point: -5, // Deduct same amount given for creating question
-      description: "Question deleted",
+      description: "Question deleted"
     });
 
     // Delete question's attachment if exists
@@ -794,7 +791,7 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
       const questionFilePath = path.join(
         __dirname,
         "..",
-        "static",
+        "static", 
         "attachFile",
         question.attach_file.name
       );
@@ -803,7 +800,7 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
 
     // Delete all comments' attachments
     const comments = await Comment.find({
-      questionId: question._id,
+      questionId: question._id
     });
 
     for (const comment of comments) {
@@ -812,7 +809,7 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
           __dirname,
           "..",
           "static",
-          "attachFile",
+          "attachFile", 
           comment.attach_file.name
         );
         await deleteAttachment(commentFilePath);
@@ -827,12 +824,10 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
 
     res.status(204).json({
       status: "success",
-      data: null,
+      data: null
     });
   } catch (error) {
-    return next(
-      new AppError("Error deleting question and associated data", 500)
-    );
+    return next(new AppError("Error deleting question and associated data", 500));
   }
 });
 // protection On deleting Question for points done
@@ -859,14 +854,14 @@ exports.likeQuestion = catchAsync(async (req, res, next) => {
     await Point.create({
       userId: question.userId,
       point: 2,
-      description: "Your question received a like",
+      description: "Your question received a like"
     });
   }
 
   await Point.create({
     userId: req.user._id,
     point: 1,
-    description: "You liked a question",
+    description: "You liked a question"
   });
 
   res.status(200).json({
@@ -880,22 +875,21 @@ exports.likeQuestion = catchAsync(async (req, res, next) => {
   if (question.userId.toString() !== req.user._id.toString()) {
     const clickUrl = `/questions/${question._id}`;
     const messageData = {
-      title: "Your Question was Liked",
+      title: 'Your Question was Liked',
       body: `${req.user.username} liked your question.`,
       click_action: clickUrl,
     };
 
     const additionalData = {
       action_url: clickUrl,
-      type: "question_liked",
+      type: 'question_liked'
     };
 
     // Send notification asynchronously
-    sendNotificationToUser(question.userId, messageData, additionalData).catch(
-      (err) => {
-        console.error("Error sending notification:", err);
-      }
-    );
+    sendNotificationToUser(question.userId, messageData, additionalData)
+      .catch(err => {
+        console.error('Error sending notification:', err);
+      });
   }
 });
 
