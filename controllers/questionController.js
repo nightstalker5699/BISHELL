@@ -386,7 +386,9 @@ exports.verifyComment = catchAsync(async (req, res, next) => {
 });
 
 exports.unverifyComment = catchAsync(async (req, res, next) => {
-  const question = await Question.findById(req.params.questionId);
+  const question = await Question.findById(req.params.questionId).populate(
+    "verifiedComment"
+  );
   if (!question) {
     return next(new AppError("Question not found", 404));
   }
@@ -407,23 +409,17 @@ exports.unverifyComment = catchAsync(async (req, res, next) => {
     return next(new AppError("Question does not have a verified answer", 400));
   }
 
-  question.verifiedComment = null;
-  await question.save({ validateBeforeSave: false });
-
-  // Deduct points from comment owner
-  if (verifiedComment) {
+  if (question.verifiedComment) {
     await Point.create({
-      userId: verifiedComment.userId,
+      userId: question.verifiedComment.userId,
       point: -10, // Deduct same points given for verification
       description: "Comment unverified as answer",
     });
   }
+  question.verifiedComment = null;
+  await question.save({ validateBeforeSave: false });
 
-  await Point.create({
-    userId: req.user._id,
-    point: -10,
-    description: "Your comment was unverified as the correct answer",
-  });
+  // Deduct points from comment owner
 
   res.status(200).json({
     status: "success",
