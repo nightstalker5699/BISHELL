@@ -180,7 +180,7 @@ exports.getFollowers = catchAsync(async (req, res, next) => {
     req.query
   )
     .limitFields()
-    .sort()
+    // .sort()
     .paginate();
 
   const followers = await features.query;
@@ -215,7 +215,7 @@ exports.getFollowing = catchAsync(async (req, res, next) => {
     req.query
   )
     .limitFields()
-    .sort()
+    // .sort()
     .paginate();
 
   const following = await features.query;
