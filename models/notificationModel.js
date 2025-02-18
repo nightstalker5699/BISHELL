@@ -21,33 +21,33 @@ const notificationSchema = new mongoose.Schema({
     default: NotificationType.INFO
   },
   link: {
-    type: String, // URL where clicking the notification should redirect
+    type: String, 
     required: false
   },
   metadata: {
-    type: mongoose.Schema.Types.Mixed, // Additional data specific to notification type
+    type: mongoose.Schema.Types.Mixed,
     required: false
   },
   createdAt: { 
     type: Date, 
     default: Date.now,
-    index: true // Add index for better query performance
+    index: true 
   },
   isRead: { 
     type: Boolean, 
     default: false,
-    index: true // Add index for better query performance
+    index: true
   },
   expiresAt: {
     type: Date,
-    default: () => new Date(+new Date() + 30*24*60*60*1000) // Expire after 30 days
+    default: () => new Date(+new Date() + 30*24*60*60*1000) 
   }
 });
 
-// Add TTL index to automatically delete old notifications
+
 notificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-// Add compound index for efficient queries
+
 notificationSchema.index({ userId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

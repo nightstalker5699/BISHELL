@@ -1,5 +1,5 @@
 const NotificationType = {
-  // Question related
+  // Question 
   LIKE_QUESTION: "like-question",
   COMMENT_ON_QUESTION: "comment-on-question",
   COMMENT_REPLIED: "comment-replied",
@@ -7,16 +7,16 @@ const NotificationType = {
   ANSWER_VERIFIED: "answer-verified",
   QUESTION_FOLLOWING: "question-following",
 
-  // User related
+  // User 
   NEW_FOLLOWER: "new-follower",
 
-  // Content related
+  // Content 
   NEW_NOTE: "new-note",
   NEW_ANNOUNCEMENT: "new-announcement",
   NEW_MATERIAL: "new-material",
   NEW_COURSE_ANNOUNCEMENT: "course-announcement",
 
-  // Points related
+  // Points 
   POINTS_EARNED: "points-earned",
   POINTS_DEDUCTED: "points-deducted",
 
@@ -110,7 +110,6 @@ const NotificationConfig = {
   },
 };
 
-// Helper function to format notification message
 const formatNotificationMessage = (type, data) => {
   const config = NotificationConfig[type];
   if (!config) throw new Error(`Invalid notification type: ${type}`);
@@ -118,7 +117,6 @@ const formatNotificationMessage = (type, data) => {
   let message = config.messageTemplate;
   let link = config.link;
 
-  // Replace all placeholders in message and link
   Object.keys(data).forEach((key) => {
     message = message.replace(`{${key}}`, data[key]);
     link = link.replace(`{${key}}`, data[key]);
