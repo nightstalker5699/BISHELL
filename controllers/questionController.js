@@ -11,6 +11,7 @@ const mime = require("mime-types");
 const APIFeatures = require("../utils/apiFeatures");
 const Point = require("../models/pointModel");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
+const { NotificationType } = require('../utils/notificationTypes');
 
 const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
 if (!fs.existsSync(attachFileDir)) {
@@ -320,19 +321,14 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
   // Handle notifications in background
   const user = await User.findById(userId).populate("followers");
   const notificationPromises = user.followers.map((follower) => {
-    const clickUrl = `/questions/${newQuestion._id}`;
-    const messageData = {
-      title: "New Question Posted",
-      body: `${user.username} has posted a new question.`,
-      click_action: clickUrl,
-    };
-
-    const additionalData = {
-      action_url: clickUrl,
-      type: "question_created",
-    };
-
-    return sendNotificationToUser(follower._id, messageData, additionalData);
+    return sendNotificationToUser(
+      follower._id,
+      NotificationType.QUESTION_FOLLOWING,
+      {
+        username: user.username,
+        questionId: newQuestion._id
+      }
+    );
   });
 
   // Process notifications in background
@@ -383,6 +379,14 @@ exports.verifyComment = catchAsync(async (req, res, next) => {
     status: "success",
     data: { question },
   });
+
+  await sendNotificationToUser(
+    comment.userId,
+    NotificationType.ANSWER_VERIFIED,
+    {
+      questionId: question._id
+    }
+  );
 });
 
 exports.unverifyComment = catchAsync(async (req, res, next) => {
@@ -880,22 +884,12 @@ exports.likeQuestion = catchAsync(async (req, res, next) => {
 
   // Send notification if not liking own question
   if (question.userId.toString() !== req.user._id.toString()) {
-    const clickUrl = `/questions/${question._id}`;
-    const messageData = {
-      title: "Your Question was Liked",
-      body: `${req.user.username} liked your question.`,
-      click_action: clickUrl,
-    };
-
-    const additionalData = {
-      action_url: clickUrl,
-      type: "question_liked",
-    };
-
-    // Send notification asynchronously
-    sendNotificationToUser(question.userId, messageData, additionalData).catch(
-      (err) => {
-        console.error("Error sending notification:", err);
+    await sendNotificationToUser(
+      question.userId,
+      NotificationType.LIKE_QUESTION,
+      {
+        username: req.user.username,
+        questionId: question._id
       }
     );
   }

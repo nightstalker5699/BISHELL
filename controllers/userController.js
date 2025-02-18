@@ -128,14 +128,14 @@ exports.followUser = catchAsync(async (req, res, next) => {
     await currentUser.save({ validateBeforeSave: false });
     await userToFollow.save({ validateBeforeSave: false });
 
-    // Send notification to followed user
-    const messageData = {
-      title: "New Follower",
-      body: `${currentUser.username} started following you`,
-      click_action: `/profile/${currentUser.username}`, // Link to follower's profile
-    };
-
-    await sendNotificationToUser(userToFollow._id, messageData);
+    // Send notification to followed user using the new system
+    await sendNotificationToUser(
+      userToFollow._id,
+      NotificationType.NEW_FOLLOWER,
+      {
+        username: currentUser.username
+      }
+    );
 
     res.status(200).json({
       status: "success",
@@ -145,6 +145,7 @@ exports.followUser = catchAsync(async (req, res, next) => {
     res.status(400).json({ message: "Already following this user" });
   }
 });
+
 
 exports.unfollowUser = catchAsync(async (req, res, next) => {
   const userToUnfollow = await User.findById(req.params.id);
@@ -200,7 +201,6 @@ exports.getFollowers = catchAsync(async (req, res, next) => {
   });
 });
 
-// userController.js
 
 exports.getFollowing = catchAsync(async (req, res, next) => {
   const user = await User.findOne({ username: req.params.username });

@@ -6,9 +6,11 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 const APIFeatures = require("../utils/apiFeatures");
-const { sendNotificationToUser } = require('../utils/notificationUtil');
-const User = require('../models/userModel');
-const Course = require('../models/courseModel');
+const { sendNotificationToUser } = require("../utils/notificationUtil");
+const User = require("../models/userModel");
+const Course = require("../models/courseModel");
+const { NotificationType } = require('../utils/notificationTypes');
+
 
 const attach_file = path.join(__dirname, "..", "static/attachFile");
 if (!fs.existsSync(attach_file)) {
@@ -56,7 +58,6 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
     groups: groups,
   });
 
-
   res.status(200).json({
     status: "success",
     data: announcement,
@@ -65,35 +66,22 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
   // Handle notifications in background after response
   const usersToNotify = await User.find({ group: { $in: groups } });
 
-  let notificationTitle = 'New Announcement';
-  let clickAction = `/announcements`;
+  // Determine notification type and data based on announcement type
+  const notificationType = announcement.courseId
+    ? NotificationType.NEW_COURSE_ANNOUNCEMENT
+    : NotificationType.NEW_ANNOUNCEMENT;
 
-  if (announcement.courseId) {
-    const course = await Course.findById(announcement.courseId);
-    if (course) {
-      notificationTitle = `New ${course.courseName} Announcement`;
-      clickAction = `/announcements/${course._id}`;
-    }
-  }
-
-  const notificationPromises = usersToNotify.map(user => {
-    const messageData = {
-      title: notificationTitle,
-      body: `Title: ${announcement.title}\n${announcement.body}`,
-      click_action: clickAction,
-    };
-
-    const additionalData = {
-      action_url: clickAction,
-      type: announcement.courseId ? 'course_announcement' : 'general_announcement'
-    };
-
-    return sendNotificationToUser(user._id, messageData, additionalData);
+  const notificationPromises = usersToNotify.map((user) => {
+    return sendNotificationToUser(user._id, notificationType, {
+      title: announcement.title,
+      courseId: announcement.courseId,
+      announcementId: announcement._id,
+    });
   });
 
   // Process notifications in background
-  Promise.all(notificationPromises).catch(err => {
-    console.error('Error sending notifications:', err);
+  Promise.all(notificationPromises).catch((err) => {
+    console.error("Error sending notifications:", err);
   });
 });
 
@@ -129,7 +117,7 @@ exports.getAllAnnouncement = catchAsync(async (req, res, next) => {
 
   let query = Announcement.find(filter);
   const features = new APIFeatures(query, req.query);
-  features.sort(); 
+  features.sort();
 
   const announcements = await features.query
     .skip(skip)

@@ -1,7 +1,9 @@
 const admin = require('../firebase');
 const User = require('../models/userModel');
+const Notification = require('../models/notificationModel');
+const { NotificationType, formatNotificationMessage } = require('./notificationTypes');
 
-exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
+exports.sendNotificationToUser = async (userId, type, data = {}) => {
   try {
     const user = await User.findById(userId);
     if (!user || !user.deviceTokens?.length) {
@@ -9,18 +11,36 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
       return;
     }
 
-    // Convert data fields to string to meet FCM requirements
-    const stringifiedData = Object.keys(data).reduce((acc, key) => {
-      acc[key] = String(data[key]);
-      return acc;
-    }, {});
+    // Format the notification message using the type and data
+    const messageData = formatNotificationMessage(type, data);
+
+    // Create notification in database
+    const notification = await Notification.create({
+      userId: userId,
+      title: messageData.title,
+      message: messageData.body,
+      type: type,
+      link: messageData.click_action,
+      metadata: data
+    });
+
+    // Convert data fields to string for FCM
+    const stringifiedData = {
+      notificationId: notification._id.toString(),
+      type: type,
+      click_action: messageData.click_action,
+      ...Object.keys(data).reduce((acc, key) => {
+        acc[key] = String(data[key]);
+        return acc;
+      }, {})
+    };
 
     // Construct the FCM message
     const notificationMessage = {
       data: {
         title: messageData.title,
         body: messageData.body,
-        ...stringifiedData  // Include the stringified data
+        ...stringifiedData
       }
     };
 
@@ -82,7 +102,8 @@ exports.sendNotificationToUser = async (userId, messageData, data = {}) => {
 
     return {
       success: true,
-      message: 'Notifications sent',
+      notification,
+      message: 'Notifications sent successfully',
       invalidTokensRemoved: invalidTokens.length,
     };
   } catch (error) {

@@ -8,6 +8,7 @@ const Question = require('../models/questionModel')
 const path = require('path');
 const Point = require("../models/pointModel");
 const { sendNotificationToUser } = require('../utils/notificationUtil');
+const { NotificationType } = require('../utils/notificationTypes');
 
 
 
@@ -123,6 +124,17 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
     description: "Posted a comment on a question"
   });
 
+  if (question.userId.toString() !== req.user._id.toString()) {
+    await sendNotificationToUser(
+      question.userId,
+      NotificationType.COMMENT_ON_QUESTION,
+      {
+        username: req.user.username,
+        questionId: question._id
+      }
+    );
+  }
+
   res.status(201).json({
     status: 'success',
     data: { comment: response }
@@ -234,23 +246,16 @@ exports.addReply = catchAsync(async (req, res, next) => {
   });
 
   // Handle notifications in background
-  const clickUrl = `/questions/${req.params.questionId}`;
-  const messageData = {
-    title: 'Your Comment was Replied',
-    body: `${req.user.username} replied to your comment.`,
-    click_action: clickUrl,
-  };
-
-  const additionalData = {
-    action_url: clickUrl,
-    type: 'comment_replied'
-  };
-
-  // Send notification asynchronously
-  sendNotificationToUser(parentComment.userId, messageData, additionalData)
-    .catch(err => {
-      console.error('Error sending notification:', err);
-    });
+  if (parentComment.userId.toString() !== req.user._id.toString()) {
+    await sendNotificationToUser(
+      parentComment.userId,
+      NotificationType.COMMENT_REPLIED,
+      {
+        username: req.user.username,
+        questionId: req.params.questionId
+      }
+    );
+  }
 });
 
 
@@ -357,23 +362,14 @@ exports.likeComment = catchAsync(async (req, res, next) => {
 
   // Send notification to the comment owner if it's not their own comment
   if (comment.userId.toString() !== req.user._id.toString()) {
-    const clickUrl = `/questions/${req.params.questionId}`;
-    const messageData = {
-      title: 'Your Comment was Liked',
-      body: `${req.user.username} liked your comment.`,
-      click_action: clickUrl,
-    };
-
-    const additionalData = {
-      action_url: clickUrl,
-      type: 'comment_liked'
-    };
-
-    // Send notification asynchronously
-    sendNotificationToUser(comment.userId, messageData, additionalData)
-      .catch(err => {
-        console.error('Error sending notification:', err);
-      });
+    await sendNotificationToUser(
+      comment.userId,
+      NotificationType.COMMENT_LIKED,
+      {
+        username: req.user.username,
+        questionId: req.params.questionId
+      }
+    );
   }
 });
 
