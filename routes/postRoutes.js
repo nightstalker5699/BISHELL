@@ -1,42 +1,44 @@
-
 const express = require("express");
 const router = express.Router();
 const postController = require("../controllers/postController");
 const authController = require("../controllers/authController");
-const posts = require('../models/postModel')
+const posts = require('../models/postModel');
 
-
-router.get("/user/:userId/:courseName", authController.protect, postController.getUserPosts);
-router.get("/user/:userId", authController.protect, postController.getUserPosts);
+// Public routes
 router.get("/:username/:slug", authController.optionalProtect, postController.getPostByUsernameAndSlug);
 
-router
-  .route("/:id")
+// Protected routes
+router.use(authController.protect);
+
+router.get("/user/:userId/:courseName", postController.getUserPosts);
+router.get("/user/:userId", postController.getUserPosts);
+
+router.post("/", 
+  postController.uploadPostImages,    
+  postController.processPostImages,   
+  postController.createPost           
+);
+
+router.route("/:id")
   .patch(
-    authController.protect,
     postController.uploadPostImages,
     postController.processPostImages,
     postController.updatePost
   )
   .delete(
-    authController.protect,
     authController.isOwner(posts),
     postController.deletePost
   );
 
-router.post("/:id/toggle-like", authController.protect, postController.toggleLike);
+router.post("/:id/toggle-like", postController.toggleLike);
 
-router.use("/:questionId/comments", authController.protect, require("./commentRoutes"));
+// Comments routes
+router.use("/:questionId/comments", require("./commentRoutes"));
 
-router
-  .route("/")
-  .post(
-    authController.protect,
-    postController.uploadPostImages,    
-    postController.processPostImages,   
-    postController.createPost           
-  );
-
-router.get("/", authController.protect, authController.restrictTo("admin"), postController.getAllPosts);
+// Admin only routes
+router.get("/", 
+  authController.restrictTo("admin"), 
+  postController.getAllPosts
+);
 
 module.exports = router;

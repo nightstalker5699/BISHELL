@@ -8,6 +8,7 @@ const sharp = require("sharp");
 const fsPromises = require("fs").promises;
 const path = require("path");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
+const { NotificationType } = require("../utils/notificationTypes");
 
 // Image Upload Configuration
 const storage = multer.memoryStorage();
@@ -22,19 +23,15 @@ const addPostMetadata = (post, req, userId = null) => {
   const baseImageUrl = `${req.protocol}://${req.get("host")}/img/posts/`;
   const baseProfileUrl = `${req.protocol}://${req.get("host")}/profilePics/`;
 
-  // Convert to object to allow modifications
   const postObj = post.toObject();
 
-  // Add image URLs and process content blocks
-  postObj.contentBlocks = postObj.contentBlocks.map((block) => {
-    if (block.type === "image") {
-      return {
-        ...block,
-        imageUrl: `${baseImageUrl}${block.content}`,
-      };
-    }
-    return block;
-  });
+  // Add image URLs to content if needed
+  if (postObj.images) {
+    postObj.images = postObj.images.map(img => ({
+      ...img,
+      url: `${baseImageUrl}${img.filename}`
+    }));
+  }
 
   // Add user photo URL if userId is populated
   if (postObj.userId && postObj.userId.photo) {
@@ -46,7 +43,7 @@ const addPostMetadata = (post, req, userId = null) => {
     postObj.isLiked = post.likes.includes(userId);
   }
 
-  // **Enrich comments' user photos if comments are populated**
+  // Enrich comments' user photos if comments are populated
   if (postObj.comments && postObj.comments.length > 0) {
     postObj.comments = postObj.comments.map((comment) => {
       if (comment.userId && comment.userId.photo) {
@@ -72,26 +69,65 @@ const createUploadDirs = async () => {
 exports.uploadPostImages = upload.array("images", 10);
 
 exports.processPostImages = catchAsync(async (req, res, next) => {
-  if (!req.files) return next();
+  if (!req.files && !req.body.embeddedImages) return next();
 
   // Ensure upload directory exists
   const uploadDir = await createUploadDirs();
+  req.processedImages = [];
 
   try {
-    req.processedImages = await Promise.all(
-      req.files.map(async (file, index) => {
-        const filename = `post-${req.user.id}-${Date.now()}-${index + 1}.jpeg`;
-        const filePath = path.join(uploadDir, filename);
+    // Handle attached files (if any)
+    if (req.files && req.files.length > 0) {
+      const attachedImages = await Promise.all(
+        req.files.map(async (file, index) => {
+          const filename = `post-${req.user.id}-${Date.now()}-${index + 1}.jpeg`;
+          const filePath = path.join(uploadDir, filename);
 
-        await sharp(file.buffer)
-          .resize(1200, 1200, { fit: "inside" })
-          .toFormat("jpeg")
-          .jpeg({ quality: 90 })
-          .toFile(filePath);
+          await sharp(file.buffer)
+            .resize(1200, 1200, { fit: "inside" })
+            .toFormat("jpeg")
+            .jpeg({ quality: 90 })
+            .toFile(filePath);
 
-        return filename;
-      })
-    );
+          return {
+            filename,
+            originalname: file.originalname,
+            type: 'attachment'
+          };
+        })
+      );
+      req.processedImages.push(...attachedImages);
+    }
+
+    // Handle embedded images from Quill editor (if any)
+    if (req.body.embeddedImages) {
+      const embeddedImages = JSON.parse(req.body.embeddedImages);
+      const processedEmbedded = await Promise.all(
+        embeddedImages.map(async (imageData, index) => {
+          // Remove the data:image/jpeg;base64, part
+          const base64Data = imageData.data.replace(/^data:image\/\w+;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+          
+          const filename = `post-${req.user.id}-embedded-${Date.now()}-${index + 1}.jpeg`;
+          const filePath = path.join(uploadDir, filename);
+
+          await sharp(buffer)
+            .resize(1200, 1200, { fit: "inside" })
+            .toFormat("jpeg")
+            .jpeg({ quality: 90 })
+            .toFile(filePath);
+
+          return {
+            filename,
+            originalname: `embedded-image-${index + 1}.jpeg`,
+            type: 'embedded',
+            placeholder: imageData.placeholder // Original src to replace in HTML
+          };
+        })
+      );
+      req.processedImages.push(...processedEmbedded);
+    }
+
     next();
   } catch (error) {
     return next(new AppError(`Error processing images: ${error.message}`, 500));
@@ -130,27 +166,28 @@ exports.getAllPosts = catchAsync(async (req, res) => {
 exports.getPostByUsernameAndSlug = catchAsync(async (req, res, next) => {
   const { username, slug } = req.params;
 
-  // Find the user by username
-  const user = await User.findOne({ username }).select("_id");
+  // Find the user by username (case insensitive)
+  const user = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
   if (!user) {
     return next(new AppError("User not found", 404));
   }
 
   // Find the post by userId and slug
   const post = await Post.findOne({ userId: user._id, slug })
-    .populate("userId", "username photo")
+    .populate({
+      path: "userId",
+      select: "username photo"
+    })
     .populate({
       path: "comments",
       populate: {
         path: "userId",
-        select: "username photo",
-      },
+        select: "username photo"
+      }
     });
 
   if (!post) {
-    return next(
-      new AppError("No post found with that slug for this user", 404)
-    );
+    return next(new AppError("No post found with that slug for this user", 404));
   }
 
   // Increment views and save
@@ -159,10 +196,9 @@ exports.getPostByUsernameAndSlug = catchAsync(async (req, res, next) => {
 
   const enrichedPost = addPostMetadata(post, req, req.user?._id);
 
-  // Send the response with the enriched post
   res.status(200).json({
     status: "success",
-    data: { post: enrichedPost },
+    data: { post: enrichedPost }
   });
 });
 
@@ -219,7 +255,6 @@ exports.getUserPosts = catchAsync(async (req, res, next) => {
 });
 
 exports.createPost = catchAsync(async (req, res, next) => {
-  // Validate required fields
   if (!req.body.title) {
     return next(new AppError("Title is required", 400));
   }
@@ -228,74 +263,71 @@ exports.createPost = catchAsync(async (req, res, next) => {
     return next(new AppError("Content is required", 400));
   }
 
-  let contentBlocks;
+  let content;
   try {
-    contentBlocks = JSON.parse(req.body.content);
+    content = JSON.parse(req.body.content);
   } catch (err) {
-    return next(
-      new AppError("Invalid content format - must be valid JSON", 400)
-    );
+    return next(new AppError("Invalid content format - must be valid JSON", 400));
   }
 
-  const processedBlocks = [];
-  let imageIndex = 0;
+  // Handle processed images
+  const images = [];
+  let htmlContent = content.html;
 
-  for (let index = 0; index < contentBlocks.length; index++) {
-    const block = contentBlocks[index];
-    if (block.type === "image") {
-      if (!req.processedImages || imageIndex >= req.processedImages.length) {
-        throw new AppError("Missing image file for image block", 400);
+  if (req.processedImages) {
+    req.processedImages.forEach(img => {
+      if (img.type === 'embedded') {
+        // Replace base64 or temporary URLs in HTML with actual image URLs
+        const imageUrl = `/img/posts/${img.filename}`;
+        htmlContent = htmlContent.replace(img.placeholder, imageUrl);
       }
-      processedBlocks.push({
-        orderIndex: index,
-        type: "image",
-        content: req.processedImages[imageIndex++],
+      images.push({
+        filename: img.filename,
+        originalname: img.originalname,
+        type: img.type
       });
-    } else {
-      processedBlocks.push({
-        orderIndex: index,
-        type: "text",
-        content: block.content,
-      });
-    }
+    });
   }
 
   const post = await Post.create({
     title: req.body.title,
-    contentBlocks: processedBlocks,
+    content: {
+      delta: content.delta,
+      html: htmlContent // Use the updated HTML with correct image URLs
+    },
+    images,
     userId: req.user.id,
     label: req.body.label,
     courseId: req.body.courseId,
   });
 
+  const enrichedPost = addPostMetadata(post, req, req.user.id);
+
   res.status(201).json({
     status: "success",
-    data: { post },
+    data: { post: enrichedPost },
   });
 
-  const user = await User.findById(req.user.id).populate("followers");
+  try {
+    // Send notifications to followers
+    const user = await User.findById(req.user.id).populate("followers");
 
-  const notificationPromises = user.followers.map((follower) => {
-    const clickUrl = `/note/${user.username}/${post.slug}`;
-    const messageData = {
-      title: "New Note Posted",
-      body: `${user.username} has posted a new note: ${post.title}`,
-      click_action: clickUrl,
-    };
+    const notificationPromises = user.followers.map((follower) => {
+      return sendNotificationToUser(
+        follower._id,
+        NotificationType.NEW_NOTE,  // Use enum instead of string literal
+        {
+          username: user.username,
+          noteTitle: post.title,
+          noteSlug: post.slug
+        }
+      );
+    });
 
-    // Add additional data for Firebase
-    const additionalData = {
-      action_url: clickUrl,
-      type: "note_created",
-    };
-
-    return sendNotificationToUser(follower._id, messageData, additionalData);
-  });
-
-  // Process notifications in background
-  Promise.all(notificationPromises).catch((err) => {
+    await Promise.all(notificationPromises);
+  } catch (err) {
     console.error("Error sending notifications:", err);
-  });
+  }
 });
 
 exports.updatePost = catchAsync(async (req, res, next) => {
@@ -309,26 +341,58 @@ exports.updatePost = catchAsync(async (req, res, next) => {
     return next(new AppError("Not authorized to update this post", 403));
   }
 
-  if (req.files?.length) {
-    // Process new images if any
-    const updatedContent = JSON.parse(req.body.content);
-    let imageIndex = 0;
-    post.contentBlocks = updatedContent.map((block, index) => ({
-      orderIndex: index,
-      type: block.type,
-      content:
-        block.type === "image"
-          ? req.processedImages[imageIndex++]
-          : block.content,
-    }));
+  // Handle content update
+  if (req.body.content) {
+    try {
+      const content = JSON.parse(req.body.content);
+      let htmlContent = content.html;
+
+      // Handle processed images if any
+      if (req.processedImages) {
+        req.processedImages.forEach(img => {
+          if (img.type === 'embedded') {
+            // Replace base64 or temporary URLs in HTML with actual image URLs
+            const imageUrl = `/img/posts/${img.filename}`;
+            htmlContent = htmlContent.replace(img.placeholder, imageUrl);
+          }
+        });
+      }
+
+      post.content = {
+        delta: content.delta,
+        html: htmlContent
+      };
+    } catch (err) {
+      return next(new AppError("Invalid content format - must be valid JSON", 400));
+    }
   }
 
-  Object.assign(post, req.body);
+  // Handle new images
+  if (req.processedImages) {
+    const newImages = req.processedImages.map(img => ({
+      filename: img.filename,
+      originalname: img.originalname,
+      type: img.type
+    }));
+    post.images.push(...newImages);
+  }
+
+  // Update other fields
+  if (req.body.title) post.title = req.body.title;
+  if (req.body.label) post.label = req.body.label;
+  if (req.body.courseId) post.courseId = req.body.courseId;
+
   await post.save();
+
+  // Fetch the updated post with populated fields
+  const updatedPost = await Post.findById(post._id)
+    .populate("userId", "username photo");
+
+  const enrichedPost = addPostMetadata(updatedPost, req, req.user.id);
 
   res.status(200).json({
     status: "success",
-    data: { post },
+    data: { post: enrichedPost }
   });
 });
 

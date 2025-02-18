@@ -20,20 +20,19 @@ const postSchema = new mongoose.Schema(
       minlength: [5, "Title must be at least 5 characters"],
       maxlength: [100, "Title must not exceed 100 characters"]
     },
-    contentBlocks: [{
-      orderIndex: {
-        type: Number,
-        required: true
+    content: {
+      delta: {
+        type: Object,
+        required: [true, "Content delta is required"]
       },
-      type: {
+      html: {
         type: String,
-        enum: ["text", "image"],
-        required: true
-      },
-      content: {
-        type: String,
-        required: true
+        required: [true, "HTML content is required"]
       }
+    },
+    images: [{
+      filename: String,
+      originalname: String
     }],
     likes: [{
       type: mongoose.Schema.ObjectId,
@@ -69,7 +68,6 @@ postSchema.index({ userId: 1, createdAt: -1 });
 postSchema.index({ tags: 1 });
 postSchema.index({ status: 1 });
 postSchema.index({ "contentBlocks.orderIndex": 1 });
-
 
 postSchema.pre("save", function (next) {
   if (this.isModified("title")) {
