@@ -2,6 +2,7 @@ const Notification = require("../models/notificationModel");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const APIFeatures = require("../utils/apiFeatures");
+const { NotificationConfig } = require("../utils/notificationTypes");
 
 exports.getAllNotifications = catchAsync(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
@@ -12,9 +13,9 @@ exports.getAllNotifications = catchAsync(async (req, res, next) => {
   const notificationGroups = {
     materials: ['new-material'],
     announcements: ['new-announcement', 'course-announcement'],
-    comments: ['comment-on-question', 'comment-replied'],
-    likes: ['like-question', 'comment-like'],
-    followers: ['new-follower']
+    comments: ['comment-on-question', 'comment-replied', 'comment-like'],
+    questions: ['like-question', 'answer-verified', 'question-following'],
+    social: ['new-follower']
   };
 
   // Base query
@@ -25,68 +26,122 @@ exports.getAllNotifications = catchAsync(async (req, res, next) => {
     query.type = { $in: notificationGroups[req.query.group] };
   }
 
-  // Get total counts based on filters
+  // Add read/unread filter if specified
+  if (req.query.isRead !== undefined) {
+    query.isRead = req.query.isRead === 'true';
+  }
+
+  // Get total counts
   const totalCount = await Notification.countDocuments(query);
   const unreadCount = await Notification.countDocuments({
     ...query,
     isRead: false,
   });
 
-  // Modify query to use direct MongoDB methods instead of APIFeatures
+  // Get counts by group
+  const groupCounts = await Promise.all(
+    Object.entries(notificationGroups).map(async ([group, types]) => {
+      const count = await Notification.countDocuments({
+        userId: req.user._id,
+        type: { $in: types },
+        isRead: false
+      });
+      return { group, count };
+    })
+  );
+
+  // Build query with population
   let dbQuery = Notification.find(query)
-    .populate("userId", "username photo") // notification owner
     .populate({
       path: 'metadata.actingUserId',
-      select: 'username photo',
+      select: 'username photo fullName userFrame role',
       model: 'User'
     })
     .skip(skip)
     .limit(limit)
-    .sort('-createdAt');
+    .sort(req.query.sort || '-createdAt');
+
   // Execute query
   const notifications = await dbQuery;
-  
+
+  // Transform notifications for response
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
   const transformedNotifications = notifications.map(notification => {
-    const transformed = {
+    const config = NotificationConfig[notification.type];
+    
+    // Format actingUser data if present
+    const actingUser = notification.metadata.actingUserId ? {
+      id: notification.metadata.actingUserId._id,
+      username: notification.metadata.actingUserId.username,
+      fullName: notification.metadata.actingUserId.fullName,
+      photo: notification.metadata.actingUserId.photo ? 
+        `${baseUrl}/profilePics/${notification.metadata.actingUserId.photo}` : 
+        `${baseUrl}/profilePics/default.jpg`,
+      userFrame: notification.metadata.actingUserId.userFrame,
+      role: notification.metadata.actingUserId.role
+    } : null;
+
+    return {
       id: notification._id,
+      type: notification.type,
+      groupKey: Object.entries(notificationGroups).find(([_, types]) => 
+        types.includes(notification.type)
+      )?.[0] || 'other',
       title: notification.title,
       message: notification.message,
-      type: notification.type,
       link: notification.link,
+      isRead: notification.isRead,
+      actingUser,
       metadata: {
         ...notification.metadata,
-        actingUser: notification.metadata.actingUserId ? {
-          id: notification.metadata.actingUserId._id,
-          username: notification.metadata.actingUserId.username,
-          photo: notification.metadata.actingUserId.photo
-        } : null
+        actingUserId: undefined // Remove raw reference since we have actingUser object
       },
-      isRead: notification.isRead,
       createdAt: notification.createdAt,
-      user: {
-        id: notification.userId._id,
-        username: notification.userId.username,
-        photo: notification.userId.photo
-      }
+      timeAgo: getTimeAgo(notification.createdAt)
     };
-    delete transformed.metadata.actingUserId; // Remove the raw reference
-    return transformed;
   });
 
   res.status(200).json({
     status: "success",
-    results: notifications.length,
     data: {
       notifications: transformedNotifications,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),
-        totalNotifications: totalCount,
-        unreadCount,
+        hasMore: skip + notifications.length < totalCount,
+        total: totalCount,
+        limit
+      },
+      stats: {
+        unread: unreadCount,
+        byGroup: Object.fromEntries(
+          groupCounts.map(({ group, count }) => [group, count])
+        )
       }
-    },
+    }
   });
 });
+
+// Helper function for time formatting
+function getTimeAgo(date) {
+  const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+  const intervals = {
+    year: 31536000,
+    month: 2592000,
+    week: 604800,
+    day: 86400,
+    hour: 3600,
+    minute: 60
+  };
+
+  for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+    const interval = Math.floor(seconds / secondsInUnit);
+    if (interval >= 1) {
+      return interval === 1 ? `1 ${unit} ago` : `${interval} ${unit}s ago`;
+    }
+  }
+  return 'Just now';
+}
 
 exports.createNotification = catchAsync(async (req, res, next) => {
   if (!req.body.userId || !req.body.title || !req.body.message) {
@@ -113,34 +168,88 @@ exports.createNotification = catchAsync(async (req, res, next) => {
   });
 });
 
-// Add a new endpoint to mark all as read
 exports.markAllAsRead = catchAsync(async (req, res, next) => {
-  await Notification.updateMany(
-    { userId: req.user._id, isRead: false },
-    { isRead: true }
+  // Define notification groups here to match getAllNotifications grouping
+  const notificationGroups = {
+    materials: ['new-material'],
+    announcements: ['new-announcement', 'course-announcement'],
+    comments: ['comment-on-question', 'comment-replied', 'comment-like'],
+    questions: ['like-question', 'answer-verified', 'question-following'],
+    social: ['new-follower']
+  };
+
+  const filter = { userId: req.user._id, isRead: false };
+  
+  // Add group filter if specified
+  if (req.query.group && notificationGroups[req.query.group]) {
+    filter.type = { $in: notificationGroups[req.query.group] };
+  }
+
+  const result = await Notification.updateMany(filter, { isRead: true });
+
+  // Get updated unread counts
+  const groupCounts = await Promise.all(
+    Object.entries(notificationGroups).map(async ([group, types]) => {
+      const count = await Notification.countDocuments({
+        userId: req.user._id,
+        type: { $in: types },
+        isRead: false
+      });
+      return { group, count };
+    })
   );
+
+  const unreadCount = await Notification.countDocuments({
+    userId: req.user._id,
+    isRead: false
+  });
 
   res.status(200).json({
     status: "success",
-    message: "All notifications marked as read",
+    message: `${result.modifiedCount} notifications marked as read`,
+    data: {
+      stats: {
+        unread: unreadCount,
+        byGroup: Object.fromEntries(
+          groupCounts.map(({ group, count }) => [group, count])
+        )
+      }
+    }
   });
 });
-
 
 exports.getUnreadCount = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
 
-  // Define the notification type groups
-  const typeGroups = {
+  // Define notification groups consistent with getAllNotifications
+  const notificationGroups = {
     materials: ['new-material'],
     announcements: ['new-announcement', 'course-announcement'],
-    comments: ['comment-on-question', 'comment-replied'],
-    likes: ['like-question', 'comment-like'],
-    followers: ['new-follower']
+    comments: ['comment-on-question', 'comment-replied', 'comment-like'],
+    questions: ['like-question', 'answer-verified', 'question-following'],
+    social: ['new-follower']
   };
 
-  // Get all notifications grouped by type
-  const typeCountsArray = await Notification.aggregate([
+  // Get total unread count
+  const totalUnread = await Notification.countDocuments({
+    userId,
+    isRead: false
+  });
+
+  // Get counts by group
+  const groupCounts = await Promise.all(
+    Object.entries(notificationGroups).map(async ([group, types]) => {
+      const count = await Notification.countDocuments({
+        userId,
+        type: { $in: types },
+        isRead: false
+      });
+      return [group, count];
+    })
+  );
+
+  // Get individual type counts
+  const typeCounts = await Notification.aggregate([
     {
       $match: {
         userId: userId,
@@ -155,51 +264,35 @@ exports.getUnreadCount = catchAsync(async (req, res, next) => {
     }
   ]);
 
-  // Convert array to object
-  const typeCount = typeCountsArray.reduce((acc, { _id, count }) => {
-    acc[_id] = count;
-    return acc;
-  }, {});
-
-  // Calculate grouped counts
-  const groupedCounts = {
-    materials: typeGroups.materials.reduce((sum, type) => sum + (typeCount[type] || 0), 0),
-    announcements: typeGroups.announcements.reduce((sum, type) => sum + (typeCount[type] || 0), 0),
-    comments: typeGroups.comments.reduce((sum, type) => sum + (typeCount[type] || 0), 0),
-    likes: typeGroups.likes.reduce((sum, type) => sum + (typeCount[type] || 0), 0),
-    followers: typeGroups.followers.reduce((sum, type) => sum + (typeCount[type] || 0), 0)
-  };
-
-  // Calculate total unread
-  const totalUnread = Object.values(groupedCounts).reduce((sum, count) => sum + count, 0);
+  // Convert type counts array to object
+  const byType = Object.fromEntries(
+    typeCounts.map(({ _id, count }) => [_id, count])
+  );
 
   res.status(200).json({
     status: "success",
     data: {
       total: totalUnread,
-      groups: groupedCounts,
-      byType: typeCount // Keep individual type counts for reference if needed
+      groups: Object.fromEntries(groupCounts),
+      byType
     }
   });
 });
 
 exports.markAsRead = catchAsync(async (req, res, next) => {
-  const notification = await Notification.findOne({
-    _id: req.params.id,
-    userId: req.user._id,
-  });
+  const notification = await Notification.findOneAndUpdate(
+    {
+      _id: req.params.id,
+      userId: req.user._id,
+    },
+    { isRead: true }
+  );
 
   if (!notification) {
     return next(new AppError("Notification not found", 404));
   }
 
-  notification.isRead = true;
-  await notification.save();
-
-  res.status(200).json({
-    status: "success",
-    data: { notification },
-  });
+  res.status(204).json();
 });
 
 exports.deleteNotification = catchAsync(async (req, res, next) => {

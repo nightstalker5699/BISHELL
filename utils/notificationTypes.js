@@ -86,10 +86,10 @@ const NotificationConfig = {
   },
 
   [NotificationType.NEW_MATERIAL]: {
-    title: "New Material",
-    messageTemplate: "New material added to {courseName}",
-    link: "/courses/{courseId}/materials",
-    metadataFields: ['courseId', 'courseName', 'materialId', 'actingUserId']
+    title: "New Material Added",
+    messageTemplate: "New material '{title}' added in {courseName}",
+    link: "/courses/{courseId}/materials/{materialId}",
+    metadataFields: ['courseId', 'courseName', 'materialId', 'actingUserId', 'title']
   }
 };
 

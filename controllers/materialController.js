@@ -7,6 +7,10 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const mime = require('mime-types');
 const archiver = require('archiver')
+const { NotificationType } = require('../utils/notificationTypes');
+const { sendNotificationToUser } = require('../utils/notificationUtil');
+const Course = require('../models/courseModel');
+const User = require('../models/userModel');
 
 // Set max file size to 40MB
 const MAX_FILE_SIZE = 40 * 1024 * 1024;
@@ -191,10 +195,43 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
   // Create the Material document
   const material = await Material.create(materialData);
 
+  // Send response first
   res.status(201).json({
-    status: 'success',
-    data: { material },
+    status: "success",
+    data: {
+      material,
+    },
   });
+
+  // Then handle notifications in background
+  try {
+    const course = await Course.findById(req.params.courseId);
+    const usersToNotify = await User.find({ 
+      _id: { $ne: req.user._id }, // Exclude material creator
+      $or: [
+        { enrolledCourses: course._id },
+        { savedCourses: course._id }
+      ]
+    });
+
+    const notificationPromises = usersToNotify.map((user) => {
+      return sendNotificationToUser(
+        user._id,
+        NotificationType.NEW_MATERIAL,
+        {
+          courseId: course._id,
+          courseName: course.name,
+          materialId: material._id,
+          actingUserId: req.user._id,
+          title: material.title // Add material title to notification data
+        }
+      );
+    });
+
+    await Promise.all(notificationPromises);
+  } catch (err) {
+    console.error("Error sending notifications:", err);
+  }
 });
 
 exports.getMaterials = catchAsync(async (req, res, next) => {

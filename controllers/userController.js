@@ -10,6 +10,7 @@ const multer = require("multer");
 const sharp = require("sharp");
 const appError = require("../utils/appError");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
+const { NotificationType } = require('../utils/notificationTypes');
 
 const storage = multer.memoryStorage({});
 
