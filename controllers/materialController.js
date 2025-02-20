@@ -204,37 +204,36 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
   });
 
   // Then handle notifications in background
-  try {
-    const courseId = req.body.course;
-    const course = await Course.findById(courseId);
-    if (!course) {
-      console.error("Course not found for notifications");
-      return;
+    // Then handle notifications in background
+    try {
+      const courseId = req.body.course;
+      const course = await Course.findById(courseId);
+      if (!course) {
+        console.error("Course not found for notifications");
+        return;
+      }
+  
+      // Get all users without any filtering
+      const users = await User.find();
+  
+      const notificationPromises = users.map((user) => {
+        return sendNotificationToUser(
+          user._id,
+          NotificationType.NEW_MATERIAL,
+          {
+            courseId: courseId,
+            courseName: course.courseName,
+            materialId: material._id,
+            actingUserId: req.user?._id || null, // Add this line
+            title: material.name
+          }
+        );
+      });
+  
+      await Promise.all(notificationPromises);
+    } catch (err) {
+      console.error("Error sending notifications:", err);
     }
-
-    // Simplified query - get all users except material creator
-    const usersToNotify = await User.find({ 
-      _id: { $ne: req.user._id } // Only exclude material creator
-    });
-
-    const notificationPromises = usersToNotify.map((user) => {
-      return sendNotificationToUser(
-        user._id,
-        NotificationType.NEW_MATERIAL,
-        {
-          courseId: courseId,
-          courseName: course.courseName, // Changed from course.name to course.courseName
-          materialId: material._id,
-          actingUserId: req.user._id,
-          title: material.name
-        }
-      );
-    });
-
-    await Promise.all(notificationPromises);
-  } catch (err) {
-    console.error("Error sending notifications:", err);
-  }
 });
 
 exports.getMaterials = catchAsync(async (req, res, next) => {
