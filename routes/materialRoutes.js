@@ -3,10 +3,11 @@ const materialController = require("../controllers/materialController");
 const multer = require("multer");
 const multiPartParser = multer();
 const router = express.Router();
+const authController = require("../controllers/authController");
 
 router
   .route("/")
-  .post(materialController.uploadMaterial, materialController.createMaterial)
+  .post(materialController.uploadMaterial, authController.protect,materialController.createMaterial)
   .get(materialController.getMaterials);
 
 router.use(multiPartParser.any());
