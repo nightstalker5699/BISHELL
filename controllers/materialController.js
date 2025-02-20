@@ -205,12 +205,18 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
 
   // Then handle notifications in background
   try {
-    const course = await Course.findById(req.params.courseId);
+    const courseId = req.body.course; // Fix: Use course ID from request body
+    const course = await Course.findById(courseId);
+    if (!course) {
+      console.error("Course not found for notifications");
+      return;
+    }
+
     const usersToNotify = await User.find({ 
       _id: { $ne: req.user._id }, // Exclude material creator
       $or: [
-        { enrolledCourses: course._id },
-        { savedCourses: course._id }
+        { enrolledCourses: courseId },
+        { savedCourses: courseId }
       ]
     });
 
@@ -219,11 +225,11 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
         user._id,
         NotificationType.NEW_MATERIAL,
         {
-          courseId: course._id,
+          courseId: courseId,
           courseName: course.name,
           materialId: material._id,
           actingUserId: req.user._id,
-          title: material.title // Add material title to notification data
+          title: material.name // Fix: Use material.name instead of title
         }
       );
     });
