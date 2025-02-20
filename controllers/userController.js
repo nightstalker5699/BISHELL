@@ -128,13 +128,13 @@ exports.followUser = catchAsync(async (req, res, next) => {
     await currentUser.save({ validateBeforeSave: false });
     await userToFollow.save({ validateBeforeSave: false });
 
-    // Send notification to followed user using the new system
+
     await sendNotificationToUser(
       userToFollow._id,
       NotificationType.NEW_FOLLOWER,
       {
         username: currentUser.username,
-        actingUserId: currentUser._id  // Add this for user population
+        actingUserId: currentUser._id  
       }
     );
 

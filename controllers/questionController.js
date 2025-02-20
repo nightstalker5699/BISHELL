@@ -327,7 +327,7 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
       {
         username: user.username,
         questionId: newQuestion._id,
-        actingUserId: userId, // Acting user is the question creator
+        actingUserId: user._id, // Changed from userId (string) to user._id (ObjectId)
         title: newQuestion.content.substring(0, 50) + '...' // Optional: Add question preview
       }
     );

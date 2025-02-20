@@ -100,7 +100,6 @@ const formatNotificationMessage = (type, data) => {
   let message = config.messageTemplate;
   let link = config.link;
 
-  // Validate required metadata fields
   if (config.metadataFields) {
     const missingFields = config.metadataFields.filter(field => !data[field]);
     if (missingFields.length > 0) {
@@ -108,7 +107,6 @@ const formatNotificationMessage = (type, data) => {
     }
   }
 
-  // Replace placeholders in message and link
   Object.keys(data).forEach((key) => {
     message = message.replace(`{${key}}`, data[key]);
     link = link.replace(`{${key}}`, data[key]);
