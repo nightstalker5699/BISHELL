@@ -7,7 +7,7 @@ const authController = require("../controllers/authController");
 
 router
   .route("/")
-  .post(materialController.uploadMaterial, authController.protect,materialController.createMaterial)
+  .post(materialController.uploadMaterial, materialController.createMaterial)
   .get(materialController.getMaterials);
 
 router.use(multiPartParser.any());
