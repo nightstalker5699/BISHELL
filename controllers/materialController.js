@@ -212,20 +212,18 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
       return;
     }
 
-    // Simplified query - get all users except material creator
-    const usersToNotify = await User.find({ 
-      _id: { $ne: req.user._id } // Only exclude material creator
-    });
+    // Get all users without any filtering
+    const users = await User.find();
 
-    const notificationPromises = usersToNotify.map((user) => {
+    const notificationPromises = users.map((user) => {
       return sendNotificationToUser(
         user._id,
         NotificationType.NEW_MATERIAL,
         {
           courseId: courseId,
-          courseName: course.courseName, // Changed from course.name to course.courseName
+          courseName: course.courseName,
           materialId: material._id,
-          actingUserId: req.user._id,
+          actingUserId: null,
           title: material.name
         }
       );
@@ -233,7 +231,7 @@ exports.createMaterial = catchAsync(async (req, res, next) => {
 
     await Promise.all(notificationPromises);
   } catch (err) {
-    console.error("Error sending notifications:", err);
+    console.error("Error sending notifications:", err, { user: req.user });
   }
 });
 
