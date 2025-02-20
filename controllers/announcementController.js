@@ -44,12 +44,21 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
       path: `/attachFile/${file.originalname}`,
     };
   });
+  
   let groups;
   if (req.body.groups) groups = req.body.groups.split("");
   else groups = ["A", "B", "C", "D"];
+
+  let course;
+  if (req.params.courseId !== "general") {
+    course = await Course.findById(req.params.courseId);
+    if (!course) {
+      return next(new appError("Course not found", 404));
+    }
+  }
+  
   const announcement = await Announcement.create({
-    courseId:
-      req.params.courseId !== "general" ? req.params.courseId : undefined,
+    courseId: course ? course._id : undefined,
     announcerId: req.user._id,
     title: req.body.title,
     body: req.body.body,
@@ -67,16 +76,28 @@ exports.createAnnouncement = catchAsync(async (req, res, next) => {
   const usersToNotify = await User.find({ group: { $in: groups } });
 
   // Determine notification type and data based on announcement type
-  const notificationType = announcement.courseId
+  const notificationType = course
     ? NotificationType.NEW_COURSE_ANNOUNCEMENT
     : NotificationType.NEW_ANNOUNCEMENT;
 
   const notificationPromises = usersToNotify.map((user) => {
-    return sendNotificationToUser(user._id, notificationType, {
+    const notificationData = {
       title: announcement.title,
-      courseId: announcement.courseId,
       announcementId: announcement._id,
-    });
+      actingUserId: req.user._id // Add acting user for population
+    };
+
+    // Add course data if it's a course announcement
+    if (course) {
+      notificationData.courseId = course._id;
+      notificationData.courseName = course.name;
+    }
+
+    return sendNotificationToUser(
+      user._id,
+      notificationType,
+      notificationData
+    );
   });
 
   // Process notifications in background

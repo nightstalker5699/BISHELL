@@ -1,113 +1,96 @@
 const NotificationType = {
-  // Question 
+  // Questions & Comments
   LIKE_QUESTION: "like-question",
   COMMENT_ON_QUESTION: "comment-on-question",
+  QUESTION_FOLLOWING: "question-following",
+  ANSWER_VERIFIED: "answer-verified",
   COMMENT_REPLIED: "comment-replied",
   COMMENT_LIKED: "comment-like",
-  ANSWER_VERIFIED: "answer-verified",
-  QUESTION_FOLLOWING: "question-following",
-
-  // User 
+  
+  // Social
   NEW_FOLLOWER: "new-follower",
-
-  // Content 
-  NEW_NOTE: "new-note",
+  
+  // Content
   NEW_ANNOUNCEMENT: "new-announcement",
-  NEW_MATERIAL: "new-material",
   NEW_COURSE_ANNOUNCEMENT: "course-announcement",
+  NEW_MATERIAL: "new-material",
 
-  // Points 
+  // Points & System
   POINTS_EARNED: "points-earned",
   POINTS_DEDUCTED: "points-deducted",
-
-  // Generic
-  INFO: "info",
+  INFO: "info"
 };
 
 const NotificationConfig = {
   [NotificationType.LIKE_QUESTION]: {
-    title: "New Like on Question",
+    title: "Question Liked",
     messageTemplate: "{username} liked your question",
     link: "/questions/{questionId}",
+    metadataFields: ['questionId', 'actingUserId', 'title']
   },
 
   [NotificationType.COMMENT_ON_QUESTION]: {
     title: "New Comment",
     messageTemplate: "{username} commented on your question",
     link: "/questions/{questionId}",
+    metadataFields: ['questionId', 'commentId', 'actingUserId', 'title']
   },
 
   [NotificationType.COMMENT_REPLIED]: {
     title: "New Reply",
     messageTemplate: "{username} replied to your comment",
     link: "/questions/{questionId}",
-  },
-
-  [NotificationType.QUESTION_FOLLOWING]: {
-    title: "New Question from Followed User",
-    messageTemplate: "{username} has posted a new question",
-    link: "/questions/{questionId}",
+    metadataFields: ['questionId', 'commentId', 'actingUserId', 'title']
   },
 
   [NotificationType.COMMENT_LIKED]: {
     title: "Comment Liked",
     messageTemplate: "{username} liked your comment",
     link: "/questions/{questionId}",
-  },
-
-  [NotificationType.ANSWER_VERIFIED]: {
-    title: "Answer Verified",
-    messageTemplate: "Your answer was marked as verified",
-    link: "/questions/{questionId}",
+    metadataFields: ['questionId', 'commentId', 'actingUserId', 'title']
   },
 
   [NotificationType.NEW_FOLLOWER]: {
     title: "New Follower",
     messageTemplate: "{username} started following you",
     link: "/profile/{username}",
-  },
-
-  [NotificationType.NEW_NOTE]: {
-    title: "New Note",
-    messageTemplate: "{username} posted a new note: {noteTitle}",
-    link: "/note/{username}/{noteSlug}",
+    metadataFields: ['actingUserId']
   },
 
   [NotificationType.NEW_ANNOUNCEMENT]: {
     title: "New Announcement",
     messageTemplate: "New announcement: {title}",
-    link: "/announcements",
+    link: "/announcements/{announcementId}",
+    metadataFields: ['announcementId', 'actingUserId', 'title']
+  },
+  
+  [NotificationType.NEW_COURSE_ANNOUNCEMENT]: {
+    title: "New Course Announcement",
+    messageTemplate: "New announcement in {courseName}: {title}",
+    link: "/courses/{courseId}/announcements/{announcementId}",
+    metadataFields: ['courseId', 'courseName', 'announcementId', 'actingUserId', 'title']
   },
 
-  [NotificationType.NEW_COURSE_ANNOUNCEMENT]: {
-    title: "{courseName} Announcement",
-    messageTemplate: "New announcement in {courseName}: {title}",
-    link: "/courses/{courseId}/announcements",
+  [NotificationType.QUESTION_FOLLOWING]: {
+    title: "New Question",
+    messageTemplate: "{username} posted a new question",
+    link: "/questions/{questionId}",
+    metadataFields: ['questionId', 'actingUserId', 'title']
+  },
+
+  [NotificationType.ANSWER_VERIFIED]: {
+    title: "Answer Verified",
+    messageTemplate: "Your answer was marked as correct",
+    link: "/questions/{questionId}",
+    metadataFields: ['questionId', 'actingUserId', 'title']
   },
 
   [NotificationType.NEW_MATERIAL]: {
     title: "New Material",
     messageTemplate: "New material added to {courseName}",
     link: "/courses/{courseId}/materials",
-  },
-
-  [NotificationType.POINTS_EARNED]: {
-    title: "Points Earned",
-    messageTemplate: "You earned {points} points: {reason}",
-    link: "/profile/points",
-  },
-
-  [NotificationType.POINTS_DEDUCTED]: {
-    title: "Points Deducted",
-    messageTemplate: "{points} points were deducted: {reason}",
-    link: "/profile/points",
-  },
-
-  [NotificationType.INFO]: {
-    title: "Information",
-    messageTemplate: "{message}",
-    link: "{link}",
-  },
+    metadataFields: ['courseId', 'courseName', 'materialId', 'actingUserId']
+  }
 };
 
 const formatNotificationMessage = (type, data) => {
@@ -117,15 +100,24 @@ const formatNotificationMessage = (type, data) => {
   let message = config.messageTemplate;
   let link = config.link;
 
+  // Validate required metadata fields
+  if (config.metadataFields) {
+    const missingFields = config.metadataFields.filter(field => !data[field]);
+    if (missingFields.length > 0) {
+      console.warn(`Missing metadata fields for ${type}: ${missingFields.join(', ')}`);
+    }
+  }
+
+  // Replace placeholders in message and link
   Object.keys(data).forEach((key) => {
     message = message.replace(`{${key}}`, data[key]);
     link = link.replace(`{${key}}`, data[key]);
   });
 
   return {
-    title: config.title.replace(/{(\w+)}/g, (match, key) => data[key] || match),
+    title: config.title,
     body: message,
-    click_action: link,
+    click_action: link
   };
 };
 

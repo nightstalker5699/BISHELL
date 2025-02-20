@@ -7,14 +7,20 @@ const { NotificationType, formatNotificationMessage } = require('./notificationT
 const createInAppNotification = async (userId, type, data = {}) => {
   const messageData = formatNotificationMessage(type, data);
   
+  const metadata = {
+    ...data,
+    actingUserId: data.actingUserId || null // Ensure actingUserId is included
+  };
+
   return await Notification.create({
     userId: userId,
     title: messageData.title,
     message: messageData.body,
     type: type,
     link: messageData.click_action,
-    metadata: data
+    metadata: metadata
   });
+  
 };
 
 // Send FCM push notification only

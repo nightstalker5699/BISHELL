@@ -133,7 +133,8 @@ exports.followUser = catchAsync(async (req, res, next) => {
       userToFollow._id,
       NotificationType.NEW_FOLLOWER,
       {
-        username: currentUser.username
+        username: currentUser.username,
+        actingUserId: currentUser._id  // Add this for user population
       }
     );
 

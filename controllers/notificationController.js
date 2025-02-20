@@ -1,39 +1,89 @@
 const Notification = require("../models/notificationModel");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
+const APIFeatures = require("../utils/apiFeatures");
 
 exports.getAllNotifications = catchAsync(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
-  // Get total counts
-  const totalCount = await Notification.countDocuments({
-    userId: req.user._id,
-  });
+  // Define notification groups
+  const notificationGroups = {
+    materials: ['new-material'],
+    announcements: ['new-announcement', 'course-announcement'],
+    comments: ['comment-on-question', 'comment-replied'],
+    likes: ['like-question', 'comment-like'],
+    followers: ['new-follower']
+  };
+
+  // Base query
+  let query = { userId: req.user._id };
+
+  // Add group filter if specified
+  if (req.query.group && notificationGroups[req.query.group]) {
+    query.type = { $in: notificationGroups[req.query.group] };
+  }
+
+  // Get total counts based on filters
+  const totalCount = await Notification.countDocuments(query);
   const unreadCount = await Notification.countDocuments({
-    userId: req.user._id,
+    ...query,
     isRead: false,
   });
 
-  // Get paginated notifications
-  const notifications = await Notification.find({ userId: req.user._id })
-    .sort("-createdAt")
+  // Modify query to use direct MongoDB methods instead of APIFeatures
+  let dbQuery = Notification.find(query)
+    .populate("userId", "username photo") // notification owner
+    .populate({
+      path: 'metadata.actingUserId',
+      select: 'username photo',
+      model: 'User'
+    })
     .skip(skip)
     .limit(limit)
-    .populate("userId", "username photo");
+    .sort('-createdAt');
+  // Execute query
+  const notifications = await dbQuery;
+  
+  const transformedNotifications = notifications.map(notification => {
+    const transformed = {
+      id: notification._id,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      link: notification.link,
+      metadata: {
+        ...notification.metadata,
+        actingUser: notification.metadata.actingUserId ? {
+          id: notification.metadata.actingUserId._id,
+          username: notification.metadata.actingUserId.username,
+          photo: notification.metadata.actingUserId.photo
+        } : null
+      },
+      isRead: notification.isRead,
+      createdAt: notification.createdAt,
+      user: {
+        id: notification.userId._id,
+        username: notification.userId.username,
+        photo: notification.userId.photo
+      }
+    };
+    delete transformed.metadata.actingUserId; // Remove the raw reference
+    return transformed;
+  });
 
   res.status(200).json({
     status: "success",
     results: notifications.length,
     data: {
-      notifications,
+      notifications: transformedNotifications,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),
         totalNotifications: totalCount,
         unreadCount,
-      },
+      }
     },
   });
 });
@@ -49,7 +99,10 @@ exports.createNotification = catchAsync(async (req, res, next) => {
     message: req.body.message,
     type: req.body.type || 'info',
     link: req.body.link,
-    metadata: req.body.metadata
+    metadata: {
+      ...req.body.metadata,
+      actingUserId: req.user._id // Add the acting user's ID
+    }
   });
 
   res.status(201).json({
@@ -73,16 +126,60 @@ exports.markAllAsRead = catchAsync(async (req, res, next) => {
   });
 });
 
-// Add a new endpoint to get unread count
+
 exports.getUnreadCount = catchAsync(async (req, res, next) => {
-  const count = await Notification.countDocuments({
-    userId: req.user._id,
-    isRead: false,
-  });
+  const userId = req.user._id;
+
+  // Define the notification type groups
+  const typeGroups = {
+    materials: ['new-material'],
+    announcements: ['new-announcement', 'course-announcement'],
+    comments: ['comment-on-question', 'comment-replied'],
+    likes: ['like-question', 'comment-like'],
+    followers: ['new-follower']
+  };
+
+  // Get all notifications grouped by type
+  const typeCountsArray = await Notification.aggregate([
+    {
+      $match: {
+        userId: userId,
+        isRead: false
+      }
+    },
+    {
+      $group: {
+        _id: '$type',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+
+  // Convert array to object
+  const typeCount = typeCountsArray.reduce((acc, { _id, count }) => {
+    acc[_id] = count;
+    return acc;
+  }, {});
+
+  // Calculate grouped counts
+  const groupedCounts = {
+    materials: typeGroups.materials.reduce((sum, type) => sum + (typeCount[type] || 0), 0),
+    announcements: typeGroups.announcements.reduce((sum, type) => sum + (typeCount[type] || 0), 0),
+    comments: typeGroups.comments.reduce((sum, type) => sum + (typeCount[type] || 0), 0),
+    likes: typeGroups.likes.reduce((sum, type) => sum + (typeCount[type] || 0), 0),
+    followers: typeGroups.followers.reduce((sum, type) => sum + (typeCount[type] || 0), 0)
+  };
+
+  // Calculate total unread
+  const totalUnread = Object.values(groupedCounts).reduce((sum, count) => sum + count, 0);
 
   res.status(200).json({
     status: "success",
-    data: { unreadCount: count },
+    data: {
+      total: totalUnread,
+      groups: groupedCounts,
+      byType: typeCount // Keep individual type counts for reference if needed
+    }
   });
 });
 

@@ -26,7 +26,19 @@ const notificationSchema = new mongoose.Schema({
   },
   metadata: {
     type: mongoose.Schema.Types.Mixed,
-    required: false
+    default: {},
+    actingUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: false
+    },
+    title: String,
+    questionId: mongoose.Schema.Types.ObjectId,
+    commentId: mongoose.Schema.Types.ObjectId,
+    announcementId: mongoose.Schema.Types.ObjectId,
+    courseId: mongoose.Schema.Types.ObjectId,
+    courseName: String,
+    materialId: mongoose.Schema.Types.ObjectId
   },
   createdAt: { 
     type: Date, 
@@ -44,9 +56,7 @@ const notificationSchema = new mongoose.Schema({
   }
 });
 
-
 notificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
 
 notificationSchema.index({ userId: 1, createdAt: -1 });
 

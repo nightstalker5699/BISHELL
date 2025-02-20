@@ -326,11 +326,12 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
       NotificationType.QUESTION_FOLLOWING,
       {
         username: user.username,
-        questionId: newQuestion._id
+        questionId: newQuestion._id,
+        actingUserId: userId, // Acting user is the question creator
+        title: newQuestion.content.substring(0, 50) + '...' // Optional: Add question preview
       }
     );
   });
-
   // Process notifications in background
   Promise.all(notificationPromises).catch((err) => {
     console.error("Error sending notifications:", err);
@@ -384,7 +385,9 @@ exports.verifyComment = catchAsync(async (req, res, next) => {
     comment.userId,
     NotificationType.ANSWER_VERIFIED,
     {
-      questionId: question._id
+      questionId: question._id,
+      actingUserId: req.user._id,
+      title: question.content.substring(0, 50) + '...' // Optional: Add question context
     }
   );
 });
@@ -882,14 +885,15 @@ exports.likeQuestion = catchAsync(async (req, res, next) => {
     },
   });
 
-  // Send notification if not liking own question
   if (question.userId.toString() !== req.user._id.toString()) {
     await sendNotificationToUser(
       question.userId,
       NotificationType.LIKE_QUESTION,
       {
         username: req.user.username,
-        questionId: question._id
+        questionId: question._id,
+        actingUserId: req.user._id,
+        title: question.content.substring(0, 50) + '...' // Optional: Add question context
       }
     );
   }

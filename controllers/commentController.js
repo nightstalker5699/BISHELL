@@ -130,7 +130,10 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
       NotificationType.COMMENT_ON_QUESTION,
       {
         username: req.user.username,
-        questionId: question._id
+        questionId: question._id,
+        commentId: comment._id,
+        actingUserId: req.user._id,
+        title: question.content.substring(0, 50) + '...' // Add question context
       }
     );
   }
@@ -252,7 +255,10 @@ exports.addReply = catchAsync(async (req, res, next) => {
       NotificationType.COMMENT_REPLIED,
       {
         username: req.user.username,
-        questionId: req.params.questionId
+        questionId: req.params.questionId,
+        commentId: reply._id,
+        actingUserId: req.user._id,
+        title: parentComment.content.substring(0, 50) + '...' // Add comment context
       }
     );
   }
@@ -367,7 +373,10 @@ exports.likeComment = catchAsync(async (req, res, next) => {
       NotificationType.COMMENT_LIKED,
       {
         username: req.user.username,
-        questionId: req.params.questionId
+        questionId: req.params.questionId,
+        commentId: comment._id,
+        actingUserId: req.user._id,
+        title: comment.content.substring(0, 50) + '...' // Add comment context
       }
     );
   }
