@@ -24,7 +24,7 @@ router.delete(
   authController.protect,
   userController.removeDeviceToken
 );
-
+router.get("/checkUsername/:username", userController.isUsernameGood);
 router.patch(
   "/updateMe",
   authController.protect,

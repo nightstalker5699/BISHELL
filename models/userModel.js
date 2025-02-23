@@ -36,7 +36,7 @@ const userSchema = new mongoose.Schema(
     },
     userFrame: {
       type: String,
-      default: "null"
+      default: "null",
     },
     caption: {
       type: String,
@@ -94,6 +94,10 @@ const userSchema = new mongoose.Schema(
     showToDo: {
       type: Boolean,
       default: true,
+    },
+    isPrivate: {
+      type: Boolean,
+      default: false,
     },
   },
   {

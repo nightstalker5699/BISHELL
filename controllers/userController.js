@@ -10,7 +10,7 @@ const multer = require("multer");
 const sharp = require("sharp");
 const appError = require("../utils/appError");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
-const { NotificationType } = require('../utils/notificationTypes');
+const { NotificationType } = require("../utils/notificationTypes");
 
 const storage = multer.memoryStorage({});
 
@@ -129,13 +129,12 @@ exports.followUser = catchAsync(async (req, res, next) => {
     await currentUser.save({ validateBeforeSave: false });
     await userToFollow.save({ validateBeforeSave: false });
 
-
     await sendNotificationToUser(
       userToFollow._id,
       NotificationType.NEW_FOLLOWER,
       {
         username: currentUser.username,
-        actingUserId: currentUser._id  
+        actingUserId: currentUser._id,
       }
     );
 
@@ -147,7 +146,6 @@ exports.followUser = catchAsync(async (req, res, next) => {
     res.status(400).json({ message: "Already following this user" });
   }
 });
-
 
 exports.unfollowUser = catchAsync(async (req, res, next) => {
   const userToUnfollow = await User.findById(req.params.id);
@@ -202,7 +200,6 @@ exports.getFollowers = catchAsync(async (req, res, next) => {
     },
   });
 });
-
 
 exports.getFollowing = catchAsync(async (req, res, next) => {
   const user = await User.findOne({ username: req.params.username });
@@ -275,7 +272,13 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   }
 
   // Filter out unwanted fields
-  const filteredBody = filterObj(req.body, "fullName", "caption");
+  const filteredBody = filterObj(
+    req.body,
+    "fullName",
+    "caption",
+    "username",
+    "email"
+  );
 
   // Handle photo upload
   if (req.file) filteredBody.photo = `user-${req.user.username}.jpeg`;
@@ -291,6 +294,19 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     data: {
       user: updatedUser,
     },
+  });
+});
+
+exports.isUsernameGood = catchAsync(async (req, res, next) => {
+  const { username } = req.params;
+
+  const user = await User.findOne({ username: username });
+
+  if (user) return next(new AppError("username taken", 400));
+
+  res.status(200).json({
+    status: "success",
+    message: "username available",
   });
 });
 
