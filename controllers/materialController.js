@@ -510,8 +510,8 @@ exports.getMaterialFile = catchAsync(async (req, res, next) => {
     'Expires': '0',
     'Content-Transfer-Encoding': 'binary',
     'Content-Disposition': isViewable 
-    ? `inline; filename="${material.name}"`
-    : `attachment; filename*=UTF-8''${encodeURIComponent(material.name)}`,
+      ? `inline; filename="${material.name}"; filename*=UTF-8''${encodeURIComponent(material.name)}`
+      : `attachment; filename*=UTF-8''${encodeURIComponent(material.name)}`,
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'SAMEORIGIN',
     'X-XSS-Protection': '1; mode=block'
