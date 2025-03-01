@@ -313,8 +313,6 @@ exports.deleteNotification = catchAsync(async (req, res, next) => {
   });
 });
 
-// Add this with the other exports
-
 exports.deleteAllByGroup = catchAsync(async (req, res, next) => {
   const { group } = req.query;
   
