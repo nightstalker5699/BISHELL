@@ -312,3 +312,51 @@ exports.deleteNotification = catchAsync(async (req, res, next) => {
     data: null,
   });
 });
+
+// Add this with the other exports
+
+exports.deleteAllByGroup = catchAsync(async (req, res, next) => {
+  const { group } = req.query;
+  
+  // Define notification groups
+  const notificationGroups = {
+    materials: ['new-material'],
+    announcements: ['new-announcement', 'course-announcement'],
+    comments: ['comment-on-question', 'comment-replied', 'comment-like'],
+    questions: ['like-question', 'answer-verified', 'question-following'],
+    social: ['new-follower']
+  };
+
+  // Validate group parameter
+  if (!group || !notificationGroups[group]) {
+    return next(new AppError('Please provide a valid notification group', 400));
+  }
+
+  // Delete notifications for the specified group
+  const result = await Notification.deleteMany({
+    userId: req.user._id,
+    type: { $in: notificationGroups[group] }
+  });
+
+  // Get updated counts for remaining notifications
+  const groupCounts = await Promise.all(
+    Object.entries(notificationGroups).map(async ([groupName, types]) => {
+      const count = await Notification.countDocuments({
+        userId: req.user._id,
+        type: { $in: types }
+      });
+      return { group: groupName, count };
+    })
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: `${result.deletedCount} notifications deleted from ${group} group`,
+    data: {
+      deletedCount: result.deletedCount,
+      remainingCounts: Object.fromEntries(
+        groupCounts.map(({ group, count }) => [group, count])
+      )
+    }
+  });
+});
