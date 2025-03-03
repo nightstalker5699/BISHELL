@@ -277,7 +277,8 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     "fullName",
     "caption",
     "username",
-    "email"
+    "email",
+    "isPrivate"
   );
 
   // Handle photo upload

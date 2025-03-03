@@ -68,8 +68,8 @@ exports.signup = catchAsync(async (req, res) => {
 exports.login = catchAsync(async (req, res, next) => {
   const { identifier, password, deviceToken } = req.body;
 
-  if (deviceToken && typeof deviceToken !== 'string') {
-    return next(new AppError('Invalid device token format', 400));
+  if (deviceToken && typeof deviceToken !== "string") {
+    return next(new AppError("Invalid device token format", 400));
   }
 
   if (!identifier || !password) {
@@ -85,7 +85,7 @@ exports.login = catchAsync(async (req, res, next) => {
   const user = await User.findOne({
     $or: [{ email: emailPattern }, { username: usernamePattern }],
   }).select("+password");
-  
+
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError("Incorrect email/username or password", 401));
   }
@@ -204,8 +204,8 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
       message: "Token sent to email!",
     });
   } catch (err) {
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
+    // user.passwordResetToken = undefined;
+    // user.passwordResetExpires = undefined;
     await user.save({ validateBeforeSave: false });
 
     return next(
@@ -261,25 +261,25 @@ exports.logout = catchAsync(async (req, res, next) => {
   const { deviceToken } = req.body;
 
   if (!deviceToken) {
-    return next(new AppError('Device token is required', 400));
+    return next(new AppError("Device token is required", 400));
   }
 
   if (req.user) {
     // Remove the specific device token
     await User.findByIdAndUpdate(req.user._id, {
-      $pull: { deviceTokens: deviceToken }
+      $pull: { deviceTokens: deviceToken },
     });
   }
 
-  res.status(200).json({ 
-    status: 'success',
-    message: 'Successfully logged out'
+  res.status(200).json({
+    status: "success",
+    message: "Successfully logged out",
   });
 });
 
 exports.optionalProtect = catchAsync(async (req, res, next) => {
   let token;
-  
+
   // Check for token
   if (
     req.headers.authorization &&
@@ -298,7 +298,7 @@ exports.optionalProtect = catchAsync(async (req, res, next) => {
   try {
     // Verify token
     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
-    
+
     // Get user
     const currentUser = await User.findById(decoded.id);
     if (!currentUser) {
