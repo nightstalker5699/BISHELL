@@ -60,14 +60,14 @@ const NotificationConfig = {
   [NotificationType.NEW_ANNOUNCEMENT]: {
     title: "New Announcement",
     messageTemplate: "New announcement: {title}",
-    link: "/announcements/{announcementId}",
+    link: "/announcements",
     metadataFields: ['announcementId', 'actingUserId', 'title']
   },
   
   [NotificationType.NEW_COURSE_ANNOUNCEMENT]: {
     title: "New Course Announcement",
     messageTemplate: "New announcement in {courseName}: {title}",
-    link: "/courses/{courseId}/announcements/{announcementId}",
+    link: "/courses/{courseId}",
     metadataFields: ['courseId', 'courseName', 'announcementId', 'actingUserId', 'title']
   },
 
