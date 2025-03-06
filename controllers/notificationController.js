@@ -9,13 +9,13 @@ exports.getAllNotifications = catchAsync(async (req, res, next) => {
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
-  // Define notification groups
+  // Define notification groups - adding mention to social group
   const notificationGroups = {
     materials: ['new-material'],
     announcements: ['new-announcement', 'course-announcement'],
     comments: ['comment-on-question', 'comment-replied', 'comment-like'],
     questions: ['like-question', 'answer-verified', 'question-following'],
-    social: ['new-follower']
+    social: ['new-follower', 'mention']  // Updated to include mentions
   };
 
   // Base query
