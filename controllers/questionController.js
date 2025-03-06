@@ -12,6 +12,7 @@ const APIFeatures = require("../utils/apiFeatures");
 const Point = require("../models/pointModel");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
 const { NotificationType } = require('../utils/notificationTypes');
+const { processMentions } = require('../utils/mentionUtil');
 
 const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
 if (!fs.existsSync(attachFileDir)) {
@@ -258,10 +259,12 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
 
 exports.createQuestion = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
+  const content = req.body.content;
 
+  // Create question first
   const questionData = {
     userId: userId,
-    content: req.body.content,
+    content: content
   };
 
   if (req.file) {
@@ -274,6 +277,15 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
   }
 
   const newQuestion = await Question.create(questionData);
+  
+  // Process mentions after creating question
+  await processMentions(
+    content, 
+    userId,
+    'question',
+    newQuestion._id
+  );
+
   await newQuestion.populate({
     path: "userId",
     select: "username fullName photo role userFrame",

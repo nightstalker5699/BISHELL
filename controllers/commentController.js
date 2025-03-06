@@ -9,13 +9,16 @@ const path = require('path');
 const Point = require("../models/pointModel");
 const { sendNotificationToUser } = require('../utils/notificationUtil');
 const { NotificationType } = require('../utils/notificationTypes');
+const { processMentions } = require('../utils/mentionUtil');
+
+
 
 
 
 exports.addComment = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.questionId);
   
-  if (!post) return next(new appError("there is no post with that ID", 404));
+  if (!post) return next(new AppError("there is no post with that ID", 404));
   
   const comment = await Comment.create({
     userId: req.user._id,
@@ -89,6 +92,14 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
     likes: [], // Initialize empty arrays
     replies: []
   });
+
+  // Process mentions after creating comment
+  await processMentions(
+    req.body.content,
+    req.user._id,
+    'comment',
+    comment._id
+  );
 
   // Add comment to question's comments array
   question.comments.push(comment._id);
@@ -165,6 +176,14 @@ exports.updateQuestionComment = catchAsync(async (req, res, next) => {
   await comment.save();
   await comment.populate('userId', 'username fullName photo userFrame');
 
+  // Process mentions for updated content
+  await processMentions(
+    req.body.content,
+    req.user._id,
+    comment.parentId ? 'reply' : 'comment',
+    comment._id
+  );
+
   const response = {
     id: comment._id,
     content: comment.content,
@@ -205,7 +224,7 @@ exports.addReply = catchAsync(async (req, res, next) => {
 
   const reply = await Comment.create({
     userId: req.user._id,
-    questionId: req.params.questionId,
+    questionId: req.params.questionId,  // This is the question ID
     content: req.body.content,
     parentId: parentComment._id,
     attach_file: req.file ? {
@@ -215,6 +234,15 @@ exports.addReply = catchAsync(async (req, res, next) => {
       path: req.file.path,
     } : undefined
   });
+
+  // Pass the question ID correctly here
+  await processMentions(
+    req.body.content,
+    req.user._id,
+    'reply',
+    reply._id,
+    req.params.questionId  // Pass the question ID from params
+  );
 
   await reply.populate('userId', 'username fullName photo');
 

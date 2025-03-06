@@ -175,7 +175,7 @@ exports.markAllAsRead = catchAsync(async (req, res, next) => {
     announcements: ['new-announcement', 'course-announcement'],
     comments: ['comment-on-question', 'comment-replied', 'comment-like'],
     questions: ['like-question', 'answer-verified', 'question-following'],
-    social: ['new-follower']
+    social: ['new-follower', 'mention']
   };
 
   const filter = { userId: req.user._id, isRead: false };
@@ -227,7 +227,7 @@ exports.getUnreadCount = catchAsync(async (req, res, next) => {
     announcements: ['new-announcement', 'course-announcement'],
     comments: ['comment-on-question', 'comment-replied', 'comment-like'],
     questions: ['like-question', 'answer-verified', 'question-following'],
-    social: ['new-follower']
+    social: ['new-follower','mention']
   };
 
   // Get total unread count
@@ -322,7 +322,7 @@ exports.deleteAllByGroup = catchAsync(async (req, res, next) => {
     announcements: ['new-announcement', 'course-announcement'],
     comments: ['comment-on-question', 'comment-replied', 'comment-like'],
     questions: ['like-question', 'answer-verified', 'question-following'],
-    social: ['new-follower']
+    social: ['new-follower','mention']
   };
 
   // Validate group parameter

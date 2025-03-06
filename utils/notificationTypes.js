@@ -9,6 +9,7 @@ const NotificationType = {
   
   // Social
   NEW_FOLLOWER: "new-follower",
+  MENTION: "mention",
   
   // Content
   NEW_ANNOUNCEMENT: "new-announcement",
@@ -57,6 +58,21 @@ const NotificationConfig = {
     metadataFields: ['actingUserId']
   },
 
+  [NotificationType.MENTION]: {
+    title: "New Mention",
+    messageTemplate: {
+      'question': "{username} mentioned you in a question",
+      'question-comment': "{username} mentioned you in a question comment",
+      'reply': "{username} mentioned you in a reply"
+    },
+    link: {
+      'question': "/questions/{contentId}",
+      'question-comment': "/questions/{questionId}",
+      'reply': "/questions/{questionId}"
+    },
+    metadataFields: ['contentType', 'contentId', 'questionId', 'actingUserId', 'username']
+  },
+  
   [NotificationType.NEW_ANNOUNCEMENT]: {
     title: "New Announcement",
     messageTemplate: "New announcement: {title}",
@@ -97,9 +113,19 @@ const formatNotificationMessage = (type, data) => {
   const config = NotificationConfig[type];
   if (!config) throw new Error(`Invalid notification type: ${type}`);
 
+  // Handle message templates that are objects (like for mentions)
   let message = config.messageTemplate;
   let link = config.link;
 
+  // Handle templated messages for different content types
+  if (typeof message === 'object') {
+    message = message[data.contentType] || message['default'] || `${config.title}`;
+  }
+  if (typeof link === 'object') {
+    link = link[data.contentType] || link['default'] || '#';
+  }
+
+  // Validate required fields
   if (config.metadataFields) {
     const missingFields = config.metadataFields.filter(field => !data[field]);
     if (missingFields.length > 0) {
@@ -107,9 +133,11 @@ const formatNotificationMessage = (type, data) => {
     }
   }
 
+  // Now message and link are guaranteed to be strings
   Object.keys(data).forEach((key) => {
-    message = message.replace(`{${key}}`, data[key]);
-    link = link.replace(`{${key}}`, data[key]);
+    const value = data[key] || '';
+    message = message.replace(new RegExp(`{${key}}`, 'g'), value);
+    link = link.replace(new RegExp(`{${key}}`, 'g'), value);
   });
 
   return {

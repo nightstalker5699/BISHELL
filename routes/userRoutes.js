@@ -1,6 +1,7 @@
 const express = require("express");
 const userController = require("../controllers/userController");
 const authController = require("./../controllers/authController");
+const mentionUtil = require('../utils/mentionUtil');
 const toDoListRouter = require("./toDoListRoutes");
 const router = express.Router();
 const multer = require("multer");
@@ -32,6 +33,23 @@ router.patch(
   userController.resizeProfilePic,
   userController.updateMe
 );
+
+router.get('/mentions/suggestions', authController.protect, async (req, res) => {
+  try {
+    const { query = '', limit = 5 } = req.query;
+    const suggestions = await mentionUtil.getUserSuggestions(query, parseInt(limit));
+    
+    res.status(200).json({
+      status: 'success',
+      data: suggestions
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Error fetching user suggestions'
+    });
+  }
+});
 
 router.use(multiPartParser.any());
 router.get(
