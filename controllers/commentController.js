@@ -93,12 +93,13 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
     replies: []
   });
 
-  // Process mentions after creating comment
+  // Process mentions after creating comment - UPDATED contentType to 'question-comment'
   await processMentions(
     req.body.content,
     req.user._id,
-    'comment',
-    comment._id
+    'question-comment',  // Changed from 'comment' to 'question-comment'
+    comment._id,
+    req.params.questionId // Pass question ID for proper linking
   );
 
   // Add comment to question's comments array
@@ -176,12 +177,13 @@ exports.updateQuestionComment = catchAsync(async (req, res, next) => {
   await comment.save();
   await comment.populate('userId', 'username fullName photo userFrame');
 
-  // Process mentions for updated content
+  // Process mentions for updated content - UPDATED contentType logic
   await processMentions(
     req.body.content,
     req.user._id,
-    comment.parentId ? 'reply' : 'comment',
-    comment._id
+    comment.parentId ? 'reply' : 'question-comment',  // Use correct template key
+    comment._id,
+    req.params.questionId  // Pass question ID for proper linking
   );
 
   const response = {
@@ -239,7 +241,7 @@ exports.addReply = catchAsync(async (req, res, next) => {
   await processMentions(
     req.body.content,
     req.user._id,
-    'reply',
+    'reply',  // This one is already correct
     reply._id,
     req.params.questionId  // Pass the question ID from params
   );
