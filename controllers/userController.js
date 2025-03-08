@@ -11,6 +11,7 @@ const sharp = require("sharp");
 const appError = require("../utils/appError");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
 const { NotificationType } = require("../utils/notificationTypes");
+const { getSecureProfilePicUrl } = require('../utils/urlUtils');
 
 const storage = multer.memoryStorage({});
 
@@ -78,10 +79,7 @@ exports.getUser = catchAsync(async (req, res, next) => {
     return next(new AppError("There's no document with this username", 404));
   }
 
-  const photoUrl = `${req.protocol}://${req.get("host")}/profilePics/${
-    targetUser.photo
-  }`;
-  targetUser.photo = photoUrl;
+  targetUser.photo = getSecureProfilePicUrl(req, targetUser.photo);
   // Fetch toDoList if allowed and not viewing own profile
 
   if (isOwnProfile || targetUser.showToDo) {
