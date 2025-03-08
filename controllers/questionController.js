@@ -13,6 +13,7 @@ const Point = require("../models/pointModel");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
 const { NotificationType } = require('../utils/notificationTypes');
 const { processMentions } = require('../utils/mentionUtil');
+const { getSecureAttachmentUrl } = require('../utils/urlUtils');
 
 const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
 if (!fs.existsSync(attachFileDir)) {
@@ -153,9 +154,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
                 name: question.attach_file.name,
                 size: question.attach_file.size,
                 mimeType: question.attach_file.mimeType,
-                url: `${req.protocol}://${req.get("host")}/attachFile/${
-                  question.attach_file.name
-                }`,
+                url: getSecureAttachmentUrl(req, question.attach_file.name),
               }
             : null,
       };
@@ -185,9 +184,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
             name: question.verifiedComment.attach_file.name,
             size: question.verifiedComment.attach_file.size,
             mimeType: question.verifiedComment.attach_file.mimeType,
-            url: `${req.protocol}://${req.get("host")}/attachFile/${
-              question.verifiedComment.attach_file.name
-            }`,
+            url: getSecureAttachmentUrl(req, question.verifiedComment.attach_file.name),
           };
         } else {
           questionObj.verifiedAnswer.attachment = null;
@@ -230,9 +227,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
               name: topComment.attach_file.name,
               size: topComment.attach_file.size,
               mimeType: topComment.attach_file.mimeType,
-              url: `${req.protocol}://${req.get("host")}/attachFile/${
-                topComment.attach_file.name
-              }`,
+              url: getSecureAttachmentUrl(req, topComment.attach_file.name),
             };
           } else {
             questionObj.topComment.attachment = null;
@@ -306,9 +301,7 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
             name: newQuestion.attach_file.name,
             size: newQuestion.attach_file.size,
             mimeType: newQuestion.attach_file.mimeType,
-            url: `${req.protocol}://${req.get("host")}/attachFile/${
-              newQuestion.attach_file.name
-            }`,
+            url: getSecureAttachmentUrl(req, newQuestion.attach_file.name),
           }
         : null,
     timestamps: {
@@ -538,9 +531,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       name: question.attach_file.name,
       size: question.attach_file.size,
       mimeType: question.attach_file.mimeType,
-      url: `${req.protocol}://${req.get("host")}/attachFile/${
-        question.attach_file.name
-      }`,
+      url: getSecureAttachmentUrl(req, question.attach_file.name),
     };
   }
 
@@ -585,9 +576,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
                 name: reply.attach_file.name,
                 size: reply.attach_file.size,
                 mimeType: reply.attach_file.mimeType,
-                url: `${req.protocol}://${req.get("host")}/attachFile/${
-                  reply.attach_file.name
-                }`,
+                url: getSecureAttachmentUrl(req, reply.attach_file.name),
               }
             : null,
       })),
@@ -601,9 +590,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         name: question.verifiedComment.attach_file.name,
         size: question.verifiedComment.attach_file.size,
         mimeType: question.verifiedComment.attach_file.mimeType,
-        url: `${req.protocol}://${req.get("host")}/attachFile/${
-          question.verifiedComment.attach_file.name
-        }`,
+        url: getSecureAttachmentUrl(req, question.verifiedComment.attach_file.name),
       };
     }
   }
@@ -641,9 +628,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
               name: comment.attach_file.name,
               size: comment.attach_file.size,
               mimeType: comment.attach_file.mimeType,
-              url: `${req.protocol}://${req.get("host")}/attachFile/${
-                comment.attach_file.name
-              }`,
+              url: getSecureAttachmentUrl(req, comment.attach_file.name),
             }
           : null,
       replies: comment.replies?.map((reply) => ({
@@ -669,9 +654,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
                 name: reply.attach_file.name,
                 size: reply.attach_file.size,
                 mimeType: reply.attach_file.mimeType,
-                url: `${req.protocol}://${req.get("host")}/attachFile/${
-                  reply.attach_file.name
-                }`,
+                url: getSecureAttachmentUrl(req, reply.attach_file.name),
               }
             : null,
       })),
@@ -756,9 +739,7 @@ exports.updateQuestion = catchAsync(async (req, res, next) => {
             name: question.attach_file.name,
             size: question.attach_file.size,
             mimeType: question.attach_file.mimeType,
-            url: `${req.protocol}://${req.get("host")}/attachFile/${
-              question.attach_file.name
-            }`,
+            url: getSecureAttachmentUrl(req, question.attach_file.name),
           }
         : null,
     timestamps: {
