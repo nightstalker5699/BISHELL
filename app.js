@@ -56,8 +56,8 @@ const limiter = rateLimit({
 // app.use("/api", limiter);
 
 // 5) Body parsers
-app.use(express.json({ limit: "500mb" }));
-app.use(express.urlencoded({ extended: true, limit: "500mb" }));
+app.use(express.json({ limit: "1000mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1000mb" }));
 app.use(cookieParser());
 
 // 6) Security middleware
