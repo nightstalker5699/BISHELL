@@ -9,13 +9,6 @@ router
   .route("/givePoint")
   .post(authController.protect, authController.restrictTo("admin"), pointController.givePointToUser);
 
-router
-  .route("/reset-all-points")
-  .post(
-    authController.protect,
-    authController.restrictTo("admin"),
-    pointController.resetAllPoints
-  );
 router.use(authController.protect);
 router.get("/leaderboard", pointController.getLeaderBoard);
 router.route("/user/:id").get(pointController.getUserLog);
