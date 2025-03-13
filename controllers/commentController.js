@@ -388,12 +388,21 @@ exports.likeComment = catchAsync(async (req, res, next) => {
   const isReply = comment.parentId !== null && comment.parentId !== undefined;
   
   // Check if user is liking their own content
-  if (comment.userId.toString() !== req.user._id.toString()) {
+  const isOwnContent = comment.userId.toString() === req.user._id.toString();
+  
+  if (!isOwnContent) {
     // Liked someone else's comment or reply
     await Point.create({
       userId: comment.userId,
       point: 2,
       description: "Your comment/reply received a like"
+    });
+    
+    // Only give points to the liker when liking someone else's content
+    await Point.create({
+      userId: req.user._id,
+      point: 1, 
+      description: "You liked someone's comment"
     });
   } else if (!isReply) {
     // User liked their own main comment (not a reply)
@@ -402,14 +411,15 @@ exports.likeComment = catchAsync(async (req, res, next) => {
       point: 2,
       description: "Your comment received a like"
     });
+    
+    // Give points to user for liking their own main comment
+    await Point.create({
+      userId: req.user._id,
+      point: 1, 
+      description: "You liked your own comment"
+    });
   }
-  // Note: No points given when liking your own reply
-
-  await Point.create({
-    userId: req.user._id,  // liker gets the points
-    point: 1, 
-    description: "You liked someone's comment"
-  });
+  // Note: No points given when liking your own reply (neither for receiving nor for giving the like)
 
   // Send response first
   res.status(200).json({
@@ -420,7 +430,7 @@ exports.likeComment = catchAsync(async (req, res, next) => {
   });
 
   // Send notification to the comment owner if it's not their own comment
-  if (comment.userId.toString() !== req.user._id.toString()) {
+  if (!isOwnContent) {
     await sendNotificationToUser(
       comment.userId,
       NotificationType.COMMENT_LIKED,
