@@ -11,7 +11,7 @@ router
   .get(notificationController.getAllNotifications)
   .post(notificationController.createNotification);
 
-router.delete('/group', notificationController.deleteAllByGroup); // Add this line
+router.delete('/delete-group', notificationController.deleteAllByGroup);
 
 
 router.patch('/:id/read', notificationController.markAsRead);
