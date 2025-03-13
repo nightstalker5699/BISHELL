@@ -267,11 +267,23 @@ exports.addReply = catchAsync(async (req, res, next) => {
     } : null
   };
 
-  await Point.create({
-    userId: req.user._id,
-    point: 1,
-    description: "Posted a reply to a comment"
+  // Check if the user is replying to their own comment
+  const isOwnComment = parentComment.userId.toString() === req.user._id.toString();
+  
+  // Check if the user has already replied to this comment
+  const existingReplies = await Comment.find({
+    parentId: parentComment._id,
+    userId: req.user._id
   });
+  
+  // Only give points if it's not their own comment and it's their first reply
+  if (!isOwnComment && existingReplies.length <= 1) {
+    await Point.create({
+      userId: req.user._id,
+      point: 1,
+      description: "Posted a reply to a comment"
+    });
+  }
 
   res.status(201).json({
     status: 'success',
@@ -372,15 +384,26 @@ exports.likeComment = catchAsync(async (req, res, next) => {
   comment.likes.push(req.user._id);
   await comment.save({ validateBeforeSave: false });
 
-  // Check if user is liking their own comment
+  // Determine if this is a main comment or a reply
+  const isReply = comment.parentId !== null && comment.parentId !== undefined;
+  
+  // Check if user is liking their own content
   if (comment.userId.toString() !== req.user._id.toString()) {
-    // Liked someone else's comment
+    // Liked someone else's comment or reply
     await Point.create({
       userId: comment.userId,
       point: 2,
       description: "Your comment/reply received a like"
     });
+  } else if (!isReply) {
+    // User liked their own main comment (not a reply)
+    await Point.create({
+      userId: comment.userId, 
+      point: 2,
+      description: "Your comment received a like"
+    });
   }
+  // Note: No points given when liking your own reply
 
   await Point.create({
     userId: req.user._id,  // liker gets the points
