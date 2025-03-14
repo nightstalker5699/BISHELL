@@ -188,8 +188,9 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   await user.save({ validateBeforeSave: false });
 
   // 3) Send it to user's email
-  // Modify this to point to frontend rather than API endpoint
-  const resetURL = `https://bishell/reset-password/${resetToken}.com`;
+  const resetURL = `${req.protocol}://${req.get(
+    "host"
+  )}/api/users/resetPassword/${resetToken}`;
   const html = generatePasswordResetEmail(resetURL);
   try {
     await sendEmail({
@@ -203,8 +204,8 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
       message: "Token sent to email!",
     });
   } catch (err) {
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
+    // user.passwordResetToken = undefined;
+    // user.passwordResetExpires = undefined;
     await user.save({ validateBeforeSave: false });
 
     return next(
