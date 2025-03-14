@@ -5,11 +5,11 @@ process.env.TZ = "Africa/Cairo";
 process.on("uncaughtException", (err) => {
   console.log("UNCAUGHT EXCEPTION! Shutting down...", err);
   console.log(err.name, err.message);
-  server.close(() => {
-    process.exit(1);
-  });
+  process.exit(1);
 });
 const chatHandler = require("./controllers/chatHandler");
+const { Server } = require("socket.io");
+const { notificationSocketHandler } = require("./controllers/notificationSocketHandler");
 const app = require(`./app`);
 
 const DB = process.env.DATABASE.replace(
@@ -23,7 +23,19 @@ const port = process.env.PORT;
 const server = app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
-chatHandler(server);
+
+// Create a SINGLE Socket.IO server instance
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST", "PATCH", "DELETE"],
+  },
+});
+
+// Initialize both socket handlers with the same io instance
+// Pass the io instance directly to chatHandler
+chatHandler(io);
+notificationSocketHandler(io);
 
 process.on("unhandledRejection", (err) => {
   console.log(`UNHANDLED REJECTION! Shutting down...`);

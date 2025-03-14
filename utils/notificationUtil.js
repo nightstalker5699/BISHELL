@@ -2,6 +2,7 @@ const admin = require('../firebase');
 const User = require('../models/userModel');
 const Notification = require('../models/notificationModel');
 const { NotificationType, formatNotificationMessage } = require('./notificationTypes');
+const { emitNotificationToUser } = require('../controllers/notificationSocketHandler');
 
 // Create in-app notification only
 const createInAppNotification = async (userId, type, data = {}) => {
@@ -12,7 +13,7 @@ const createInAppNotification = async (userId, type, data = {}) => {
     actingUserId: data.actingUserId || null // Ensure actingUserId is included
   };
 
-  return await Notification.create({
+  const notification = await Notification.create({
     userId: userId,
     title: messageData.title,
     message: messageData.body,
@@ -21,6 +22,23 @@ const createInAppNotification = async (userId, type, data = {}) => {
     metadata: metadata
   });
   
+  // Add proper error handling when emitting notification
+  try {
+    // Populate the notification if needed for the client
+    const populatedNotification = await Notification.findById(notification._id)
+      .populate({
+        path: 'metadata.actingUserId',
+        select: 'username photo fullName userFrame role'
+      });
+      
+    console.log(`Emitting notification ${notification._id} to user ${userId}`);
+    // Convert userId to string to ensure consistent mapping
+    emitNotificationToUser(userId.toString(), populatedNotification);
+  } catch (err) {
+    console.error('Error emitting notification:', err);
+  }
+  
+  return notification;
 };
 
 // Send FCM push notification only

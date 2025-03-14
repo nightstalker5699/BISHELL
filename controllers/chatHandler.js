@@ -1,4 +1,3 @@
-const { Server } = require("socket.io");
 const User = require("./../models/userModel");
 const Course = require("../models/courseModel");
 const Chat = require("../models/chatModel");
@@ -16,13 +15,10 @@ const handleOn = (fn, socket) => (data) => {
   });
 };
 
-const ioHandler = (server) => {
-  const io = new Server(server, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST", "PATCH", "DELETE"],
-    },
-  });
+// Modified to accept an existing io instance instead of creating a new one
+const ioHandler = (io) => {
+  // Remove the Socket.IO server creation, just use the provided io instance
+  
   io.use(async (socket, next) => {
     try {
       let token;
@@ -84,6 +80,7 @@ const ioHandler = (server) => {
     } catch (err) {
       io.emit("error", err);
     }
+    
     socket.on("disconnect", () => {
       socket.leave(room);
     });

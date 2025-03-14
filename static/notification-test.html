@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Socket.IO Notification Test Client</title>
+  <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 4px; }
+    input { padding: 8px; width: 500px; margin-right: 8px; }
+    button { padding: 8px 16px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+    .error { color: #f44336; }
+    .success { color: #4CAF50; }
+    .info { color: #2196F3; }
+    .notification { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 4px; }
+    .notification-header { display: flex; justify-content: space-between; }
+    .notification-content { margin-top: 5px; }
+    .unread { background-color: #e3f2fd; }
+  </style>
+</head>
+<body>
+  <h1>Socket.IO Notification Test Client</h1>
+  
+  <div>
+    <label for="token">JWT Token:</label><br>
+    <input type="text" id="token" placeholder="Paste your JWT token here" /><br><br>
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()" id="disconnectBtn" disabled>Disconnect</button>
+  </div>
+  
+  <div style="margin-top: 20px;">
+    <button onclick="loadNotifications()" id="loadBtn" disabled>Load Notifications</button>
+    <button onclick="markAllAsRead()" id="markAllBtn" disabled>Mark All as Read</button>
+    <span id="unreadCount" style="margin-left: 10px; font-weight: bold;"></span>
+  </div>
+  
+  <div style="margin-top: 20px;">
+    <h2>Notifications:</h2>
+    <div id="notifications-container"></div>
+  </div>
+  
+  <div style="margin-top: 20px;">
+    <h2>Connection Log:</h2>
+    <pre id="log" style="height: 300px; overflow-y: auto;"></pre>
+  </div>
+
+  <script>
+    let socket = null;
+    
+    function log(message, type = 'normal') {
+      const logElement = document.getElementById('log');
+      const timestamp = new Date().toLocaleTimeString();
+      const formattedMessage = `[${timestamp}] ${message}`;
+      
+      let classType = '';
+      if (type === 'error') classType = 'class="error"';
+      if (type === 'success') classType = 'class="success"';
+      if (type === 'info') classType = 'class="info"';
+      
+      logElement.innerHTML += `<div ${classType}>${formattedMessage}</div>`;
+      logElement.scrollTop = logElement.scrollHeight;
+    }
+    
+    function addNotification(notification) {
+      const container = document.getElementById('notifications-container');
+      const notifDiv = document.createElement('div');
+      notifDiv.className = `notification ${notification.isRead ? '' : 'unread'}`;
+      notifDiv.id = `notification-${notification.id || notification._id}`;
+      
+      const time = new Date(notification.createdAt).toLocaleString();
+      
+      notifDiv.innerHTML = `
+        <div class="notification-header">
+          <strong>${notification.title}</strong>
+          <span>${time}</span>
+        </div>
+        <div class="notification-content">${notification.message}</div>
+        <div>
+          <button onclick="markAsRead('${notification.id || notification._id}')">Mark as read</button>
+        </div>
+      `;
+      
+      container.prepend(notifDiv);
+    }
+
+    function connect() {
+      const token = document.getElementById('token').value;
+      if (!token) {
+        log('Error: Please enter a token', 'error');
+        return;
+      }
+
+      log('Attempting to connect with token...', 'info');
+      
+      // Close existing connection
+      disconnect();
+      
+      // Debug: Display token start
+      log(`Token starts with: ${token.substring(0, 15)}...`, 'info');
+      
+      // Create new connection with debugging
+      socket = io(`${window.location.origin}/notifications`, {
+        auth: { token },
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        timeout: 10000
+      });
+      
+      // Connection events
+      socket.on('connect', () => {
+        log('Connected successfully! Socket ID: ' + socket.id, 'success');
+        document.getElementById('disconnectBtn').disabled = false;
+        document.getElementById('loadBtn').disabled = false;
+        document.getElementById('markAllBtn').disabled = false;
+      });
+      
+      socket.on('error', (error) => {
+        log(`Socket error: ${JSON.stringify(error)}`, 'error');
+      });
+      
+      socket.on('connect_error', (error) => {
+        log(`Connect error: ${error.message}`, 'error');
+      });
+      
+      socket.on('disconnect', (reason) => {
+        log(`Disconnected: ${reason}`);
+        document.getElementById('disconnectBtn').disabled = true;
+        document.getElementById('loadBtn').disabled = true;
+        document.getElementById('markAllBtn').disabled = true;
+      });
+
+      // Notification events
+      socket.on('unread_count', (data) => {
+        log(`Unread count received: ${data.count}`, 'info');
+        document.getElementById('unreadCount').textContent = `Unread: ${data.count}`;
+      });
+      
+      socket.on('new_notification', (data) => {
+        log(`New notification received: ${JSON.stringify(data)}`, 'success');
+        if (data && data.notification) {
+          addNotification(data.notification);
+          
+          // Play sound
+          const audio = new Audio('/notification-sound.mp3');
+          audio.play().catch(e => console.log('Sound play failed:', e));
+          
+          // Show browser notification
+          if (Notification.permission === 'granted') {
+            new Notification(data.notification.title, {
+              body: data.notification.message
+            });
+          }
+        } else {
+          log('Invalid notification data format', 'error');
+        }
+      });
+      
+      socket.on('notifications_loaded', (data) => {
+        log(`Notifications loaded: ${data.notifications.length} items`, 'info');
+        
+        // Clear existing notifications first
+        document.getElementById('notifications-container').innerHTML = '';
+        
+        // Add loaded notifications
+        data.notifications.forEach(notification => {
+          addNotification(notification);
+        });
+      });
+    }
+    
+    function disconnect() {
+      if (socket) {
+        log('Manually disconnecting...');
+        socket.disconnect();
+        socket = null;
+        document.getElementById('disconnectBtn').disabled = true;
+        document.getElementById('loadBtn').disabled = true;
+        document.getElementById('markAllBtn').disabled = true;
+        document.getElementById('unreadCount').textContent = '';
+      }
+    }
+    
+    function loadNotifications() {
+      if (!socket) {
+        log('Socket not connected!', 'error');
+        return;
+      }
+      
+      log('Requesting notifications...');
+      socket.emit('loadNotifications', 1);
+    }
+    
+    function markAllAsRead() {
+      if (!socket) {
+        log('Socket not connected!', 'error');
+        return;
+      }
+      
+      log('Marking all notifications as read...');
+      socket.emit('markAllAsRead');
+    }
+    
+    function markAsRead(notificationId) {
+      if (!socket) {
+        log('Socket not connected!', 'error');
+        return;
+      }
+      
+      log(`Marking notification ${notificationId} as read...`);
+      socket.emit('markAsRead', notificationId);
+      
+      // Update UI
+      const notifElement = document.getElementById(`notification-${notificationId}`);
+      if (notifElement) {
+        notifElement.classList.remove('unread');
+      }
+    }
+    
+    // Request notification permission
+    if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+  </script>
+</body>
+</html>
