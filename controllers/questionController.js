@@ -473,6 +473,18 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
     return next(new AppError("Question not found", 404));
   }
 
+  // Add user to viewedBy if authenticated and not already viewed
+  if (req.user && req.user._id) {
+    const alreadyViewed = question.viewedBy && 
+      question.viewedBy.some(id => id.toString() === req.user._id.toString());
+    
+    if (!alreadyViewed) {
+      if (!question.viewedBy) question.viewedBy = [];
+      question.viewedBy.push(req.user._id);
+      await question.save({ validateBeforeSave: false });
+    }
+  }
+
   // Get total comments INCLUDING verified comment
   const totalComments = await Comment.countDocuments({
     questionId: question._id,
@@ -519,6 +531,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         ? question.likes.includes(req.user._id)
         : false,
       commentsCount: totalComments,
+      viewCount: question.viewedBy ? question.viewedBy.length : 0,
     },
     timestamps: {
       created: question.createdAt,

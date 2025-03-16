@@ -33,6 +33,12 @@ const questionSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: 'Comment',
     },
+    viewedBy: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   {
     timestamps: true,
@@ -43,6 +49,10 @@ const questionSchema = new mongoose.Schema(
 
 questionSchema.virtual('likesCount').get(function() {
   return this.likes.length;
+});
+
+questionSchema.virtual('viewCount').get(function() {
+  return this.viewedBy ? this.viewedBy.length : 0;
 });
 
 questionSchema.index({ createdAt: -1 });
