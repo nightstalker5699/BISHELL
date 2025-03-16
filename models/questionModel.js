@@ -39,6 +39,10 @@ const questionSchema = new mongoose.Schema(
         ref: 'User',
       },
     ],
+    anonymousViews: {
+      type: Number,
+      default: 0
+    }
   },
   {
     timestamps: true,
@@ -52,7 +56,9 @@ questionSchema.virtual('likesCount').get(function() {
 });
 
 questionSchema.virtual('viewCount').get(function() {
-  return this.viewedBy ? this.viewedBy.length : 0;
+  const authenticatedViews = this.viewedBy ? this.viewedBy.length : 0;
+  const anonViews = this.anonymousViews || 0;
+  return authenticatedViews + anonViews;
 });
 
 questionSchema.index({ createdAt: -1 });

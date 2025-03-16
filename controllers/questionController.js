@@ -473,8 +473,9 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
     return next(new AppError("Question not found", 404));
   }
 
-  // Add user to viewedBy if authenticated and not already viewed
+  // Handle view tracking
   if (req.user && req.user._id) {
+    // Authenticated user - track in viewedBy array
     const alreadyViewed = question.viewedBy && 
       question.viewedBy.some(id => id.toString() === req.user._id.toString());
     
@@ -483,6 +484,10 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       question.viewedBy.push(req.user._id);
       await question.save({ validateBeforeSave: false });
     }
+  } else {
+    // Anonymous user - increment counter
+    question.anonymousViews = (question.anonymousViews || 0) + 1;
+    await question.save({ validateBeforeSave: false });
   }
 
   // Get total comments INCLUDING verified comment
@@ -531,7 +536,9 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         ? question.likes.includes(req.user._id)
         : false,
       commentsCount: totalComments,
-      viewCount: question.viewedBy ? question.viewedBy.length : 0,
+      authViews: question.viewedBy ? question.viewedBy.length : 0,
+      anonViews: question.anonymousViews || 0,
+      totalViews: (question.viewedBy ? question.viewedBy.length : 0) + (question.anonymousViews || 0)
     },
     timestamps: {
       created: question.createdAt,
