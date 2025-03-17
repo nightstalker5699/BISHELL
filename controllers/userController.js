@@ -66,12 +66,7 @@ exports.getUser = catchAsync(async (req, res, next) => {
     "-passwordResetToken -passwordResetTokenExpires -passwordChangedAt";
 
   // Build the query
-  let query = User.findOne({ username }).select(selectFields);
-
-  // Populate toDoList if viewing own profile
-  // if (isOwnProfile) {
-  //   query = query.populate({ path: "toDoList", select: "task isDone" });
-  // }
+  let query = User.findOne({ username }).select(selectFields).populate('badges');
 
   const targetUser = await query;
 
@@ -173,13 +168,12 @@ exports.getFollowers = catchAsync(async (req, res, next) => {
     return next(new AppError("User not found", 404));
   }
 
-  req.query.fields = "username,photo";
+  req.query.fields = "username,photo,badges";
   const features = new APIFeatures(
     User.find({ _id: { $in: user.followers } }),
     req.query
   )
     .limitFields()
-    // .sort()
     .paginate();
 
   const followers = await features.query;
@@ -206,13 +200,12 @@ exports.getFollowing = catchAsync(async (req, res, next) => {
     return next(new AppError("User not found", 404));
   }
 
-  req.query.fields = "username,photo";
+  req.query.fields = "username,photo,badges";
   const features = new APIFeatures(
     User.find({ _id: { $in: user.following } }),
     req.query
   )
     .limitFields()
-    // .sort()
     .paginate();
 
   const following = await features.query;

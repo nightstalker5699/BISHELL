@@ -54,7 +54,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
     questions = await Question.populate(questions, [
       {
         path: "userId",
-        select: "username photo fullName role userFrame",
+        select: "username photo fullName role userFrame badges",
       },
       {
         path: "verifiedComment",
@@ -62,11 +62,15 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName role userFrame",
+            select: "username photo fullName role userFrame badges",
           },
           {
             path: "replies",
             match: { parentId: { $ne: null } },
+            populate: {
+              path: "userId",
+              select: "username photo fullName role userFrame badges",
+            }
           },
         ],
       },
@@ -75,11 +79,15 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName role userFrame",
+            select: "username photo fullName role userFrame badges",
           },
           {
             path: "replies",
             match: { parentId: { $ne: null } },
+            populate: {
+              path: "userId",
+              select: "username photo fullName role userFrame badges",
+            }
           },
         ],
       },
@@ -91,7 +99,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
       )
       .populate({
         path: "userId",
-        select: "username photo fullName role userFrame",
+        select: "username photo fullName role userFrame badges",
       })
       .populate({
         path: "verifiedComment",
@@ -99,11 +107,15 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName role userFrame",
+            select: "username photo fullName role userFrame badges",
           },
           {
             path: "replies",
             match: { parentId: { $ne: null } },
+            populate: {
+              path: "userId",
+              select: "username photo fullName role userFrame badges",
+            }
           },
         ],
       })
@@ -112,11 +124,15 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         populate: [
           {
             path: "userId",
-            select: "username photo fullName role userFrame",
+            select: "username photo fullName role userFrame badges",
           },
           {
             path: "replies",
             match: { parentId: { $ne: null } },
+            populate: {
+              path: "userId",
+              select: "username photo fullName role userFrame badges",
+            }
           },
         ],
       })
@@ -136,6 +152,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
           photo: question.userId.photo,
           role: question.userId.role,
           userFrame: question.userId.userFrame,
+          badges: question.userId.badges
         },
         stats: {
           likesCount: question.likes?.length || 0,
@@ -169,6 +186,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
             fullName: question.verifiedComment.userId?.fullName,
             photo: question.verifiedComment.userId?.photo,
             userFrame: question.verifiedComment.userId?.userFrame,
+            badges: question.verifiedComment.userId?.badges
           },
           stats: {
             likesCount: question.verifiedComment.likes?.length || 0,
@@ -212,6 +230,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
               fullName: topComment.userId?.fullName,
               photo: topComment.userId?.photo,
               userFrame: topComment.userId?.userFrame,
+              badges: topComment.userId?.badges
             },
             stats: {
               likesCount: topComment.likes?.length || 0,
@@ -448,7 +467,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
   const question = await Question.findById(req.params.id)
     .populate({
       path: "userId",
-      select: "username fullName photo role userFrame",
+      select: "username fullName photo role userFrame badges",
     })
     .populate({
       path: "verifiedComment",
@@ -456,14 +475,14 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       populate: [
         {
           path: "userId",
-          select: "username fullName photo role userFrame",
+          select: "username fullName photo role userFrame badges",
         },
         {
           path: "replies",
           options: { sort: sort },
           populate: {
             path: "userId",
-            select: "username fullName photo role userFrame",
+            select: "username fullName photo role userFrame badges",
           },
         },
       ],
@@ -506,7 +525,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
   })
     .populate({
       path: "userId",
-      select: "username fullName photo role userFrame",
+      select: "username fullName photo role userFrame badges",
     })
     .populate({
       path: "replies",
@@ -514,7 +533,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       options: { sort: "createdAt" }, // Add sorting here
       populate: {
         path: "userId",
-        select: "username fullName photo role userFrame",
+        select: "username fullName photo role userFrame badges",
       },
     })
     .sort("createdAt")
@@ -529,6 +548,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       photo: question.userId.photo,
       role: question.userId.role,
       userFrame: question.userId.userFrame,
+      badges: question.userId.badges
     },
     stats: {
       likesCount: question.likes.length,
@@ -565,6 +585,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         photo: question.verifiedComment.userId.photo,
         role: question.verifiedComment.userId.role,
         userFrame: question.verifiedComment.userId.userFrame,
+        badges: question.verifiedComment.userId.badges
       },
       stats: {
         likesCount: question.verifiedComment.likes.length,
@@ -582,6 +603,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
           photo: reply.userId.photo,
           role: reply.userId.role,
           userFrame: reply.userId.userFrame,
+          badges: reply.userId.badges
         },
         stats: {
           likesCount: reply.likes.length,
@@ -634,6 +656,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
         photo: comment.userId.photo,
         role: comment.userId.role,
         userFrame: comment.userId.userFrame,
+        badges: comment.userId.badges
       },
       stats: {
         likesCount: comment.likes.length,
@@ -660,6 +683,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
           photo: reply.userId.photo,
           role: reply.userId.role,
           userFrame: reply.userId.userFrame,
+          badges: reply.userId.badges
         },
         stats: {
           likesCount: reply.likes.length,

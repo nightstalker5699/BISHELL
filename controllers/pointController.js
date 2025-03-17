@@ -3,8 +3,12 @@ const Point = require("../models/pointModel");
 const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const factory = require("./handlerFactory");
+
 exports.getLeaderBoard = catchAsync(async (req, res, next) => {
-  let users = await User.find({ role: "student" }).sort({ rank: 1 });
+  let users = await User.find({ role: "student" })
+    .sort({ rank: 1 })
+    .populate('badges');
+  
   users = users.map((el) => {
     let name = el.fullName.split(" ");
     el.fullName = name.length <= 2 ? el.fullName : name[0] + " " + name[1];

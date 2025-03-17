@@ -53,10 +53,12 @@ const userSchema = new mongoose.Schema(
       enum: ["A", "B", "C", "D"],
       required: [true, "A user must be in a group"],
     },
-    badges: {
-      type: [String],
-      default: [],
-    },
+    badges: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Badge"
+      }
+    ],
     recentNotes: {
       type: [String],
       default: [],
@@ -132,6 +134,14 @@ userSchema.pre("save", async function (next) {
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password") || this.isNew) return next();
   this.passwordChangedAt = Date.now() - 1000;
+  next();
+});
+
+userSchema.pre(/^find/, function(next) {
+  this.populate({
+    path: 'badges',
+    select: 'name icon'
+  });
   next();
 });
 

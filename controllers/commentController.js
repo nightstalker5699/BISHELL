@@ -62,7 +62,7 @@ exports.deleteComment = catchAsync(async (req, res, next) => {
 
 exports.getAllComments = catchAsync(async (req, res, next) => {
   const comments = await Comment.find({ questionId: req.params.questionId })
-    .populate('userId', 'username fullName photo userFrame')
+    .populate('userId', 'username fullName photo userFrame badges')
     .sort('-createdAt');
 
   res.status(200).json({
@@ -106,7 +106,7 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
   question.comments.push(comment._id);
   await question.save({ validateBeforeSave: false });
 
-  await comment.populate('userId', 'username fullName photo userFrame');
+  await comment.populate('userId', 'username fullName photo userFrame badges');
 
   const response = {
     _id: comment._id,
@@ -115,9 +115,9 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
       _id: comment.userId._id,
       username: comment.userId.username,
       fullName: comment.userId.fullName,
-      userFrame: comment.userId.userFrame
+      userFrame: comment.userId.userFrame,
+      badges: comment.userId.badges
     },
-    questionId: comment.questionId,
     attachment: comment.attach_file && comment.attach_file.name ? {
       name: comment.attach_file.name,
       size: comment.attach_file.size,
@@ -175,7 +175,7 @@ exports.updateQuestionComment = catchAsync(async (req, res, next) => {
   // Update only the content
   comment.content = req.body.content;
   await comment.save();
-  await comment.populate('userId', 'username fullName photo userFrame');
+  await comment.populate('userId', 'username fullName photo userFrame badges');
 
   // Process mentions for updated content - UPDATED contentType logic
   await processMentions(
@@ -193,7 +193,8 @@ exports.updateQuestionComment = catchAsync(async (req, res, next) => {
       username: comment.userId.username,
       fullName: comment.userId.fullName,
       photo: comment.userId.photo,
-      userFrame: comment.userId.userFrame
+      userFrame: comment.userId.userFrame,
+      badges: comment.userId.badges
     },
     attachment: comment.attach_file && comment.attach_file.name ? {
       name: comment.attach_file.name,
@@ -246,7 +247,7 @@ exports.addReply = catchAsync(async (req, res, next) => {
     req.params.questionId  // Pass the question ID from params
   );
 
-  await reply.populate('userId', 'username fullName photo');
+  await reply.populate('userId', 'username fullName photo userFrame badges');
 
   const response = {
     id: reply._id,
@@ -255,7 +256,8 @@ exports.addReply = catchAsync(async (req, res, next) => {
       username: reply.userId.username,
       fullName: reply.userId.fullName,
       photo: reply.userId.photo,
-      userFrame: reply.userId.userFrame
+      userFrame: reply.userId.userFrame,
+      badges: reply.userId.badges
     },
     parentId: reply.parentId,
     createdAt: reply.createdAt,

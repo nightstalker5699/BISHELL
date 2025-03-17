@@ -12,6 +12,7 @@ const materialRouter = require("./routes/materialRoutes");
 const postRouter = require("./routes/postRoutes");
 const questionRouter = require("./routes/questionRoutes");
 const notificationRouter = require("./routes/notificationRoutes");
+const badgesRouter = require("./routes/badgeRoutes");
 
 const fs = require("fs");
 const path = require("path");
@@ -90,6 +91,7 @@ app.use("/api/posts", postRouter);
 app.use(`/api/schedules`, scheduleRouter);
 app.use(`/api/questions`, questionRouter);
 app.use('/api/notifications', notificationRouter);
+app.use('/api/badges', badgesRouter);
 
 // 11) Error handling
 
