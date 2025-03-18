@@ -15,11 +15,13 @@ const { NotificationType } = require('../utils/notificationTypes');
 const { processMentions } = require('../utils/mentionUtil');
 const { getSecureAttachmentUrl } = require('../utils/urlUtils');
 
+// Create attachFile directory if it doesn't exist
 const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
 if (!fs.existsSync(attachFileDir)) {
   fs.mkdirSync(attachFileDir, { recursive: true });
 }
 
+// Configure multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, attachFileDir);
@@ -31,8 +33,70 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage }).single("attach_file");
-
 exports.uploadAttachFile = upload;
+
+// Helper functions to reduce code duplication
+const formatUserObject = (user) => {
+  if (!user) return null;
+  return {
+    username: user.username,
+    fullName: user.fullName,
+    photo: user.photo,
+    role: user.role,
+    userFrame: user.userFrame,
+    badges: user.badges
+  };
+};
+
+const formatAttachment = (req, attachFile) => {
+  if (!attachFile || !attachFile.name) return null;
+  
+  return {
+    name: attachFile.name,
+    size: attachFile.size,
+    mimeType: attachFile.mimeType,
+    url: getSecureAttachmentUrl(req, attachFile.name),
+  };
+};
+
+const formatCommentStats = (comment, userId) => {
+  return {
+    likesCount: comment.likes?.length || 0,
+    isLikedByCurrentUser: userId ? comment.likes?.includes(userId) : false,
+    repliesCount: comment.replies?.length || 0,
+  };
+};
+
+const formatCommentObject = (req, comment, includeReplies = false) => {
+  if (!comment) return null;
+
+  const result = {
+    id: comment._id,
+    content: comment.content,
+    user: formatUserObject(comment.userId),
+    stats: formatCommentStats(comment, req.user?._id),
+    createdAt: new Date(comment.createdAt).toLocaleString(),
+    attachment: formatAttachment(req, comment.attach_file)
+  };
+
+  if (includeReplies && comment.replies) {
+    result.replies = comment.replies.map(reply => formatCommentObject(req, reply));
+  }
+
+  return result;
+};
+
+const deleteAttachmentFile = async (fileName) => {
+  if (!fileName) return;
+  
+  const filePath = path.join(attachFileDir, fileName);
+  try {
+    await fsp.access(filePath);
+    await fsp.unlink(filePath);
+  } catch (err) {
+    console.log(`Could not delete file ${filePath}: ${err.message}`);
+  }
+};
 
 exports.getAllQuestions = catchAsync(async (req, res, next) => {
   const page = parseInt(req.query.page, 10) || 1;
@@ -146,14 +210,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
       const questionObj = {
         id: question._id,
         content: question.content,
-        user: {
-          username: question.userId.username,
-          fullName: question.userId.fullName,
-          photo: question.userId.photo,
-          role: question.userId.role,
-          userFrame: question.userId.userFrame,
-          badges: question.userId.badges
-        },
+        user: formatUserObject(question.userId),
         stats: {
           likesCount: question.likes?.length || 0,
           isLikedByCurrentUser: req.user
@@ -165,48 +222,12 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
           created: question.createdAt,
           formatted: new Date(question.createdAt).toLocaleString(),
         },
-        attachment:
-          question.attach_file && question.attach_file.name
-            ? {
-                name: question.attach_file.name,
-                size: question.attach_file.size,
-                mimeType: question.attach_file.mimeType,
-                url: getSecureAttachmentUrl(req, question.attach_file.name),
-              }
-            : null,
+        attachment: formatAttachment(req, question.attach_file),
       };
 
       // If there's a verified comment, use it
       if (question.verifiedComment) {
-        questionObj.verifiedAnswer = {
-          id: question.verifiedComment._id,
-          content: question.verifiedComment.content,
-          user: {
-            username: question.verifiedComment.userId?.username,
-            fullName: question.verifiedComment.userId?.fullName,
-            photo: question.verifiedComment.userId?.photo,
-            userFrame: question.verifiedComment.userId?.userFrame,
-            badges: question.verifiedComment.userId?.badges
-          },
-          stats: {
-            likesCount: question.verifiedComment.likes?.length || 0,
-            isLikedByCurrentUser: req.user
-              ? question.verifiedComment.likes?.includes(req.user._id)
-              : false,
-            repliesCount: question.verifiedComment.replies?.length || 0,
-          },
-        };
-
-        if (question.verifiedComment.attach_file?.name) {
-          questionObj.verifiedAnswer.attachment = {
-            name: question.verifiedComment.attach_file.name,
-            size: question.verifiedComment.attach_file.size,
-            mimeType: question.verifiedComment.attach_file.mimeType,
-            url: getSecureAttachmentUrl(req, question.verifiedComment.attach_file.name),
-          };
-        } else {
-          questionObj.verifiedAnswer.attachment = null;
-        }
+        questionObj.verifiedAnswer = formatCommentObject(req, question.verifiedComment, true);
       } else if (question.comments?.length > 0) {
         // If no verified answer, get the top comment
         const sortedComments = question.comments
@@ -222,35 +243,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
 
         const topComment = sortedComments[0];
         if (topComment) {
-          questionObj.topComment = {
-            id: topComment._id,
-            content: topComment.content,
-            user: {
-              username: topComment.userId?.username,
-              fullName: topComment.userId?.fullName,
-              photo: topComment.userId?.photo,
-              userFrame: topComment.userId?.userFrame,
-              badges: topComment.userId?.badges
-            },
-            stats: {
-              likesCount: topComment.likes?.length || 0,
-              isLikedByCurrentUser: req.user
-                ? topComment.likes?.includes(req.user._id)
-                : false,
-              repliesCount: topComment.replies?.length || 0,
-            },
-          };
-
-          if (topComment.attach_file?.name) {
-            questionObj.topComment.attachment = {
-              name: topComment.attach_file.name,
-              size: topComment.attach_file.size,
-              mimeType: topComment.attach_file.mimeType,
-              url: getSecureAttachmentUrl(req, topComment.attach_file.name),
-            };
-          } else {
-            questionObj.topComment.attachment = null;
-          }
+          questionObj.topComment = formatCommentObject(req, topComment);
         }
       }
 
@@ -308,21 +301,8 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
   const response = {
     id: newQuestion._id,
     content: newQuestion.content,
-    user: {
-      username: newQuestion.userId.username,
-      fullName: newQuestion.userId.fullName,
-      photo: newQuestion.userId.photo,
-      userFrame: newQuestion.userId.userFrame,
-    },
-    attachment:
-      newQuestion.attach_file && newQuestion.attach_file.name
-        ? {
-            name: newQuestion.attach_file.name,
-            size: newQuestion.attach_file.size,
-            mimeType: newQuestion.attach_file.mimeType,
-            url: getSecureAttachmentUrl(req, newQuestion.attach_file.name),
-          }
-        : null,
+    user: formatUserObject(newQuestion.userId),
+    attachment: formatAttachment(req, newQuestion.attach_file),
     timestamps: {
       created: newQuestion.createdAt,
       formatted: new Date(newQuestion.createdAt).toLocaleString(),
@@ -450,8 +430,6 @@ exports.unverifyComment = catchAsync(async (req, res, next) => {
   question.verifiedComment = null;
   await question.save({ validateBeforeSave: false });
 
-  // Deduct points from comment owner
-
   res.status(200).json({
     status: "success",
     message: "Answer unverified successfully",
@@ -539,17 +517,11 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
     .sort("createdAt")
     .skip(skip)
     .limit(limit);
+    
   const formattedQuestion = {
     id: question._id,
     content: question.content,
-    user: {
-      username: question.userId.username,
-      fullName: question.userId.fullName,
-      photo: question.userId.photo,
-      role: question.userId.role,
-      userFrame: question.userId.userFrame,
-      badges: question.userId.badges
-    },
+    user: formatUserObject(question.userId),
     stats: {
       likesCount: question.likes.length,
       isLikedByCurrentUser: req.user
@@ -564,77 +536,11 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       created: question.createdAt,
       formatted: new Date(question.createdAt).toLocaleString(),
     },
+    attachment: formatAttachment(req, question.attach_file),
   };
 
-  if (question.attach_file && question.attach_file.name) {
-    formattedQuestion.attachment = {
-      name: question.attach_file.name,
-      size: question.attach_file.size,
-      mimeType: question.attach_file.mimeType,
-      url: getSecureAttachmentUrl(req, question.attach_file.name),
-    };
-  }
-
   if (question.verifiedComment) {
-    formattedQuestion.verifiedAnswer = {
-      id: question.verifiedComment._id,
-      content: question.verifiedComment.content,
-      user: {
-        username: question.verifiedComment.userId.username,
-        fullName: question.verifiedComment.userId.fullName,
-        photo: question.verifiedComment.userId.photo,
-        role: question.verifiedComment.userId.role,
-        userFrame: question.verifiedComment.userId.userFrame,
-        badges: question.verifiedComment.userId.badges
-      },
-      stats: {
-        likesCount: question.verifiedComment.likes.length,
-        isLikedByCurrentUser: req.user
-          ? question.verifiedComment.likes.includes(req.user._id)
-          : false,
-      },
-      createdAt: new Date(question.verifiedComment.createdAt).toLocaleString(),
-      replies: question.verifiedComment.replies?.map((reply) => ({
-        id: reply._id,
-        content: reply.content,
-        user: {
-          username: reply.userId.username,
-          fullName: reply.userId.fullName,
-          photo: reply.userId.photo,
-          role: reply.userId.role,
-          userFrame: reply.userId.userFrame,
-          badges: reply.userId.badges
-        },
-        stats: {
-          likesCount: reply.likes.length,
-          isLikedByCurrentUser: req.user
-            ? reply.likes.includes(req.user._id)
-            : false,
-        },
-        createdAt: new Date(reply.createdAt).toLocaleString(),
-        attachment:
-          reply.attach_file && reply.attach_file.name
-            ? {
-                name: reply.attach_file.name,
-                size: reply.attach_file.size,
-                mimeType: reply.attach_file.mimeType,
-                url: getSecureAttachmentUrl(req, reply.attach_file.name),
-              }
-            : null,
-      })),
-    };
-
-    if (
-      question.verifiedComment.attach_file &&
-      question.verifiedComment.attach_file.name
-    ) {
-      formattedQuestion.verifiedAnswer.attachment = {
-        name: question.verifiedComment.attach_file.name,
-        size: question.verifiedComment.attach_file.size,
-        mimeType: question.verifiedComment.attach_file.mimeType,
-        url: getSecureAttachmentUrl(req, question.verifiedComment.attach_file.name),
-      };
-    }
+    formattedQuestion.verifiedAnswer = formatCommentObject(req, question.verifiedComment, true);
   }
 
   formattedQuestion.comments = {
@@ -647,62 +553,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       ),
       limit,
     },
-    data: comments.map((comment) => ({
-      id: comment._id,
-      content: comment.content,
-      user: {
-        username: comment.userId.username,
-        fullName: comment.userId.fullName,
-        photo: comment.userId.photo,
-        role: comment.userId.role,
-        userFrame: comment.userId.userFrame,
-        badges: comment.userId.badges
-      },
-      stats: {
-        likesCount: comment.likes.length,
-        isLikedByCurrentUser: req.user
-          ? comment.likes.includes(req.user._id)
-          : false,
-      },
-      createdAt: new Date(comment.createdAt).toLocaleString(),
-      attachment:
-        comment.attach_file && comment.attach_file.name
-          ? {
-              name: comment.attach_file.name,
-              size: comment.attach_file.size,
-              mimeType: comment.attach_file.mimeType,
-              url: getSecureAttachmentUrl(req, comment.attach_file.name),
-            }
-          : null,
-      replies: comment.replies?.map((reply) => ({
-        id: reply._id,
-        content: reply.content,
-        user: {
-          username: reply.userId.username,
-          fullName: reply.userId.fullName,
-          photo: reply.userId.photo,
-          role: reply.userId.role,
-          userFrame: reply.userId.userFrame,
-          badges: reply.userId.badges
-        },
-        stats: {
-          likesCount: reply.likes.length,
-          isLikedByCurrentUser: req.user
-            ? reply.likes.includes(req.user._id)
-            : false,
-        },
-        createdAt: new Date(reply.createdAt).toLocaleString(),
-        attachment:
-          reply.attach_file && reply.attach_file.name
-            ? {
-                name: reply.attach_file.name,
-                size: reply.attach_file.size,
-                mimeType: reply.attach_file.mimeType,
-                url: getSecureAttachmentUrl(req, reply.attach_file.name),
-              }
-            : null,
-      })),
-    })),
+    data: comments.map((comment) => formatCommentObject(req, comment, true)),
   };
 
   res.status(200).json({
@@ -731,19 +582,7 @@ exports.updateQuestion = catchAsync(async (req, res, next) => {
     question.attach_file &&
     question.attach_file.name
   ) {
-    const oldFilePath = path.join(
-      __dirname,
-      "..",
-      "static",
-      "attachFile",
-      question.attach_file.name
-    );
-    try {
-      await fsp.access(oldFilePath);
-      await fsp.unlink(oldFilePath);
-    } catch (err) {
-      console.log(`Could not delete old file ${oldFilePath}: ${err.message}`);
-    }
+    await deleteAttachmentFile(question.attach_file.name);
   }
 
   // Update question content
@@ -770,22 +609,8 @@ exports.updateQuestion = catchAsync(async (req, res, next) => {
   const formattedQuestion = {
     id: question._id,
     content: question.content,
-    user: {
-      username: question.userId.username,
-      fullName: question.userId.fullName,
-      photo: question.userId.photo,
-      role: question.userId.role,
-      userFrame: question.userId.userFrame,
-    },
-    attachment:
-      question.attach_file && question.attach_file.name
-        ? {
-            name: question.attach_file.name,
-            size: question.attach_file.size,
-            mimeType: question.attach_file.mimeType,
-            url: getSecureAttachmentUrl(req, question.attach_file.name),
-          }
-        : null,
+    user: formatUserObject(question.userId),
+    attachment: formatAttachment(req, question.attach_file),
     timestamps: {
       created: question.createdAt,
       updated: question.updatedAt,
@@ -818,15 +643,6 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
     );
   }
 
-  const deleteAttachment = async (filePath) => {
-    try {
-      await fsp.access(filePath);
-      await fsp.unlink(filePath);
-    } catch (err) {
-      console.log(`Could not delete file ${filePath}: ${err.message}`);
-    }
-  };
-
   try {
     // Deduct points from question creator
     await Point.create({
@@ -837,14 +653,7 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
 
     // Delete question's attachment if exists
     if (question.attach_file && question.attach_file.name) {
-      const questionFilePath = path.join(
-        __dirname,
-        "..",
-        "static",
-        "attachFile",
-        question.attach_file.name
-      );
-      await deleteAttachment(questionFilePath);
+      await deleteAttachmentFile(question.attach_file.name);
     }
 
     // Delete all comments' attachments
@@ -854,14 +663,7 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
 
     for (const comment of comments) {
       if (comment.attach_file && comment.attach_file.name) {
-        const commentFilePath = path.join(
-          __dirname,
-          "..",
-          "static",
-          "attachFile",
-          comment.attach_file.name
-        );
-        await deleteAttachment(commentFilePath);
+        await deleteAttachmentFile(comment.attach_file.name);
       }
     }
 
@@ -881,9 +683,8 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
     );
   }
 });
-// protection On deleting Question for points done
-// LIKESSSS
 
+// LIKESSSS
 exports.likeQuestion = catchAsync(async (req, res, next) => {
   const question = await Question.findById(req.params.id);
 
