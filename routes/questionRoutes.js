@@ -11,6 +11,10 @@ router
   .delete(authController.protect, questionController.unlikeQuestion);
 
 router
+  .route("/:id/viewers")
+  .get(authController.protect, questionController.getQuestionViewers);
+
+router
   .route("/:id")
   .get(authController.optionalProtect, questionController.getQuestion)
   .patch(

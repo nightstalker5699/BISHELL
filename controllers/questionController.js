@@ -48,6 +48,15 @@ const formatUserObject = (user) => {
   };
 };
 
+const formatSimpleUserObject = (user) => {
+  if (!user) return null;
+  return {
+    username: user.username,
+    fullName: user.fullName,
+    photo: user.photo
+  };
+};
+
 const formatAttachment = (req, attachFile) => {
   if (!attachFile || !attachFile.name) return null;
   
@@ -758,5 +767,51 @@ exports.unlikeQuestion = catchAsync(async (req, res, next) => {
     data: {
       likes: question.likes.length,
     },
+  });
+});
+
+exports.getQuestionViewers = catchAsync(async (req, res, next) => {
+  const question = await Question.findById(req.params.id);
+  
+  if (!question) {
+    return next(new AppError("Question not found", 404));
+  }
+
+  // Allow all authenticated users to view this information
+  if (!req.user) {
+    return next(new AppError("Please log in to view this information", 401));
+  }
+
+  // Parse pagination parameters
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const skip = (page - 1) * limit;
+
+  // Get total number of authenticated viewers
+  const totalViewers = question.viewedBy ? question.viewedBy.length : 0;
+
+  // Get paginated authenticated viewers with their data
+  const viewersData = await User.find(
+    { _id: { $in: question.viewedBy || [] } },
+    "username fullName photo"
+  )
+    .skip(skip)
+    .limit(limit);
+
+  const formattedViewers = viewersData.map(user => formatSimpleUserObject(user));
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      authenticatedViewers: formattedViewers,
+      authenticatedViewsCount: totalViewers,
+      anonymousViewsCount: question.anonymousViews || 0,
+      totalViews: totalViewers + (question.anonymousViews || 0)
+    },
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalViewers / limit),
+      limit
+    }
   });
 });
