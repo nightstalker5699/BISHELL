@@ -56,8 +56,8 @@ const userSchema = new mongoose.Schema(
     badges: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Badge"
-      }
+        ref: "Badge",
+      },
     ],
     recentNotes: {
       type: [String],
@@ -101,6 +101,24 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    stats: {
+      coins: {
+        type: Number,
+        default: 0,
+      },
+      questionCount: {
+        type: Number,
+        default: 0,
+      },
+      likesCount: {
+        type: Number,
+        default: 0,
+      },
+      solvedCount: {
+        type: Number,
+        default: 0,
+      },
+    },
   },
   {
     toJSON: { virtuals: true },
@@ -137,10 +155,10 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-userSchema.pre(/^find/, function(next) {
+userSchema.pre(/^find/, function (next) {
   this.populate({
-    path: 'badges',
-    select: 'name icon'
+    path: "badges",
+    select: "name icon",
   });
   next();
 });

@@ -7,8 +7,8 @@ const factory = require("./handlerFactory");
 exports.getLeaderBoard = catchAsync(async (req, res, next) => {
   let users = await User.find({ role: "student" })
     .sort({ rank: 1 })
-    .populate('badges');
-  
+    .populate("badges");
+
   users = users.map((el) => {
     let name = el.fullName.split(" ");
     el.fullName = name.length <= 2 ? el.fullName : name[0] + " " + name[1];
@@ -26,6 +26,8 @@ exports.createLog = catchAsync(async (req, res, next) => {
     point: req.body.point,
     description: req.body.description,
   });
+  req.user.stats.coins += req.body.point;
+  await req.user.save({ validateBeforeSave: false });
   res.status(200).json({
     status: "success",
     log,
@@ -44,7 +46,9 @@ exports.givePointToUser = catchAsync(async (req, res, next) => {
   const { userId, point, description } = req.body;
 
   if (!userId || !point || !description) {
-    return next(new AppError("Please provide userId, point, and description", 400));
+    return next(
+      new AppError("Please provide userId, point, and description", 400)
+    );
   }
 
   const log = await Point.create({

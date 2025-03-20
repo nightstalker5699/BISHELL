@@ -11,7 +11,7 @@ const sharp = require("sharp");
 const appError = require("../utils/appError");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
 const { NotificationType } = require("../utils/notificationTypes");
-const { getSecureProfilePicUrl } = require('../utils/urlUtils');
+const { getSecureProfilePicUrl } = require("../utils/urlUtils");
 
 const storage = multer.memoryStorage({});
 
@@ -66,7 +66,9 @@ exports.getUser = catchAsync(async (req, res, next) => {
     "-passwordResetToken -passwordResetTokenExpires -passwordChangedAt";
 
   // Build the query
-  let query = User.findOne({ username }).select(selectFields).populate('badges');
+  let query = User.findOne({ username })
+    .select(selectFields)
+    .populate("badges");
 
   const targetUser = await query;
 

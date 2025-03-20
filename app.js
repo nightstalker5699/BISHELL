@@ -3,16 +3,17 @@ const morgan = require("morgan");
 const AppError = require("./utils/appError");
 const globalErrorHandler = require("./controllers/errorController");
 const app = express();
-const userRouter = require(`${__dirname}/routes/userRoutes.js`);
-const pointRouter = require(`${__dirname}/routes/pointRoutes.js`);
-const courseRouter = require(`${__dirname}/routes/courseRoutes.js`);
-const todoRouter = require(`${__dirname}/routes/toDoListRoutes.js`);
-const scheduleRouter = require(`${__dirname}/routes/scheduleRoutes.js`);
+const userRouter = require(`./routes/userRoutes.js`);
+const pointRouter = require(`./routes/pointRoutes.js`);
+const courseRouter = require(`./routes/courseRoutes.js`);
+const todoRouter = require(`./routes/toDoListRoutes.js`);
+const scheduleRouter = require(`./routes/scheduleRoutes.js`);
 const materialRouter = require("./routes/materialRoutes");
 const postRouter = require("./routes/postRoutes");
 const questionRouter = require("./routes/questionRoutes");
 const notificationRouter = require("./routes/notificationRoutes");
 const badgesRouter = require("./routes/badgeRoutes");
+const storeRouter = require("./routes/storeRoutes.js");
 
 const fs = require("fs");
 const path = require("path");
@@ -90,9 +91,9 @@ app.use(`/api/todo`, todoRouter);
 app.use("/api/posts", postRouter);
 app.use(`/api/schedules`, scheduleRouter);
 app.use(`/api/questions`, questionRouter);
-app.use('/api/notifications', notificationRouter);
-app.use('/api/badges', badgesRouter);
-
+app.use("/api/notifications", notificationRouter);
+app.use("/api/badges", badgesRouter);
+app.use("/api/store", storeRouter);
 // 11) Error handling
 
 // 12) Error handling
