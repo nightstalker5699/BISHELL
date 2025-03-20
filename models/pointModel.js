@@ -30,8 +30,11 @@ logSchema.statics.calcuPoints = async function (userId) {
   );
 };
 
-logSchema.post("save", function () {
+logSchema.post("save", async function () {
   this.constructor.calcuPoints(this.userId);
+  const user = await User.findById(this.userId);
+  user.stats.coins += this.point;
+  await user.save({ validateBeforeSave: false });
 });
 
 logSchema.pre(/^findOneAnd/, async function (next) {
@@ -42,6 +45,7 @@ logSchema.pre(/^findOneAnd/, async function (next) {
 
 logSchema.post(/^findOneAnd/, async function () {
   // executing the query methods
+
   await this.r.constructor.calcuPoints(this.r.userId);
 });
 const logModel = mongoose.model("logPoints", logSchema);

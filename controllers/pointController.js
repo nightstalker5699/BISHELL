@@ -26,8 +26,6 @@ exports.createLog = catchAsync(async (req, res, next) => {
     point: req.body.point,
     description: req.body.description,
   });
-  req.user.stats.coins += req.body.point;
-  await req.user.save({ validateBeforeSave: false });
   res.status(200).json({
     status: "success",
     log,
