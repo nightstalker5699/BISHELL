@@ -32,8 +32,9 @@ logSchema.statics.calcuPoints = async function (userId) {
 
 logSchema.post("save", async function () {
   this.constructor.calcuPoints(this.userId);
+  console.log(this.point);
   await User.findByIdAndUpdate(this.userId, {
-    "stats.coins": { $inc: this.point },
+    $inc: { "stats.coins": this.point },
   });
 });
 
