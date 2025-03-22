@@ -17,24 +17,27 @@ exports.deleteItem = factory.deleteOne(Store);
 
 exports.getAllItem = catchAsync(async (req, res, next) => {
   const items = await Store.find();
+  let data = { Buy: [], Equip: [], Equipped: [] };
+  const result = items.length;
+  items.forEach((item) => {
+    let status = !item.owners.includes(req.user._id)
+      ? "Buy"
+      : item.URL === req.user.userFrame
+      ? "Equipped"
+      : "Equip";
 
-  let formatted = items.map((item) => {
-    return {
+    let info = {
       name: item.name,
       price: item.price,
       URL: item.URL,
       currency: item.currency,
-      status: !item.owners.includes(req.user._id)
-        ? "Buy"
-        : item.URL === req.user.userFrame
-        ? "Equipped"
-        : "Equip",
     };
+    data[status].push(info);
   });
   res.status(200).json({
     message: "success",
-    result: formatted.length,
-    data: formatted,
+    result,
+    data,
   });
 });
 

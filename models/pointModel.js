@@ -32,9 +32,9 @@ logSchema.statics.calcuPoints = async function (userId) {
 
 logSchema.post("save", async function () {
   this.constructor.calcuPoints(this.userId);
-  const user = await User.findById(this.userId);
-  user.stats.coins += this.point;
-  await user.save({ validateBeforeSave: false });
+  await User.findByIdAndUpdate(this.userId, {
+    "stats.coins": { $inc: this.point },
+  });
 });
 
 logSchema.pre(/^findOneAnd/, async function (next) {
