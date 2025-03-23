@@ -9,6 +9,10 @@ router
   .route("/:id/like")
   .post(authController.protect, questionController.likeQuestion)
   .delete(authController.protect, questionController.unlikeQuestion);
+router
+  .route("/:id/bookmark")
+  .post(authController.protect, questionController.bookmarkQuestion)
+  .delete(authController.protect, questionController.unbookmarkQuestion);
 
 router
   .route("/:id/viewers")
@@ -23,7 +27,6 @@ router
     questionController.updateQuestion
   )
   .delete(authController.protect, questionController.deleteQuestion);
-  
 
 router
   .route("/:questionId/comments/:commentId/like")

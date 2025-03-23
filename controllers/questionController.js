@@ -11,9 +11,9 @@ const mime = require("mime-types");
 const APIFeatures = require("../utils/apiFeatures");
 const Point = require("../models/pointModel");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
-const { NotificationType } = require('../utils/notificationTypes');
-const { processMentions } = require('../utils/mentionUtil');
-const { getSecureAttachmentUrl } = require('../utils/urlUtils');
+const { NotificationType } = require("../utils/notificationTypes");
+const { processMentions } = require("../utils/mentionUtil");
+const { getSecureAttachmentUrl } = require("../utils/urlUtils");
 
 // Create attachFile directory if it doesn't exist
 const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
@@ -44,7 +44,7 @@ const formatUserObject = (user) => {
     photo: user.photo,
     role: user.role,
     userFrame: user.userFrame,
-    badges: user.badges
+    badges: user.badges,
   };
 };
 
@@ -53,13 +53,13 @@ const formatSimpleUserObject = (user) => {
   return {
     username: user.username,
     fullName: user.fullName,
-    photo: user.photo
+    photo: user.photo,
   };
 };
 
 const formatAttachment = (req, attachFile) => {
   if (!attachFile || !attachFile.name) return null;
-  
+
   return {
     name: attachFile.name,
     size: attachFile.size,
@@ -85,11 +85,13 @@ const formatCommentObject = (req, comment, includeReplies = false) => {
     user: formatUserObject(comment.userId),
     stats: formatCommentStats(comment, req.user?._id),
     createdAt: new Date(comment.createdAt).toLocaleString(),
-    attachment: formatAttachment(req, comment.attach_file)
+    attachment: formatAttachment(req, comment.attach_file),
   };
 
   if (includeReplies && comment.replies) {
-    result.replies = comment.replies.map(reply => formatCommentObject(req, reply));
+    result.replies = comment.replies.map((reply) =>
+      formatCommentObject(req, reply)
+    );
   }
 
   return result;
@@ -97,7 +99,7 @@ const formatCommentObject = (req, comment, includeReplies = false) => {
 
 const deleteAttachmentFile = async (fileName) => {
   if (!fileName) return;
-  
+
   const filePath = path.join(attachFileDir, fileName);
   try {
     await fsp.access(filePath);
@@ -118,7 +120,9 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
   } else if (req.query.answered === "false") {
     filter.verifiedComment = { $exists: false };
   }
-
+  if (req.query.bookmark === "true") {
+    filter.bookmarkedBy = req.user._id;
+  }
   const total = await Question.countDocuments(filter);
 
   let questions;
@@ -143,7 +147,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
             populate: {
               path: "userId",
               select: "username photo fullName role userFrame badges",
-            }
+            },
           },
         ],
       },
@@ -160,7 +164,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
             populate: {
               path: "userId",
               select: "username photo fullName role userFrame badges",
-            }
+            },
           },
         ],
       },
@@ -168,7 +172,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
   } else {
     questions = await Question.find(filter)
       .select(
-        "content userId likes comments createdAt verifiedComment attach_file"
+        "content userId likes comments createdAt verifiedComment attach_file bookmarkedBy "
       )
       .populate({
         path: "userId",
@@ -188,7 +192,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
             populate: {
               path: "userId",
               select: "username photo fullName role userFrame badges",
-            }
+            },
           },
         ],
       })
@@ -205,7 +209,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
             populate: {
               path: "userId",
               select: "username photo fullName role userFrame badges",
-            }
+            },
           },
         ],
       })
@@ -220,10 +224,15 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         id: question._id,
         content: question.content,
         user: formatUserObject(question.userId),
+        bookmarkedBy: question.bookmarkedBy,
         stats: {
           likesCount: question.likes?.length || 0,
           isLikedByCurrentUser: req.user
             ? question.likes?.includes(req.user._id)
+            : false,
+          bookmarksCount: question.bookmarkedBy.length,
+          isbookmarkedByCurrentUser: req.user
+            ? question.bookmarkedBy.includes(req.user._id)
             : false,
           commentsCount: question.comments?.length || 0,
         },
@@ -236,7 +245,11 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
 
       // If there's a verified comment, use it
       if (question.verifiedComment) {
-        questionObj.verifiedAnswer = formatCommentObject(req, question.verifiedComment, true);
+        questionObj.verifiedAnswer = formatCommentObject(
+          req,
+          question.verifiedComment,
+          true
+        );
       } else if (question.comments?.length > 0) {
         // If no verified answer, get the top comment
         const sortedComments = question.comments
@@ -280,7 +293,7 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
   // Create question first
   const questionData = {
     userId: userId,
-    content: content
+    content: content,
   };
 
   if (req.file) {
@@ -293,14 +306,9 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
   }
 
   const newQuestion = await Question.create(questionData);
-  
+
   // Process mentions after creating question
-  await processMentions(
-    content, 
-    userId,
-    'question',
-    newQuestion._id
-  );
+  await processMentions(content, userId, "question", newQuestion._id);
 
   await newQuestion.populate({
     path: "userId",
@@ -341,7 +349,7 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
         username: user.username,
         questionId: newQuestion._id,
         actingUserId: user._id, // Changed from userId (string) to user._id (ObjectId)
-        title: newQuestion.content.substring(0, 50) + '...' // Optional: Add question preview
+        title: newQuestion.content.substring(0, 50) + "...", // Optional: Add question preview
       }
     );
   });
@@ -400,7 +408,7 @@ exports.verifyComment = catchAsync(async (req, res, next) => {
     {
       questionId: question._id,
       actingUserId: req.user._id,
-      title: question.content.substring(0, 50) + '...' // Optional: Add question context
+      title: question.content.substring(0, 50) + "...", // Optional: Add question context
     }
   );
 });
@@ -482,9 +490,10 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
   // Handle view tracking
   if (req.user && req.user._id) {
     // Authenticated user - track in viewedBy array
-    const alreadyViewed = question.viewedBy && 
-      question.viewedBy.some(id => id.toString() === req.user._id.toString());
-    
+    const alreadyViewed =
+      question.viewedBy &&
+      question.viewedBy.some((id) => id.toString() === req.user._id.toString());
+
     if (!alreadyViewed) {
       if (!question.viewedBy) question.viewedBy = [];
       question.viewedBy.push(req.user._id);
@@ -526,7 +535,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
     .sort("createdAt")
     .skip(skip)
     .limit(limit);
-    
+
   const formattedQuestion = {
     id: question._id,
     content: question.content,
@@ -536,10 +545,16 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       isLikedByCurrentUser: req.user
         ? question.likes.includes(req.user._id)
         : false,
+      bookmarksCount: question.bookmarkedBy.length,
+      isbookmarkedByCurrentUser: req.user
+        ? question.bookmarkedBy.includes(req.user._id)
+        : false,
       commentsCount: totalComments,
       authViews: question.viewedBy ? question.viewedBy.length : 0,
       anonViews: question.anonymousViews || 0,
-      totalViews: (question.viewedBy ? question.viewedBy.length : 0) + (question.anonymousViews || 0)
+      totalViews:
+        (question.viewedBy ? question.viewedBy.length : 0) +
+        (question.anonymousViews || 0),
     },
     timestamps: {
       created: question.createdAt,
@@ -549,7 +564,11 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
   };
 
   if (question.verifiedComment) {
-    formattedQuestion.verifiedAnswer = formatCommentObject(req, question.verifiedComment, true);
+    formattedQuestion.verifiedAnswer = formatCommentObject(
+      req,
+      question.verifiedComment,
+      true
+    );
   }
 
   formattedQuestion.comments = {
@@ -692,7 +711,47 @@ exports.deleteQuestion = catchAsync(async (req, res, next) => {
     );
   }
 });
+exports.unbookmarkQuestion = catchAsync(async (req, res, next) => {
+  const question = await Question.findByIdAndUpdate(
+    req.params.id,
+    {
+      $pull: { bookmarkedBy: req.user._id },
+    },
+    { new: true }
+  );
 
+  if (!question) {
+    return next(new AppError("Question not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      bookmarkBy: question.bookmarkedBy.length,
+    },
+  });
+});
+exports.bookmarkQuestion = catchAsync(async (req, res, next) => {
+  const question = await Question.findById(req.params.id);
+
+  if (!question) {
+    return next(new AppError("Question not found", 404));
+  }
+
+  if (question.bookmarkedBy.includes(req.user._id)) {
+    return next(new AppError("You already bookmarked this question", 400));
+  }
+
+  question.bookmarkedBy.push(req.user._id);
+  await question.save({ validateBeforeSave: false });
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      bookmarkBy: question.bookmarkedBy.length,
+    },
+  });
+});
 // LIKESSSS
 exports.likeQuestion = catchAsync(async (req, res, next) => {
   const question = await Question.findById(req.params.id);
@@ -740,7 +799,7 @@ exports.likeQuestion = catchAsync(async (req, res, next) => {
         username: req.user.username,
         questionId: question._id,
         actingUserId: req.user._id,
-        title: question.content.substring(0, 50) + '...' // Optional: Add question context
+        title: question.content.substring(0, 50) + "...", // Optional: Add question context
       }
     );
   }
@@ -772,7 +831,7 @@ exports.unlikeQuestion = catchAsync(async (req, res, next) => {
 
 exports.getQuestionViewers = catchAsync(async (req, res, next) => {
   const question = await Question.findById(req.params.id);
-  
+
   if (!question) {
     return next(new AppError("Question not found", 404));
   }
@@ -798,7 +857,9 @@ exports.getQuestionViewers = catchAsync(async (req, res, next) => {
     .skip(skip)
     .limit(limit);
 
-  const formattedViewers = viewersData.map(user => formatSimpleUserObject(user));
+  const formattedViewers = viewersData.map((user) =>
+    formatSimpleUserObject(user)
+  );
 
   res.status(200).json({
     status: "success",
@@ -806,12 +867,12 @@ exports.getQuestionViewers = catchAsync(async (req, res, next) => {
       authenticatedViewers: formattedViewers,
       authenticatedViewsCount: totalViewers,
       anonymousViewsCount: question.anonymousViews || 0,
-      totalViews: totalViewers + (question.anonymousViews || 0)
+      totalViews: totalViewers + (question.anonymousViews || 0),
     },
     pagination: {
       currentPage: page,
       totalPages: Math.ceil(totalViewers / limit),
-      limit
-    }
+      limit,
+    },
   });
 });
