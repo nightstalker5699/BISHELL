@@ -21,54 +21,46 @@ exports.getAllItem = catchAsync(async (req, res, next) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const category = req.query.category; // 'Buy', 'Equip', or 'Equipped'
-  
+
   // Base query
   let query = Store.find();
   let countQuery = Store.find();
-  
+
   // Apply category filter if specified
   if (category) {
-    if (category === 'Buy') {
+    let filter;
+    if (category === "Buy") {
       // Items not owned by user
-      query = Store.find({ owners: { $ne: req.user._id } });
-      countQuery = Store.find({ owners: { $ne: req.user._id } });
-    } else if (category === 'Equip') {
+      filter = { owners: { $ne: req.user._id } };
+    } else if (category === "Equip") {
       // Items owned by user but not equipped
-      query = Store.find({ 
+      filter = {
         owners: req.user._id,
-        URL: { $ne: req.user.userFrame }
-      });
-      countQuery = Store.find({ 
-        owners: req.user._id,
-        URL: { $ne: req.user.userFrame }
-      });
-    } else if (category === 'Equipped') {
+        URL: { $ne: req.user.userFrame },
+      };
+    } else if (category === "Equipped") {
       // Items currently equipped
-      query = Store.find({ 
+      filter = {
         owners: req.user._id,
-        URL: req.user.userFrame
-      });
-      countQuery = Store.find({ 
-        owners: req.user._id,
-        URL: req.user.userFrame
-      });
+        URL: req.user.userFrame,
+      };
     }
+    countQuery = Store.find(filter);
+    query = Store.find(filter);
   }
-  
+
   // Get total count for the specific category
   const total = await countQuery.countDocuments();
-  
+
   // Apply APIFeatures for sorting and pagination to the filtered query
-  const features = new APIFeatures(query, req.query)
-    .sort()
-    .paginate();
-  
+  const features = new APIFeatures(query, req.query).sort().paginate();
+
   // Execute query
   const items = await features.query;
-  
+
   // Process items with proper categorization
   let data = { Buy: [], Equip: [], Equipped: [] };
-  
+
   items.forEach((item) => {
     let status = !item.owners.includes(req.user._id)
       ? "Buy"
@@ -82,9 +74,9 @@ exports.getAllItem = catchAsync(async (req, res, next) => {
       price: item.price,
       URL: item.URL,
       currency: item.currency,
-      canAfford: req.user.stats[item.currency] >= item.price
+      canAfford: req.user.stats[item.currency] >= item.price,
     };
-    
+
     // If a category was specified, only add to that category
     if (category) {
       if (status === category) {
@@ -95,7 +87,7 @@ exports.getAllItem = catchAsync(async (req, res, next) => {
       data[status].push(info);
     }
   });
-  
+
   res.status(200).json({
     status: "success",
     results: items.length,
@@ -103,9 +95,9 @@ exports.getAllItem = catchAsync(async (req, res, next) => {
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       limit,
-      category: category || 'All'
+      category: category || "All",
     },
-    data: category ? { [category]: data[category] } : data
+    data: category ? { [category]: data[category] } : data,
   });
 });
 
