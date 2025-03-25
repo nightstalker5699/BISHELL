@@ -17,23 +17,56 @@ exports.deleteItem = factory.deleteOne(Store);
 */
 
 exports.getAllItem = catchAsync(async (req, res, next) => {
-  // Parse pagination parameters
+  // Parse parameters
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
-  const skip = (page - 1) * limit;
+  const category = req.query.category; // 'Buy', 'Equip', or 'Equipped'
   
-  // Get total count for pagination
-  const total = await Store.countDocuments();
+  // Base query
+  let query = Store.find();
+  let countQuery = Store.find();
   
-  // Apply APIFeatures for sorting and pagination
-  const features = new APIFeatures(Store.find(), req.query)
+  // Apply category filter if specified
+  if (category) {
+    if (category === 'Buy') {
+      // Items not owned by user
+      query = Store.find({ owners: { $ne: req.user._id } });
+      countQuery = Store.find({ owners: { $ne: req.user._id } });
+    } else if (category === 'Equip') {
+      // Items owned by user but not equipped
+      query = Store.find({ 
+        owners: req.user._id,
+        URL: { $ne: req.user.userFrame }
+      });
+      countQuery = Store.find({ 
+        owners: req.user._id,
+        URL: { $ne: req.user.userFrame }
+      });
+    } else if (category === 'Equipped') {
+      // Items currently equipped
+      query = Store.find({ 
+        owners: req.user._id,
+        URL: req.user.userFrame
+      });
+      countQuery = Store.find({ 
+        owners: req.user._id,
+        URL: req.user.userFrame
+      });
+    }
+  }
+  
+  // Get total count for the specific category
+  const total = await countQuery.countDocuments();
+  
+  // Apply APIFeatures for sorting and pagination to the filtered query
+  const features = new APIFeatures(query, req.query)
     .sort()
     .paginate();
   
   // Execute query
   const items = await features.query;
   
-  // Process items into categories
+  // Process items with proper categorization
   let data = { Buy: [], Equip: [], Equipped: [] };
   
   items.forEach((item) => {
@@ -52,7 +85,15 @@ exports.getAllItem = catchAsync(async (req, res, next) => {
       canAfford: req.user.stats[item.currency] >= item.price
     };
     
-    data[status].push(info);
+    // If a category was specified, only add to that category
+    if (category) {
+      if (status === category) {
+        data[status].push(info);
+      }
+    } else {
+      // Otherwise add to all categories as before
+      data[status].push(info);
+    }
   });
   
   res.status(200).json({
@@ -61,9 +102,10 @@ exports.getAllItem = catchAsync(async (req, res, next) => {
     pagination: {
       currentPage: page,
       totalPages: Math.ceil(total / limit),
-      limit
+      limit,
+      category: category || 'All'
     },
-    data
+    data: category ? { [category]: data[category] } : data
   });
 });
 
