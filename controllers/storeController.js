@@ -20,86 +20,44 @@ exports.getAllItem = catchAsync(async (req, res, next) => {
   // Parse parameters
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
-  const category = req.query.category; // 'Buy', 'Equip', or 'Equipped'
-
-  // Base query
-  let query = Store.find();
-  let countQuery = Store.find();
-
-  // Apply category filter if specified
-  if (category) {
-    let filter;
-    if (category === "Buy") {
-      // Items not owned by user
-      filter = { owners: { $ne: req.user._id } };
-    } else if (category === "Equip") {
-      // Items owned by user but not equipped
-      filter = {
-        owners: req.user._id,
-        URL: { $ne: req.user.userFrame },
-      };
-    } else if (category === "Equipped") {
-      // Items currently equipped
-      filter = {
-        owners: req.user._id,
-        URL: req.user.userFrame,
-      };
-    }
-    countQuery = Store.find(filter);
-    query = Store.find(filter);
-  }
-
-  // Get total count for the specific category
+  
+  // Query for items not owned by user (Buy items only)
+  let query = Store.find({ owners: { $ne: req.user._id } });
+  let countQuery = Store.find({ owners: { $ne: req.user._id } });
+  
+  // Get total count for pagination
   const total = await countQuery.countDocuments();
-
-  // Apply APIFeatures for sorting and pagination to the filtered query
-  const features = new APIFeatures(query, req.query).sort().paginate();
-
+  
+  // Apply APIFeatures for sorting and pagination
+  const features = new APIFeatures(query, req.query)
+    .sort()
+    .paginate();
+  
   // Execute query
   const items = await features.query;
-
-  // Process items with proper categorization
-  let data = { Buy: [], Equip: [], Equipped: [] };
-
-  items.forEach((item) => {
-    let status = !item.owners.includes(req.user._id)
-      ? "Buy"
-      : item.URL === req.user.userFrame
-      ? "Equipped"
-      : "Equip";
-
-    let info = {
-      id: item._id,
-      name: item.name,
-      price: item.price,
-      URL: item.URL,
-      currency: item.currency,
-      canAfford: req.user.stats[item.currency] >= item.price,
-    };
-
-    // If a category was specified, only add to that category
-    if (category) {
-      if (status === category) {
-        data[status].push(info);
-      }
-    } else {
-      // Otherwise add to all categories as before
-      data[status].push(info);
-    }
-  });
-
+  
+  // Process items
+  const buyItems = items.map(item => ({
+    id: item._id,
+    name: item.name,
+    price: item.price,
+    URL: item.URL,
+    currency: item.currency,
+    canAfford: req.user.stats[item.currency] >= item.price
+  }));
+  
   res.status(200).json({
     status: "success",
     results: items.length,
     pagination: {
       currentPage: page,
       totalPages: Math.ceil(total / limit),
-      limit,
-      category: category || "All",
+      limit
     },
-    data: category ? { [category]: data[category] } : data,
+    data: buyItems
   });
 });
+
 
 exports.buyItem = catchAsync(async (req, res, next) => {
   const item = await Store.findById(req.params.id);
@@ -134,4 +92,75 @@ exports.equipItem = catchAsync(async (req, res, next) => {
   await req.user.save({ validateBeforeSave: false });
 
   res.status(200).json({ message: "success", user: req.user });
+});
+
+exports.getEquippedFrame = catchAsync(async (req, res, next) => {
+  // Find the currently equipped frame
+  const equippedFrame = await Store.findOne({
+    URL: req.user.userFrame,
+    owners: req.user._id
+  });
+  
+  if (!equippedFrame) {
+    return res.status(200).json({
+      status: "success",
+      data: null
+    });
+  }
+  
+  res.status(200).json({
+    status: "success",
+    data: {
+      id: equippedFrame._id,
+      name: equippedFrame.name,
+      URL: equippedFrame.URL
+    }
+  });
+});
+
+// New endpoint to get user's owned frames
+exports.getOwnedFrames = catchAsync(async (req, res, next) => {
+  // Parse parameters
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  
+  // Query for items owned by user but not equipped
+  const query = Store.find({ 
+    owners: req.user._id,
+    URL: { $ne: req.user.userFrame }
+  });
+  
+  const countQuery = Store.find({ 
+    owners: req.user._id,
+    URL: { $ne: req.user.userFrame }
+  });
+  
+  // Get total count for pagination
+  const total = await countQuery.countDocuments();
+  
+  // Apply APIFeatures for sorting and pagination
+  const features = new APIFeatures(query, req.query)
+    .sort()
+    .paginate();
+  
+  // Execute query
+  const items = await features.query;
+  
+  // Process items
+  const ownedFrames = items.map(item => ({
+    id: item._id,
+    name: item.name,
+    URL: item.URL
+  }));
+  
+  res.status(200).json({
+    status: "success",
+    results: items.length,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      limit
+    },
+    data: ownedFrames
+  });
 });

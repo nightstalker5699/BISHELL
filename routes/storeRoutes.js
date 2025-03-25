@@ -10,8 +10,11 @@ router
   .post(authController.restrictTo("admin"), storeController.addItem)
   .get(storeController.getAllItem);
 
+router.get("/equipped-frame", storeController.getEquippedFrame);
+router.get("/owned-frames", storeController.getOwnedFrames);
 router.post("/buy/:id", storeController.buyItem);
 router.get("/equip/:id", storeController.equipItem);
+
 router.use(authController.restrictTo("admin"));
 router
   .route("/:id")
