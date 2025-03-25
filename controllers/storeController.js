@@ -20,6 +20,7 @@ exports.getAllItem = catchAsync(async (req, res, next) => {
   // Parse parameters
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
+  const skip = (page - 1) * limit;
   
   // Query for items not owned by user (Buy items only)
   let query = Store.find({ owners: { $ne: req.user._id } });
@@ -28,13 +29,14 @@ exports.getAllItem = catchAsync(async (req, res, next) => {
   // Get total count for pagination
   const total = await countQuery.countDocuments();
   
-  // Apply APIFeatures for sorting and pagination
-  const features = new APIFeatures(query, req.query)
-    .sort()
-    .paginate();
+  // Apply consistent sorting by _id to ensure no duplicates across pages
+  query = query.sort({ _id: 1 });
+  
+  // Apply pagination
+  query = query.skip(skip).limit(limit);
   
   // Execute query
-  const items = await features.query;
+  const items = await query;
   
   // Process items
   const buyItems = items.map(item => ({
