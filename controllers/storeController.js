@@ -3,6 +3,7 @@ const catchAsync = require("../utils/catchAsync");
 const factory = require("./handlerFactory");
 const Store = require("../models/StoreModel");
 const appError = require("../utils/appError");
+const APIFeatures = require("../utils/apiFeatures");
 
 exports.addItem = factory.createOne(Store);
 exports.updateItem = factory.updateOne(Store);
@@ -16,9 +17,25 @@ exports.deleteItem = factory.deleteOne(Store);
 */
 
 exports.getAllItem = catchAsync(async (req, res, next) => {
-  const items = await Store.find();
+  // Parse pagination parameters
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const skip = (page - 1) * limit;
+  
+  // Get total count for pagination
+  const total = await Store.countDocuments();
+  
+  // Apply APIFeatures for sorting and pagination
+  const features = new APIFeatures(Store.find(), req.query)
+    .sort()
+    .paginate();
+  
+  // Execute query
+  const items = await features.query;
+  
+  // Process items into categories
   let data = { Buy: [], Equip: [], Equipped: [] };
-  const result = items.length;
+  
   items.forEach((item) => {
     let status = !item.owners.includes(req.user._id)
       ? "Buy"
@@ -27,17 +44,26 @@ exports.getAllItem = catchAsync(async (req, res, next) => {
       : "Equip";
 
     let info = {
+      id: item._id,
       name: item.name,
       price: item.price,
       URL: item.URL,
       currency: item.currency,
+      canAfford: req.user.stats[item.currency] >= item.price
     };
+    
     data[status].push(info);
   });
+  
   res.status(200).json({
-    message: "success",
-    result,
-    data,
+    status: "success",
+    results: items.length,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      limit
+    },
+    data
   });
 });
 
