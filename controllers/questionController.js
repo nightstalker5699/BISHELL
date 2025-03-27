@@ -120,6 +120,10 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
   } else if (req.query.answered === "false") {
     filter.verifiedComment = { $exists: false };
   }
+  if (req.query.category) {
+    filter.category =
+      req.query.category == "General" ? null : req.query.category;
+  }
   if (req.query.bookmark === "true") {
     filter.bookmarkedBy = req.user._id;
   }
