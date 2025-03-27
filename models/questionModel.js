@@ -44,6 +44,10 @@ const questionSchema = new mongoose.Schema(
       default: 0,
     },
     bookmarkedBy: [mongoose.Schema.ObjectId],
+    category: {
+      type: mongoose.Schema.ObjectId,
+      ref: "Course",
+    },
   },
   {
     timestamps: true,
@@ -77,7 +81,7 @@ questionSchema.statics.findAllSortedByLikes = async function (
         likesCount: { $size: "$likes" },
       },
     },
-    
+
     {
       $project: {
         content: 1,
@@ -91,8 +95,8 @@ questionSchema.statics.findAllSortedByLikes = async function (
         bookmarkedBy: 1,
         viewedBy: 1,
         anonymousViews: 1,
-        likesCount: 1
-      }
+        likesCount: 1,
+      },
     },
     { $sort: { likesCount: -1 } },
     { $skip: skip },

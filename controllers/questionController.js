@@ -179,6 +179,10 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         select: "username photo fullName role userFrame badges",
       })
       .populate({
+        path: "category",
+        select: "courseName",
+      })
+      .populate({
         path: "verifiedComment",
         select: "content userId attach_file likes replies",
         populate: [
@@ -225,6 +229,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         content: question.content,
         user: formatUserObject(question.userId),
         bookmarkedBy: question.bookmarkedBy,
+        category: question.category ? question.category.courseName : "General",
         stats: {
           likesCount: question.likes?.length || 0,
           isLikedByCurrentUser: req.user
@@ -289,11 +294,12 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
 exports.createQuestion = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
   const content = req.body.content;
-
+  const category = req.body.category;
   // Create question first
   const questionData = {
     userId: userId,
     content: content,
+    category: category,
   };
 
   if (req.file) {
@@ -314,11 +320,17 @@ exports.createQuestion = catchAsync(async (req, res, next) => {
     path: "userId",
     select: "username fullName photo role userFrame",
   });
-
+  await newQuestion.populate({
+    path: "category",
+    select: "courseName",
+  });
   const response = {
     id: newQuestion._id,
     content: newQuestion.content,
     user: formatUserObject(newQuestion.userId),
+    category: newQuestion.category
+      ? newQuestion.category.courseName
+      : "General",
     attachment: formatAttachment(req, newQuestion.attach_file),
     timestamps: {
       created: newQuestion.createdAt,
@@ -465,6 +477,10 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
       select: "username fullName photo role userFrame badges",
     })
     .populate({
+      path: "category",
+      select: "courseName",
+    })
+    .populate({
       path: "verifiedComment",
       select: "content userId attach_file createdAt likes",
       populate: [
@@ -540,6 +556,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
     id: question._id,
     content: question.content,
     user: formatUserObject(question.userId),
+    category: question.category ? question.category.courseName : "General",
     stats: {
       likesCount: question.likes.length,
       isLikedByCurrentUser: req.user
@@ -562,7 +579,6 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
     },
     attachment: formatAttachment(req, question.attach_file),
   };
-
   if (question.verifiedComment) {
     formattedQuestion.verifiedAnswer = formatCommentObject(
       req,
@@ -633,11 +649,16 @@ exports.updateQuestion = catchAsync(async (req, res, next) => {
     path: "userId",
     select: "username fullName photo role userFrame",
   });
+  await question.populate({
+    path: "category",
+    select: "courseName",
+  });
 
   const formattedQuestion = {
     id: question._id,
     content: question.content,
     user: formatUserObject(question.userId),
+    category: question.category ? question.category.courseName : "General",
     attachment: formatAttachment(req, question.attach_file),
     timestamps: {
       created: question.createdAt,
