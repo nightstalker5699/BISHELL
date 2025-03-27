@@ -77,6 +77,23 @@ questionSchema.statics.findAllSortedByLikes = async function (
         likesCount: { $size: "$likes" },
       },
     },
+    
+    {
+      $project: {
+        content: 1,
+        userId: 1,
+        attach_file: 1,
+        likes: 1,
+        comments: 1,
+        verifiedComment: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        bookmarkedBy: 1,
+        viewedBy: 1,
+        anonymousViews: 1,
+        likesCount: 1
+      }
+    },
     { $sort: { likesCount: -1 } },
     { $skip: skip },
     { $limit: limit },
