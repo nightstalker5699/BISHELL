@@ -5,7 +5,7 @@ const catchAsync = require("../utils/catchAsync");
 const factory = require("./handlerFactory");
 
 exports.getLeaderBoard = catchAsync(async (req, res, next) => {
-  let users = await User.find({ role: "student" })
+  let users = await User.find({ role: { $in: ["student", "group-leader"] } })
     .sort({ rank: 1 })
     .populate("badges");
 
