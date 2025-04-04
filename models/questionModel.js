@@ -72,14 +72,19 @@ questionSchema.index({ likes: 1 });
 questionSchema.statics.findAllSortedByLikes = async function (
   filter,
   skip,
-  limit
+  limit,
+  userId // Add userId parameter
 ) {
   return this.aggregate([
     { $match: filter },
     {
       $addFields: {
         likesCount: { $size: "$likes" },
-        bookmarkedBy: { $ifNull: ["$bookmarkedBy", []] }
+        bookmarkedBy: { $ifNull: ["$bookmarkedBy", []] },
+        // Add a field to check if current user has liked the question
+        isLikedByCurrentUser: userId ? {
+          $in: [userId, "$likes"]
+        } : false
       },
     },
 
@@ -97,6 +102,7 @@ questionSchema.statics.findAllSortedByLikes = async function (
         viewedBy: 1,
         anonymousViews: 1,
         likesCount: 1,
+        isLikedByCurrentUser: 1,
       },
     },
     { $sort: { likesCount: -1 } },

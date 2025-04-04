@@ -131,7 +131,9 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
 
   let questions;
   if (req.query.sort === "-likes") {
-    questions = await Question.findAllSortedByLikes(filter, skip, limit);
+    // Convert user ID to MongoDB ObjectId when passing to aggregation
+    const userIdObj = req.user ? req.user._id : null;
+    questions = await Question.findAllSortedByLikes(filter, skip, limit, userIdObj);
     questions = await Question.populate(questions, [
       {
         path: "userId",
@@ -236,9 +238,10 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         category: question.category ? question.category.courseName : "General",
         stats: {
           likesCount: question.likes?.length || 0,
-          isLikedByCurrentUser: req.user
-            ? question.likes?.includes(req.user._id)
-            : false,
+          // Use the precomputed field if available, otherwise check the likes array
+          isLikedByCurrentUser: question.isLikedByCurrentUser !== undefined
+            ? question.isLikedByCurrentUser
+            : (req.user ? question.likes?.includes(req.user._id) : false),
           bookmarksCount: question.bookmarkedBy?.length || 0,
           isbookmarkedByCurrentUser: req.user
             ? question.bookmarkedBy?.includes(req.user._id) || false
