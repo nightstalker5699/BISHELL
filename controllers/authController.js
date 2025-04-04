@@ -40,7 +40,7 @@ const createSendToken = (user, statusCode, res) => {
 
 exports.signup = catchAsync(async (req, res) => {
   console.log("Signup body:", req.body);
-  const rank = await User.countDocuments({ $in: ["student", "group-leader"] });
+  const rank = await User.countDocuments({ role: { $in: ["student", "group-leader"] } });
 
   const newUser = await User.create({
     username: req.body.username,
