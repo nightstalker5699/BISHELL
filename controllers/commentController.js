@@ -10,7 +10,7 @@ const Point = require("../models/pointModel");
 const { sendNotificationToUser } = require('../utils/notificationUtil');
 const { NotificationType } = require('../utils/notificationTypes');
 const { processMentions } = require('../utils/mentionUtil');
-const { getAIExplanation } = require('../utils/aiAssistant');
+const { getAIExplanation, getBotUserId } = require('../utils/aiAssistant');
 
 // Helper function to check if comment contains an AI command
 const containsAICommand = (content) => {
@@ -29,11 +29,13 @@ const processAIRequest = async (comment, question, req) => {
     // Get AI explanation
     const aiResponse = await getAIExplanation(questionContent);
     
-    // Create a reply with the AI response
+    // Create a reply with the AI response using the bot's account
+    const botUserId = getBotUserId();
+    
     const reply = await Comment.create({
-      userId: req.user._id,
+      userId: botUserId, // Use bot's account instead of the user's account
       questionId: question._id,
-      content: `**AI Explanation**: \n\n${aiResponse}`,
+      content: `${aiResponse}`,
       parentId: comment._id
     });
     

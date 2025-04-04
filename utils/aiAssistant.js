@@ -1,11 +1,23 @@
 const axios = require('axios');
 const AppError = require('./appError');
 const catchAsync = require('./catchAsync');
+const mongoose = require('mongoose');
 
 const API_KEY = 'AIzaSyDbW33CM_oTWhIOzTsJDRf4A39roukix0Q';
 const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
+// Bot account ID for AI responses
+const BOT_ID = mongoose.Types.ObjectId('67ef9dc8024d1e4ae6326f4f');
+
 const SYSTEM_PROMPT = `Act as a study mate for the students using you, your name is Elda7e7, you should act like a nerdy study mate. Try to answer their questions with details and examples if needed, and answer in Egyptian Arabic if they don't specify a preferred language. You're working for BIShell site. Your answers should be concise, helpful, and appropriate for educational purposes.`;
+
+/**
+ * Get the AI bot user ID
+ * @returns {mongoose.Types.ObjectId} The bot account's ObjectId
+ */
+const getBotUserId = () => {
+  return BOT_ID;
+};
 
 /**
  * Formats content for sending to Gemini API
@@ -65,5 +77,6 @@ const getAIExplanation = async (questionContent) => {
 };
 
 module.exports = {
-  getAIExplanation
+  getAIExplanation,
+  getBotUserId
 };
