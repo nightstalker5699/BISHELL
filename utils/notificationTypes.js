@@ -19,7 +19,10 @@ const NotificationType = {
   // Points & System
   POINTS_EARNED: "points-earned",
   POINTS_DEDUCTED: "points-deducted",
-  INFO: "info"
+  INFO: "info",
+  
+  // AI Assistant
+  AI_EXPLANATION: "ai-explanation"
 };
 
 const NotificationConfig = {
@@ -106,6 +109,13 @@ const NotificationConfig = {
     messageTemplate: "New material '{title}' added in {courseName}",
     link: "/courses/{courseId}/materials/{materialId}",
     metadataFields: ['courseId', 'courseName', 'materialId', 'actingUserId', 'title']
+  },
+
+  [NotificationType.AI_EXPLANATION]: {
+    title: "AI Explanation",
+    messageTemplate: "Elda7e7 has provided an explanation",
+    link: "/questions/{questionId}",
+    metadataFields: ['questionId', 'commentId']
   }
 };
 

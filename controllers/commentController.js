@@ -10,10 +10,51 @@ const Point = require("../models/pointModel");
 const { sendNotificationToUser } = require('../utils/notificationUtil');
 const { NotificationType } = require('../utils/notificationTypes');
 const { processMentions } = require('../utils/mentionUtil');
+const { getAIExplanation } = require('../utils/aiAssistant');
 
+// Helper function to check if comment contains an AI command
+const containsAICommand = (content) => {
+  return content.toLowerCase().includes('/ai');
+};
 
-
-
+// Function to handle AI reply for a comment
+const processAIRequest = async (comment, question, req) => {
+  try {
+    // Extract the AI command and potential query
+    const content = comment.content;
+    
+    // Get question content to explain
+    const questionContent = question.content;
+    
+    // Get AI explanation
+    const aiResponse = await getAIExplanation(questionContent);
+    
+    // Create a reply with the AI response
+    const reply = await Comment.create({
+      userId: req.user._id,
+      questionId: question._id,
+      content: `**AI Explanation**: \n\n${aiResponse}`,
+      parentId: comment._id
+    });
+    
+    await reply.populate('userId', 'username fullName photo userFrame badges');
+    
+    // Send notification to comment author
+    await sendNotificationToUser(
+      comment.userId,
+      NotificationType.AI_EXPLANATION,
+      {
+        questionId: question._id,
+        commentId: reply._id
+      }
+    );
+    
+    return reply;
+  } catch (error) {
+    console.error('Error processing AI request:', error);
+    return null;
+  }
+};
 
 exports.addComment = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.questionId);
@@ -136,6 +177,12 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
     description: "Posted a comment on a question"
   });
 
+  // Check if the comment contains an AI command
+  let aiReply = null;
+  if (containsAICommand(req.body.content)) {
+    aiReply = await processAIRequest(comment, question, req);
+  }
+
   if (question.userId.toString() !== req.user._id.toString()) {
     await sendNotificationToUser(
       question.userId,
@@ -150,9 +197,29 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
     );
   }
 
+  const responseData = { comment: response };
+  
+  // If AI generated a response, include it in the response
+  if (aiReply) {
+    responseData.aiReply = {
+      id: aiReply._id,
+      content: aiReply.content,
+      user: {
+        username: aiReply.userId.username,
+        fullName: aiReply.userId.fullName,
+        photo: aiReply.userId.photo,
+        userFrame: aiReply.userId.userFrame,
+        badges: aiReply.userId.badges
+      },
+      parentId: aiReply.parentId,
+      createdAt: aiReply.createdAt,
+      attachment: null
+    };
+  }
+
   res.status(201).json({
     status: 'success',
-    data: { comment: response }
+    data: responseData
   });
 });
 
@@ -287,9 +354,39 @@ exports.addReply = catchAsync(async (req, res, next) => {
     });
   }
 
+  // Check if reply contains AI command
+  let aiReply = null;
+  if (containsAICommand(req.body.content)) {
+    // Get the question to provide context to AI
+    const question = await Question.findById(req.params.questionId);
+    if (question) {
+      aiReply = await processAIRequest(reply, question, req);
+    }
+  }
+
+  const responseData = { reply: response };
+
+  // If AI generated a response, include it in the response
+  if (aiReply) {
+    responseData.aiReply = {
+      id: aiReply._id,
+      content: aiReply.content,
+      user: {
+        username: aiReply.userId.username,
+        fullName: aiReply.userId.fullName,
+        photo: aiReply.userId.photo,
+        userFrame: aiReply.userId.userFrame,
+        badges: aiReply.userId.badges
+      },
+      parentId: aiReply.parentId,
+      createdAt: aiReply.createdAt,
+      attachment: null
+    };
+  }
+
   res.status(201).json({
     status: 'success',
-    data: { reply: response }
+    data: responseData
   });
 
   // Handle notifications in background
