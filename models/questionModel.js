@@ -79,6 +79,7 @@ questionSchema.statics.findAllSortedByLikes = async function (
     {
       $addFields: {
         likesCount: { $size: "$likes" },
+        bookmarkedBy: { $ifNull: ["$bookmarkedBy", []] }
       },
     },
 

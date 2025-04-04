@@ -232,17 +232,17 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         id: question._id,
         content: question.content,
         user: formatUserObject(question.userId),
-        bookmarkedBy: question.bookmarkedBy,
+        bookmarkedBy: question.bookmarkedBy || [],
         category: question.category ? question.category.courseName : "General",
         stats: {
           likesCount: question.likes?.length || 0,
           isLikedByCurrentUser: req.user
             ? question.likes?.includes(req.user._id)
             : false,
-          bookmarksCount: question.bookmarkedBy.length,
+          bookmarksCount: question.bookmarkedBy?.length || 0,
           isbookmarkedByCurrentUser: req.user
-            ? question.bookmarkedBy.includes(req.user._id)
-            : false,
+            ? question.bookmarkedBy?.includes(req.user._id) || false
+            : false, 
           commentsCount: question.comments?.length || 0,
         },
         timestamps: {
