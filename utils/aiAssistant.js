@@ -6,7 +6,6 @@ const mongoose = require('mongoose');
 const API_KEY = 'AIzaSyDbW33CM_oTWhIOzTsJDRf4A39roukix0Q';
 const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
-// Bot account ID for AI responses - must use 'new' with ObjectId constructor
 const BOT_ID = new mongoose.Types.ObjectId('67ef9dc8024d1e4ae6326f4f');
 
 const SYSTEM_PROMPT = `Act as a study mate for the students using you, your name is Elda7e7, you should act like a nerdy study mate. Try to answer their questions with details and examples if needed, and answer in Egyptian Arabic if they don't specify a preferred language. You're working for BIShell site. Your answers should be concise, helpful, and appropriate for educational purposes.`;
@@ -25,14 +24,11 @@ const getBotUserId = () => {
  * @returns {string} The extracted prompt or empty string if not found
  */
 const extractPromptFromCommand = (commentContent) => {
-  // If comment contains /ai but nothing after it, return empty string
-  if (commentContent.trim().toLowerCase() === '/ai') {
-    return '';
+  if (commentContent.toLowerCase().includes('/ai')) {
+    return commentContent.replace(/\/ai/i, '').trim();
   }
-
-  // Extract everything after the "/ai" command, trimming whitespace
-  const match = commentContent.toLowerCase().match(/\/ai\s+(.*)/i);
-  return match ? match[1].trim() : '';
+  
+  return ''; // No /ai command found
 };
 
 /**
@@ -45,10 +41,8 @@ const formatContentForGemini = (questionContent, promptContent) => {
   let userPrompt;
   
   if (promptContent) {
-    // If there's specific prompt content, use it and provide the question as context
     userPrompt = `${promptContent}\n\nContext (question being discussed): "${questionContent}"`;
   } else {
-    // If no specific prompt, default to explaining the question
     userPrompt = `Please explain this concept/question clearly: "${questionContent}"`;
   }
   
@@ -76,7 +70,6 @@ const formatContentForGemini = (questionContent, promptContent) => {
  */
 const getAIExplanation = async (questionContent, commentContent) => {
   try {
-    // Extract the actual prompt from the comment (everything after "/ai")
     const promptContent = extractPromptFromCommand(commentContent);
     
     const response = await axios({
