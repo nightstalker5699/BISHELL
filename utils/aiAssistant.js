@@ -6,8 +6,8 @@ const mongoose = require('mongoose');
 const API_KEY = 'AIzaSyDbW33CM_oTWhIOzTsJDRf4A39roukix0Q';
 const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
-// Bot account ID for AI responses
-const BOT_ID = mongoose.Types.ObjectId('67ef9dc8024d1e4ae6326f4f');
+// Bot account ID for AI responses - must use 'new' with ObjectId constructor
+const BOT_ID = new mongoose.Types.ObjectId('67ef9dc8024d1e4ae6326f4f');
 
 const SYSTEM_PROMPT = `Act as a study mate for the students using you, your name is Elda7e7, you should act like a nerdy study mate. Try to answer their questions with details and examples if needed, and answer in Egyptian Arabic if they don't specify a preferred language. You're working for BIShell site. Your answers should be concise, helpful, and appropriate for educational purposes.`;
 
