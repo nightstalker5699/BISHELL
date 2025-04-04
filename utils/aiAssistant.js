@@ -20,11 +20,38 @@ const getBotUserId = () => {
 };
 
 /**
+ * Extract the actual prompt from a comment containing an AI command
+ * @param {string} commentContent - The content of the comment with the /ai command
+ * @returns {string} The extracted prompt or empty string if not found
+ */
+const extractPromptFromCommand = (commentContent) => {
+  // If comment contains /ai but nothing after it, return empty string
+  if (commentContent.trim().toLowerCase() === '/ai') {
+    return '';
+  }
+
+  // Extract everything after the "/ai" command, trimming whitespace
+  const match = commentContent.toLowerCase().match(/\/ai\s+(.*)/i);
+  return match ? match[1].trim() : '';
+};
+
+/**
  * Formats content for sending to Gemini API
- * @param {string} questionContent - The question content to explain
+ * @param {string} questionContent - The question content for context
+ * @param {string} promptContent - The prompt content extracted from the comment
  * @returns {Array} Formatted messages for the Gemini API
  */
-const formatContentForGemini = (questionContent) => {
+const formatContentForGemini = (questionContent, promptContent) => {
+  let userPrompt;
+  
+  if (promptContent) {
+    // If there's specific prompt content, use it and provide the question as context
+    userPrompt = `${promptContent}\n\nContext (question being discussed): "${questionContent}"`;
+  } else {
+    // If no specific prompt, default to explaining the question
+    userPrompt = `Please explain this concept/question clearly: "${questionContent}"`;
+  }
+  
   return [
     {
       role: 'user',
@@ -36,18 +63,22 @@ const formatContentForGemini = (questionContent) => {
     },
     {
       role: 'user',
-      parts: [{ text: `Please explain this concept/question clearly: "${questionContent}"` }]
+      parts: [{ text: userPrompt }]
     }
   ];
 };
 
 /**
  * Calls the Gemini API to get an explanation for a question
- * @param {string} questionContent - The content of the question to explain
+ * @param {string} questionContent - The content of the question for context
+ * @param {string} commentContent - The content of the comment with the AI command
  * @returns {Promise<string>} The AI explanation
  */
-const getAIExplanation = async (questionContent) => {
+const getAIExplanation = async (questionContent, commentContent) => {
   try {
+    // Extract the actual prompt from the comment (everything after "/ai")
+    const promptContent = extractPromptFromCommand(commentContent);
+    
     const response = await axios({
       method: 'POST',
       url: `${API_URL}?key=${API_KEY}`,
@@ -55,7 +86,7 @@ const getAIExplanation = async (questionContent) => {
         'Content-Type': 'application/json',
       },
       data: {
-        contents: formatContentForGemini(questionContent),
+        contents: formatContentForGemini(questionContent, promptContent),
         generationConfig: {
           temperature: 0.7,
           topK: 40,

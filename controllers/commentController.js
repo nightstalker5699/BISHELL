@@ -20,14 +20,14 @@ const containsAICommand = (content) => {
 // Function to handle AI reply for a comment
 const processAIRequest = async (comment, question, req) => {
   try {
-    // Extract the AI command and potential query
-    const content = comment.content;
+    // Get the comment content where the /ai command was used
+    const commentContent = comment.content;
     
-    // Get question content to explain
+    // Get question content for context
     const questionContent = question.content;
     
-    // Get AI explanation
-    const aiResponse = await getAIExplanation(questionContent);
+    // Get AI explanation using both the comment content and question content
+    const aiResponse = await getAIExplanation(questionContent, commentContent);
     
     // Create a reply with the AI response using the bot's account
     const botUserId = getBotUserId();
