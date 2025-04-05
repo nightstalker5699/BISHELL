@@ -38,6 +38,9 @@ const io = new Server(server, {
 // Pass the io instance directly to chatHandler
 chatHandler(io);
 
+notificationSocketHandler(io);
+console.log("hello there");
+
 process.on("unhandledRejection", (err) => {
   console.log(`UNHANDLED REJECTION! Shutting down...`);
   console.log(err);
