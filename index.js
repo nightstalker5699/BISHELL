@@ -37,6 +37,9 @@ const io = new Server(server, {
 chatHandler(io);
 notificationSocketHandler(io);
 
+notificationSocketHandler(io);
+console.log("hello there");
+
 process.on("unhandledRejection", (err) => {
   console.log(`UNHANDLED REJECTION! Shutting down...`);
   console.log(err);
