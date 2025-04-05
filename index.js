@@ -9,9 +9,7 @@ process.on("uncaughtException", (err) => {
 });
 const chatHandler = require("./controllers/chatHandler");
 const { Server } = require("socket.io");
-const {
-  notificationSocketHandler,
-} = require("./controllers/notificationSocketHandler");
+const { notificationSocketHandler } = require("./controllers/notificationSocketHandler");
 const app = require(`./app`);
 
 const DB = process.env.DATABASE.replace(
@@ -37,6 +35,7 @@ const io = new Server(server, {
 // Initialize both socket handlers with the same io instance
 // Pass the io instance directly to chatHandler
 chatHandler(io);
+notificationSocketHandler(io);
 
 process.on("unhandledRejection", (err) => {
   console.log(`UNHANDLED REJECTION! Shutting down...`);
