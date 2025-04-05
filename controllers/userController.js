@@ -115,7 +115,6 @@ exports.followUser = catchAsync(async (req, res, next) => {
     return res.status(400).json({
       status: "failed",
       message: "You can't follow yourself",
-      sadsdwqe
     });
   }
 
