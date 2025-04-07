@@ -22,4 +22,5 @@ router
   .post(authController.restrictTo("admin"), courseController.createCourse);
 
 router.use("/:courseId/announcement", require("./announcementRoutes"));
+router.use("/:courseId/project", require("./projectRoutes"));
 module.exports = router;
