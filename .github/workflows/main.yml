@@ -3,7 +3,7 @@ name: testing deploy node
 on:
   push:
     branches:
-    - 47-project-teams
+    - teams
 
 jobs:
   test:
