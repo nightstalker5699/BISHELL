@@ -3,8 +3,7 @@ name: testing deploy node
 on:
   push:
     branches: [47-project-teams]
-    paths:
-      - ".github/workflows/test.yaml"
+
 
 jobs:
   test:
