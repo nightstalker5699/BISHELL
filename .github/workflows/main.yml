@@ -2,8 +2,8 @@ name: testing deploy node
 
 on:
   push:
-    branches: [47-project-teams]
-
+    branches:
+    - 47-project-teams
 
 jobs:
   test:
@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-node@v4
 
       - name: "install deps"
-        run: npm install
+        run: npm ci
 
       - name: "test"
         run: npm run start
