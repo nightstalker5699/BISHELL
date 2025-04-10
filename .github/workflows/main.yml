@@ -1,0 +1,22 @@
+name: testing deploy node
+
+on:
+  push:
+    branches: [47-project-teams]
+    paths:
+      - ".github/workflows/test.yaml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+
+      - name: "install deps"
+        run: npm install
+
+      - name: "test"
+        run: npm run start
