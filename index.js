@@ -43,6 +43,7 @@ process.on("unhandledRejection", (err) => {
   console.log(`UNHANDLED REJECTION! Shutting down...`);
   console.log(err);
   server.close(() => {
+    console.log("test");
     process.exit(1);
   });
 });
