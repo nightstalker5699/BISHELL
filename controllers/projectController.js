@@ -11,7 +11,7 @@ const User = require("../models/userModel");
 const Course = require("../models/courseModel");
 const { NotificationType } = require("../utils/notificationTypes");
 const moment = require("moment");
-
+const { fileUploader } = require("../utils/fileUploader");
 // create the files path in local storage
 const attach_file = path.join(
   __dirname,
@@ -22,29 +22,8 @@ const attach_file = path.join(
 );
 
 // check if the folder is there or not and create it if not
-if (!fs.existsSync(attach_file)) {
-  fs.mkdirSync(attach_file, { recursive: true });
-}
 
-// create a multer storage object that include destination which is file location and their filename
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, attach_file);
-  },
-  filename: (req, file, cb) => {
-    file.originalname = (Date.now() + "-" + file.originalname).replace(
-      " ",
-      "-"
-    );
-    cb(null, file.originalname);
-  },
-});
-
-const upload = multer({
-  storage,
-}).single("attach_file");
-
-exports.attachment = upload;
+exports.attachment = fileUploader(attach_file, "attach_file", true);
 
 // check if course exist and if the instructor is the course instructor
 exports.courseInstructor = catchAsync(async (req, res, next) => {
@@ -79,6 +58,30 @@ exports.create = catchAsync(async (req, res, next) => {
   res.status(200).json({
     message: "success",
     data: project,
+  });
+
+  const usersToNotify = await User.find({
+    role: { $in: ["student", "group-leader", "admin"] },
+  });
+
+  const notifpromises = usersToNotify.map((user) => {
+    const notifData = {
+      title: project.name,
+      projectId: project._id,
+      actinguserId: req.user._id,
+      courseId: req.course._id,
+      courseName: req.course.courseName,
+    };
+
+    return sendNotificationToUser(
+      user._id,
+      NotificationType.NEW_PROJECT,
+      notifData
+    );
+  });
+
+  Promise.all(notifpromises).catch((err) => {
+    console.error("Error sending Notication:", err);
   });
 });
 
