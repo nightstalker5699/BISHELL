@@ -26,6 +26,9 @@ const NotificationType = {
 
   // Projects
   NEW_PROJECT: "new-project",
+
+  // Teams
+  REQUESTED_TEAM: "request-team",
 };
 
 const NotificationConfig = {
@@ -144,6 +147,13 @@ const NotificationConfig = {
     messageTemplate: "There is a new Project for {courseName}",
     link: "/courses/{courseId}/Projects",
     metadataFields: ["courseId", "courseName"],
+  },
+
+  [NotificationType.REQUESTED_TEAM]: {
+    title: "REQUEST TO JOIN",
+    messageTemplate: "{actinguserName} Want to join your team",
+    link: "/courses/{courseId}/Projects/{projectId}/teams/{teamId}",
+    metadataFields: ["courseId", "projectId", "teamId", "actinguserName"],
   },
 };
 

@@ -2,6 +2,9 @@ const mongoose = require("mongoose");
 const { validate } = require("./projectModel");
 
 const teamSchema = new mongoose.Schema({
+  name: {
+    type: String,
+  },
   maxMember: {
     type: Number,
     required: true,
@@ -35,6 +38,21 @@ const teamSchema = new mongoose.Schema({
     mimeType: String,
     path: String,
   },
+  projectId: {
+    type: mongoose.Schema.ObjectId,
+    ref: "Project",
+    require: true,
+  },
+  group: {
+    type: String,
+    enum: ["A", "B", "C", "D"],
+  },
+  requestToJoin: [
+    {
+      type: mongoose.Schema.ObjectId,
+      ref: "User",
+    },
+  ],
 });
 
 const teamModel = mongoose.model("projectSubmisson", teamSchema);

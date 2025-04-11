@@ -14,4 +14,5 @@ router
     projectController.create
   );
 
+router.use("/:projectId/", require("./teamRoutes.js"));
 module.exports = router;
