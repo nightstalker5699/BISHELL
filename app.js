@@ -14,6 +14,10 @@ const questionRouter = require("./routes/questionRoutes");
 const notificationRouter = require("./routes/notificationRoutes");
 const badgesRouter = require("./routes/badgeRoutes");
 const storeRouter = require("./routes/storeRoutes.js");
+const assignmentRoutes = require('./routes/assignmentRoutes.js');
+const submissionRoutes = require('./routes/submissionRoutes.js');
+require('./cronJobs/deadlineReminder'); 
+
 
 const fs = require("fs");
 const path = require("path");
@@ -70,6 +74,9 @@ app.use(mongoSanitize());
 // 7) Static files
 app.use(express.static(path.join(__dirname, "static")));
 
+// Serve static files from the uploads folder
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // 8) Custom headers
 app.use((req, res, next) => {
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
@@ -94,6 +101,8 @@ app.use(`/api/questions`, questionRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/badges", badgesRouter);
 app.use("/api/store", storeRouter);
+app.use('/api/assignments', assignmentRoutes);
+app.use('/api/submissions', submissionRoutes);
 // 11) Error handling
 
 // 12) Error handling

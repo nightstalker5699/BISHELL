@@ -8,14 +8,14 @@ const sendEmail = require("./../utils/email");
 const crypto = require("crypto");
 const generatePasswordResetEmail = require("./../utils/emailTemplates");
 
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+const signToken = (id , role) => {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
 };
 
 const createSendToken = (user, statusCode, res) => {
-  const token = signToken(user._id);
+  const token = signToken(user._id , user.role );
 
   const cookiesOptions = {
     expires: new Date(
