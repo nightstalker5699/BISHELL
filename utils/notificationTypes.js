@@ -29,6 +29,8 @@ const NotificationType = {
 
   // Teams
   REQUESTED_TEAM: "request-team",
+  REMOVED_FROM_TEAM: "removed-from-team",
+  JOINED_TEAM: "joined-team",
 };
 
 const NotificationConfig = {
@@ -145,15 +147,27 @@ const NotificationConfig = {
   [NotificationType.NEW_PROJECT]: {
     title: "New Project",
     messageTemplate: "There is a new Project for {courseName}",
-    link: "/courses/{courseId}/Projects",
+    link: "/courses/{courseId}/projects",
     metadataFields: ["courseId", "courseName"],
   },
 
   [NotificationType.REQUESTED_TEAM]: {
-    title: "REQUEST TO JOIN",
+    title: "Request to join your team",
     messageTemplate: "{actinguserName} Want to join your team",
-    link: "/courses/{courseId}/Projects/{projectId}/teams/{teamId}",
+    link: "/courses/{courseId}/projects/{projectId}/teams/{teamId}",
     metadataFields: ["courseId", "projectId", "teamId", "actinguserName"],
+  },
+  [NotificationType.REMOVED_FROM_TEAM]: {
+    title: "Removed from team",
+    messageTemplate: "{actinguserName} removed you from {teamName} ",
+    link: "/courses/{courseId}/projects/{projectId}/teams",
+    metadataFields: ["actinguserName", "teamName", "courseId", "projectId"],
+  },
+  [NotificationType.JOINED_TEAM]: {
+    title: "joined a team",
+    messageTemplate: "you joined team {teamName}",
+    link: "/courses/{courseId}/projects/{projectId}/teams/{teamId}",
+    metadataFields: ["teamId", "teamName", "courseId", "projectId"],
   },
 };
 
