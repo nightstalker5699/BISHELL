@@ -31,6 +31,18 @@ const NotificationType = {
   REQUESTED_TEAM: "request-team",
   REMOVED_FROM_TEAM: "removed-from-team",
   JOINED_TEAM: "joined-team",
+
+  // Assignment/Submission related notification types
+  NEW_ASSIGNMENT: "NEW_ASSIGNMENT",
+  ASSIGNMENT_DEADLINE_EXTENDED: "ASSIGNMENT_DEADLINE_EXTENDED",
+  ASSIGNMENT_UPDATED: "ASSIGNMENT_UPDATED",
+  SUBMISSION_ACCEPTED: "SUBMISSION_ACCEPTED",
+  SUBMISSION_REJECTED: "SUBMISSION_REJECTED",
+  UPCOMING_DEADLINE_REMINDER: "UPCOMING_DEADLINE_REMINDER",
+
+  // notifications for instructors
+  NEW_SUBMISSION: "NEW_SUBMISSION",
+  RESUBMISSION_BY_STUDENT: "RESUBMISSION_BY_STUDENT",
 };
 
 const NotificationConfig = {
@@ -168,6 +180,81 @@ const NotificationConfig = {
     messageTemplate: "you joined team {teamName}",
     link: "/courses/{courseId}/projects/{projectId}/teams/{teamId}",
     metadataFields: ["teamId", "teamName", "courseId", "projectId"],
+  },
+
+  // --- Assignments & Submissions ---
+
+  [NotificationType.NEW_ASSIGNMENT]: {
+    title: "New Assignment Posted",
+    messageTemplate: "New assignment '{title}' has been posted in {courseName}",
+    link: "/courses/{courseId}/assignments",
+    metadataFields: ["courseId", "courseName", "title", "actingUserId"],
+  },
+
+  [NotificationType.ASSIGNMENT_DEADLINE_EXTENDED]: {
+    title: "Assignment Deadline Extended",
+    messageTemplate:
+      "Deadline extended for assignment '{title}' in {courseName}",
+    link: "/courses/{courseId}/assignments",
+    metadataFields: ["courseId", "courseName", "title", "actingUserId"],
+  },
+
+  [NotificationType.ASSIGNMENT_UPDATED]: {
+    title: "Assignment Updated",
+    messageTemplate: "Assignment '{title}' was updated in {courseName}",
+    link: "/courses/{courseId}/assignments",
+    metadataFields: ["courseId", "courseName", "title", "actingUserId"],
+  },
+
+  [NotificationType.SUBMISSION_ACCEPTED]: {
+    title: "Submission Accepted",
+    messageTemplate:
+      "Your submission for '{title}' in {courseName} was accepted!",
+    link: "/courses/{courseId}/assignments",
+    metadataFields: ["courseId", "courseName", "title", "actingUserId"],
+  },
+
+  [NotificationType.SUBMISSION_REJECTED]: {
+    title: "Submission Rejected",
+    messageTemplate:
+      "Your submission for '{title}' in {courseName} was rejected. Please revise it.",
+    link: "/courses/{courseId}/assignments",
+    metadataFields: ["courseId", "courseName", "title", "actingUserId"],
+  },
+
+  [NotificationType.UPCOMING_DEADLINE_REMINDER]: {
+    title: "Upcoming Assignment Deadline",
+    messageTemplate: "Reminder: '{title}' in {courseName} is due soon!",
+    link: "/courses/{courseId}/assignments",
+    metadataFields: ["courseId", "courseName", "title"],
+  },
+
+  // --- Instructor Notifications ---
+
+  [NotificationType.NEW_SUBMISSION]: {
+    title: "New Submission Received",
+    messageTemplate: "{username} submitted '{title}' in {courseName}",
+    link: "/courses/{courseId}/assignments",
+    metadataFields: [
+      "courseId",
+      "courseName",
+      "title",
+      "actingUserId",
+      "username",
+    ],
+  },
+
+  [NotificationType.RESUBMISSION_BY_STUDENT]: {
+    title: "Resubmission Received",
+    messageTemplate: "{username} resubmitted '{title}' in {courseName}",
+    link: "/courses/{courseId}/assignments",
+    metadataFields: [
+      "courseId",
+      "courseName",
+      "title",
+      "actingUserId",
+      "username",
+    ],
   },
 };
 

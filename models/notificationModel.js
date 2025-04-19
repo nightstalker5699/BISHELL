@@ -38,7 +38,9 @@ const notificationSchema = new mongoose.Schema({
     announcementId: mongoose.Schema.Types.ObjectId,
     courseId: mongoose.Schema.Types.ObjectId,
     courseName: String,
-    materialId: mongoose.Schema.Types.ObjectId
+    materialId: mongoose.Schema.Types.ObjectId,
+    assignmentId: mongoose.Schema.Types.ObjectId,
+    submissionId: mongoose.Schema.Types.ObjectId
   },
   createdAt: { 
     type: Date, 

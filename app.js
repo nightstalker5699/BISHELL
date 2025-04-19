@@ -14,6 +14,9 @@ const questionRouter = require("./routes/questionRoutes");
 const notificationRouter = require("./routes/notificationRoutes");
 const badgesRouter = require("./routes/badgeRoutes");
 const storeRouter = require("./routes/storeRoutes.js");
+const assignmentRoutes = require("./routes/assignmentRoutes.js");
+const submissionRoutes = require("./routes/submissionRoutes.js");
+require("./cronJobs/deadlineReminder");
 
 const fs = require("fs");
 const path = require("path");
@@ -94,7 +97,6 @@ app.use(`/api/questions`, questionRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/badges", badgesRouter);
 app.use("/api/store", storeRouter);
-// 11) Error handling
 
 // 12) Error handling
 
