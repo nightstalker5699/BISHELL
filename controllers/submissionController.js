@@ -8,6 +8,12 @@ const { NotificationType } = require("../utils/notificationTypes");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
 const appError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
+const { fileUploader } = require("../utils/fileUploader");
+
+const attachedFilePath = path.join(__dirname, "..", "uploads", "submissions");
+if (!fs.existsSync(attachedFilePath)) {
+  fs.mkdirSync(attachedFilePath, { recursive: true });
+}
 
 // Controller to submit an assignment
 const submitAssignment = catchAsync(async (req, res, next) => {
@@ -18,7 +24,7 @@ const submitAssignment = catchAsync(async (req, res, next) => {
   // Check if the assignment exists
   const assignment = await Assignment.findById(assignmentId);
   if (!assignment) {
-    return res.status(404).json({ message: "Assignment not found" });
+    return next(new appError("Assignment not found", 404));
   }
 
   // Check if the student already submitted this assignment
@@ -41,7 +47,7 @@ const submitAssignment = catchAsync(async (req, res, next) => {
     assignmentId,
     studentId,
     realName,
-    file: req.file.path,
+    file: path.join("uploads", "submissions", req.file.originalname),
     group,
     status: "pending",
   });
@@ -50,15 +56,9 @@ const submitAssignment = catchAsync(async (req, res, next) => {
 
   // find the course related to the assignment
   const course = await Course.findById(assignment.courseId);
-  if (!course) {
-    return res.status(404).json({ message: "Course not found" });
-  }
 
   // Find the instructor for the course
   const instructor = assignment.createdBy;
-  if (!instructor) {
-    return res.status(404).json({ message: "Instructor not found" });
-  }
 
   // Create notification for the instructor
   const notificationData = {
@@ -76,260 +76,256 @@ const submitAssignment = catchAsync(async (req, res, next) => {
     notificationData
   );
 
-  return res.status(201).json(newSubmission);
+  return res
+    .status(201)
+    .json({ message: "success", submission: newSubmission });
 });
 
-const getSubmissionsForAssignment = async (req, res) => {
+const getSubmissionsForAssignment = catchAsync(async (req, res, next) => {
   const { assignmentId } = req.params;
 
-  try {
-    // Optional: Validate assignment ID format
-    if (!assignmentId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ message: "Invalid assignment ID format" });
-    }
-
-    // Find submissions with student details
-    const submissions = await Submission.find({ assignmentId }).populate({
-      path: "studentId",
-      select: "fullName email",
-    });
-
-    if (submissions.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No submissions found for this assignment" });
-    }
-
-    return res.status(200).json({
-      message: "Submissions retrieved successfully",
-      total: submissions.length,
-      submissions,
-    });
-  } catch (err) {
-    console.error("Error retrieving submissions:", err);
-    return res.status(500).json({ message: "Server error" });
+  // Optional: Validate assignment ID format
+  if (!assignmentId.match(/^[0-9a-fA-F]{24}$/)) {
+    return next(new appError("Invalid assignment ID format", 400));
   }
-};
 
-const getSubmissionDetails = async (req, res) => {
+  // Find submissions with student details
+  const submissions = await Submission.find({ assignmentId }).populate({
+    path: "studentId",
+    select: "fullName email",
+  });
+
+  if (submissions.length === 0) {
+    return next(new appError("No submissions found for this assignment", 404));
+  }
+
+  return res.status(200).json({
+    message: "Submissions retrieved successfully",
+    total: submissions.length,
+    submissions,
+  });
+});
+
+const getSubmissionDetails = catchAsync(async (req, res, next) => {
   const { assignmentId, studentId } = req.params;
   const userId = req.user.id;
   const userRole = req.user.role;
 
-  try {
-    const submission = await Submission.findOne({ assignmentId, studentId });
-    if (!submission) {
-      return res.status(404).json({ message: "Submission not found" });
-    }
-
-    if (userRole === "student") {
-      if (studentId !== userId.toString()) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    } else if (userRole === "instructor") {
-      const assignment = await Assignment.findById(assignmentId);
-      if (
-        !assignment ||
-        assignment.createdBy.toString() !== userId.toString()
-      ) {
-        return res.status(403).json({ message: "Not your assignment" });
-      }
-    } else {
-      return res.status(403).json({ message: "Unauthorized role" });
-    }
-
-    return res.status(200).json(submission);
-  } catch (err) {
-    return res.status(500).json({ message: "Server error" });
+  const submission = await Submission.findOne({ assignmentId, studentId });
+  if (!submission) {
+    return next(new appError("Submission not found", 404));
   }
-};
+
+  if (userRole === "student") {
+    if (studentId !== userId.toString()) {
+      return next(
+        new appError("You are not authorized to view this submission", 403)
+      );
+    }
+  } else if (userRole === "instructor") {
+    const assignment = await Assignment.findById(assignmentId);
+    if (!assignment || assignment.createdBy.toString() !== userId.toString()) {
+      return next(new appError("Not your assignment", 403));
+    }
+  } else {
+    return next(new appError("Unauthorized role", 403));
+  }
+
+  return res.status(200).json(submission);
+});
 
 // Controller to accept a submission
-const acceptSubmission = async (req, res) => {
+const acceptSubmission = catchAsync(async (req, res, next) => {
   const { assignmentId, studentId } = req.params;
 
-  try {
-    const submission = await Submission.findOne({ assignmentId, studentId });
-    if (!submission) {
-      return res.status(404).json({ message: "Submission not found" });
-    }
-
-    submission.status = "accepted";
-    await submission.save();
-
-    // Send notification to the student
-    const assignment = await Assignment.findById(assignmentId);
-
-    if (!assignment.courseId) {
-      return res
-        .status(400)
-        .json({ message: "This assignment has no course linked" });
-    }
-
-    const course = await Course.findById(assignment.courseId);
-
-    const notificationData = {
-      title: assignment.title,
-      assignmentId: assignment._id,
-      courseId: course._id,
-      courseName: course.courseName,
-    };
-
-    await sendNotificationToUser(
-      studentId,
-      NotificationType.SUBMISSION_ACCEPTED,
-      notificationData
-    );
-
-    return res.status(200).json({ message: "Submission accepted", submission });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
+  const submission = await Submission.findOne({ assignmentId, studentId });
+  if (!submission) {
+    return next(new appError("Submission not found", 404));
   }
-};
 
-const rejectSubmission = async (req, res) => {
+  submission.status = "accepted";
+  await submission.save();
+
+  // Send notification to the student
+  const assignment = await Assignment.findById(assignmentId);
+  if (!assignment) {
+    return next(new appError("Assignment not found", 404));
+  }
+
+  const course = await Course.findById(assignment.courseId);
+  if (!course) {
+    return next(new appError("Course not found", 404));
+  }
+
+  const notificationData = {
+    title: assignment.title,
+    assignmentId: assignment._id,
+    courseId: course._id,
+    courseName: course.courseName,
+  };
+
+  await sendNotificationToUser(
+    studentId,
+    NotificationType.SUBMISSION_ACCEPTED,
+    notificationData
+  );
+
+  return res.status(200).json({ message: "Submission accepted", submission });
+});
+
+const rejectSubmission = catchAsync(async (req, res, next) => {
   const { assignmentId, studentId } = req.params;
 
-  try {
-    const submission = await Submission.findOne({ assignmentId, studentId });
-    if (!submission) {
-      return res.status(404).json({ message: "Submission not found" });
-    }
-
-    submission.status = "rejected";
-    submission.feedback = req.body.feedback; // feedback from professor
-    await submission.save();
-
-    const assignment = await Assignment.findById(assignmentId);
-    if (!assignment) {
-      return res.status(404).json({ message: "Assignment not found" });
-    }
-
-    const course = await Course.findById(assignment.courseId);
-    if (!course) {
-      return res.status(404).json({ message: "Course not found" });
-    }
-
-    const notificationType = NotificationType.SUBMISSION_REJECTED;
-
-    const notificationData = {
-      title: assignment.title,
-      assignmentId: assignment._id,
-      actingUserId: req.user._id, // instructor
-      courseId: course._id,
-      courseName: course.courseName,
-    };
-
-    await sendNotificationToUser(studentId, notificationType, notificationData);
-
-    return res
-      .status(200)
-      .json({ message: "Submission rejected and student notified" });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
+  const submission = await Submission.findOne({ assignmentId, studentId });
+  if (!submission) {
+    return next(new appError("Submission not found", 404));
   }
-};
 
-const updateSubmission = async (req, res) => {
+  submission.status = "rejected";
+  submission.feedback = req.body.feedback; // feedback from professor
+  await submission.save();
+
+  const assignment = await Assignment.findById(assignmentId);
+  if (!assignment) {
+    return next(new appError("Assignment not found", 404));
+  }
+
+  const course = await Course.findById(assignment.courseId);
+  if (!course) {
+    return next(new appError("Course not found", 404));
+  }
+
+  const notificationType = NotificationType.SUBMISSION_REJECTED;
+
+  const notificationData = {
+    title: assignment.title,
+    assignmentId: assignment._id,
+    actingUserId: req.user._id, // instructor
+    courseId: course._id,
+    courseName: course.courseName,
+  };
+
+  await sendNotificationToUser(studentId, notificationType, notificationData);
+
+  return res
+    .status(200)
+    .json({ message: "Submission rejected and student notified" });
+});
+
+const updateSubmission = catchAsync(async (req, res, next) => {
   const { assignmentId } = req.params;
   const studentId = req.user._id;
   const updates = req.body;
 
-  try {
-    const submission = await Submission.findOne({ assignmentId, studentId });
-    if (!submission) {
-      return res.status(404).json({ message: "Submission not found" });
-    }
-
-    if (submission.status === "accepted") {
-      return res
-        .status(403)
-        .json({ message: "Cannot edit an accepted submission" });
-    }
-
-    // Handle file replacement
-    if (req.file) {
-      // Delete old file if it exists
-      if (submission.file) {
-        const oldFilePath = path.join(__dirname, "..", submission.file);
-        fs.unlink(oldFilePath, (err) => {
-          if (err) console.error("Failed to delete old file:", err);
-        });
-      }
-
-      // Set new file path
-      submission.file = req.file.path;
-    }
-
-    // Apply any other text updates
-    Object.assign(submission, updates);
-    submission.submittedAt = new Date(); // refresh timestamp
-    await submission.save();
-
-    // Get the assignment and course to notify the instructor
-    const assignment = await Assignment.findById(assignmentId);
-    if (!assignment) {
-      return res.status(404).json({ message: "Assignment not found" });
-    }
-
-    const course = await Course.findById(assignment.courseId);
-    if (!course) {
-      return res.status(404).json({ message: "Course not found" });
-    }
-
-    const instructor = assignment.createdBy;
-    if (!instructor) {
-      return res.status(404).json({ message: "Instructor not found" });
-    }
-
-    // Notification data for the instructor
-    const notificationData = {
-      title: assignment.title,
-      assignmentId: assignment._id,
-      studentId: studentId,
-      courseId: course._id,
-      courseName: course.courseName,
-      username: submission.realName,
-    };
-
-    // Send notification to instructor
-    await sendNotificationToUser(
-      instructor._id,
-      NotificationType.RESUBMISSION_BY_STUDENT,
-      notificationData
-    );
-
-    return res.status(200).json({ message: "Submission updated", submission });
-  } catch (err) {
-    console.error("Error updating submission:", err);
-    return res.status(500).json({ message: "Server error" });
+  const submission = await Submission.findOne({ assignmentId, studentId });
+  if (!submission) {
+    return next(new appError("Submission not found", 404));
   }
-};
 
-const deleteSubmission = async (req, res) => {
+  if (submission.status === "accepted") {
+    return next(new appError("Cannot update an accepted submission", 403));
+  }
+
+  // Handle file replacement
+  if (req.file) {
+    // Delete old file if it exists
+    if (submission.file) {
+      const oldFilePath = path.join(__dirname, "..", submission.file);
+      fs.unlinkSync(oldFilePath); // Remove the old file
+    }
+
+    // Set new file path
+    submission.file = req.file.path;
+  }
+
+  // Apply any other text updates
+  Object.assign(submission, updates);
+  submission.submittedAt = new Date(); // refresh timestamp
+  await submission.save();
+
+  // Get the assignment and course to notify the instructor
+  const assignment = await Assignment.findById(assignmentId);
+  if (!assignment) {
+    return next(new appError("Assignment not found", 404));
+  }
+
+  const course = await Course.findById(assignment.courseId);
+  if (!course) {
+    return next(new appError("Course not found", 404));
+  }
+
+  const instructor = assignment.createdBy;
+
+  // Notification data for the instructor
+  const notificationData = {
+    title: assignment.title,
+    assignmentId: assignment._id,
+    studentId: studentId,
+    courseId: course._id,
+    courseName: course.courseName,
+    username: submission.realName,
+  };
+
+  // Send notification to instructor
+  await sendNotificationToUser(
+    instructor._id,
+    NotificationType.RESUBMISSION_BY_STUDENT,
+    notificationData
+  );
+
+  return res.status(200).json({ message: "Submission updated", submission });
+});
+
+const deleteSubmission = catchAsync(async (req, res, next) => {
   const { assignmentId } = req.params;
   const studentId = req.user._id;
 
-  try {
-    const submission = await Submission.findOne({ assignmentId, studentId });
+  const submission = await Submission.findOne({ assignmentId, studentId });
 
-    if (!submission)
-      return res.status(404).json({ message: "Submission not found" });
+  if (!submission) return next(new appError("Submission not found", 404));
 
-    if (submission.status !== "pending") {
-      return res
-        .status(403)
-        .json({ message: "Cannot delete a reviewed submission" });
-    }
-
-    await Submission.deleteOne({ _id: submission._id });
-    return res.status(200).json({ message: "Submission deleted successfully" });
-  } catch (err) {
-    return res.status(500).json({ message: "Server error" });
+  if (submission.status !== "pending") {
+    return next(
+      new appError("Cannot delete an accepted or rejected submission", 403)
+    );
   }
-};
+  if (submission.file) {
+    const oldFilePath = path.join(__dirname, "..", submission.file);
+    fs.unlinkSync(oldFilePath); // Remove the old file
+  }
+  await Submission.deleteOne({ _id: submission._id });
+  return res.status(200).json({ message: "Submission deleted successfully" });
+});
+
+const viewSubmissionFile = catchAsync(async (req, res, next) => {
+  const { submissionId } = req.params;
+
+  const submission = await Submission.findById(submissionId);
+  if (!submission) {
+    return next(new appError("Submission not found", 404));
+  }
+  if (
+    req.user.role !== "instructor" &&
+    submission.studentId.toString() !== req.user._id.toString()
+  ) {
+    return next(
+      new appError("You are not authorized to view this submission", 403)
+    );
+  }
+  const filePath = path.join(__dirname, "..", submission.file);
+  try {
+    await fs.promises.access(filePath);
+  } catch (err) {
+    return next(new appError(" the requested File does not exist", 404));
+  }
+  const stream = fs.createReadStream(filePath);
+  stream.on("error", (err) => {
+    res.end();
+    return next(new appError("File not found", 404));
+  });
+
+  stream.pipe(res);
+});
 
 module.exports = {
   submitAssignment,
@@ -339,4 +335,6 @@ module.exports = {
   updateSubmission,
   deleteSubmission,
   getSubmissionDetails,
+  upload: fileUploader(attachedFilePath, "file", true), // Middleware to handle file upload
+  viewSubmissionFile,
 };

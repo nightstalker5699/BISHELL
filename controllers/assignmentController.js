@@ -33,7 +33,9 @@ const createAssignment = catchAsync(async (req, res, next) => {
     deadline,
     courseId: course._id,
     createdBy: req.user._id,
-    attachedFile: req.file ? req.file.path : null,
+    attachedFile: req.file
+      ? path.join("assignments", req.file.originalname)
+      : null,
   });
 
   await newAssignment.save();

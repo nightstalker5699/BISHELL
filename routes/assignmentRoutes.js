@@ -26,5 +26,5 @@ router
     assignmentController.deleteAssignment
   ) // Delete an assignment
   .get(assignmentController.getAssignmentById); // Get assignment by ID
-
+router.use("/:assignmentId/submissions", require("./submissionRoutes"));
 module.exports = router;

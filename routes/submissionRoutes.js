@@ -1,82 +1,61 @@
-const express = require('express');
-const {
-  submitAssignment,
-  getSubmissionsForAssignment,
-  getSubmissionDetails,
-  acceptSubmission,
-  rejectSubmission,
-  updateSubmission,
-  deleteSubmission
-} = require('../controllers/submissionController');
+const express = require("express");
+const submissionController = require("../controllers/submissionController");
 const authController = require("../controllers/authController");
 
-const upload = require('../middleware/fileUpload');
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
+
+router.get("/:submissionId/file", submissionController.viewSubmissionFile);
 
 // ─── Student Routes ────────────────────────────────────────────────
 
 // Submit an assignment
 router.post(
-  '/:assignmentId/submit',
-  authController.protect,
-  upload.single('file'),
-  submitAssignment
+  "/submit",
+  submissionController.upload,
+  submissionController.submitAssignment
 );
 
 // View your own submission details
-router.get(
-  '/:assignmentId/submission/:studentId/me',
-  authController.protect,
-  getSubmissionDetails
-);
+router.get("/:studentId/me", submissionController.getSubmissionDetails);
 
 // Edit your own submission
-router.put(
-  '/:assignmentId/submission/me',
-  authController.protect,
-  upload.single('file'),
-  updateSubmission
+router.patch(
+  "/submission/me",
+  submissionController.upload,
+  submissionController.updateSubmission
 );
 
 // Delete your own submission
-router.delete(
-  '/:assignmentId/submission/me',
-  authController.protect,
-  deleteSubmission
-);
+router.delete("/me", submissionController.deleteSubmission);
 
 // ─── Instructor Routes ─────────────────────────────────────────────
 
 // View all submissions for a specific assignment
 router.get(
-  '/:assignmentId/submissions',
-   authController.protect,
-   authController.restrictTo("instructor"),
-   getSubmissionsForAssignment
+  "/submissions",
+  authController.restrictTo("instructor"),
+  submissionController.getSubmissionsForAssignment
 );
 
 // View a specific student's submission
 router.get(
-  '/:assignmentId/submission/:studentId',
-  authController.protect,
+  "/:studentId",
   authController.restrictTo("instructor"),
-  getSubmissionDetails
+  submissionController.getSubmissionDetails
 );
 
 // Accept a student's submission
-router.put(
-  '/:assignmentId/submission/:studentId/accept',
-  authController.protect,
+router.patch(
+  "/:studentId/accept",
   authController.restrictTo("instructor"),
-  acceptSubmission
+  submissionController.acceptSubmission
 );
 
 // Reject a student's submission with feedback
-router.put(
-  '/:assignmentId/submission/:studentId/refuse',
-  authController.protect,
+router.patch(
+  "/:studentId/refuse",
   authController.restrictTo("instructor"),
-  rejectSubmission
+  submissionController.rejectSubmission
 );
 
 module.exports = router;
