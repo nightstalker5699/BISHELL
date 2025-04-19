@@ -36,12 +36,6 @@ const courseSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
-  assignments: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Assignment'  // Array of assignment IDs linked to this course
-    }
-  ],
 });
 
 courseSchema.pre("save", function (next) {
