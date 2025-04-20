@@ -20,7 +20,7 @@ router.get("/:studentId/me", submissionController.getSubmissionDetails);
 
 // Edit your own submission
 router.patch(
-  "/submission/me",
+  "/me",
   submissionController.upload,
   submissionController.updateSubmission
 );
@@ -32,7 +32,7 @@ router.delete("/me", submissionController.deleteSubmission);
 
 // View all submissions for a specific assignment
 router.get(
-  "/submissions",
+  "/",
   authController.restrictTo("instructor"),
   submissionController.getSubmissionsForAssignment
 );

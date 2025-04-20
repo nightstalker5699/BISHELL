@@ -9,7 +9,7 @@ const { sendNotificationToUser } = require("../utils/notificationUtil");
 const appError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const { fileUploader } = require("../utils/fileUploader");
-
+const apiFeatures = require("../utils/apiFeatures");
 const attachedFilePath = path.join(__dirname, "..", "uploads", "submissions");
 if (!fs.existsSync(attachedFilePath)) {
   fs.mkdirSync(attachedFilePath, { recursive: true });
@@ -83,6 +83,9 @@ const submitAssignment = catchAsync(async (req, res, next) => {
 
 const getSubmissionsForAssignment = catchAsync(async (req, res, next) => {
   const { assignmentId } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
 
   // Optional: Validate assignment ID format
   if (!assignmentId.match(/^[0-9a-fA-F]{24}$/)) {
@@ -90,10 +93,20 @@ const getSubmissionsForAssignment = catchAsync(async (req, res, next) => {
   }
 
   // Find submissions with student details
-  const submissions = await Submission.find({ assignmentId }).populate({
-    path: "studentId",
-    select: "fullName email",
-  });
+  let submissions = new apiFeatures(
+    Submission.find({ assignmentId }).populate({
+      path: "studentId",
+      select: "fullName email",
+    }),
+    req.query
+  )
+    .filter()
+    .sort()
+    .limitFields();
+  submissions.query = submissions.query.skip(skip).limit(limit);
+  submissions = await submissions.query;
+  const total = await Submission.countDocuments({ assignmentId });
+  const totalPages = Math.ceil(total / limit);
 
   if (submissions.length === 0) {
     return next(new appError("No submissions found for this assignment", 404));
@@ -103,6 +116,10 @@ const getSubmissionsForAssignment = catchAsync(async (req, res, next) => {
     message: "Submissions retrieved successfully",
     total: submissions.length,
     submissions,
+    pagination: {
+      currentPage: page,
+      totalPages: totalPages,
+    },
   });
 });
 
