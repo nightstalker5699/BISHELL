@@ -18,7 +18,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
       - name: Connect to EC2 and run commands
-        uses: appleboy/ssh-action@v0.1.0
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
@@ -27,4 +27,3 @@ jobs:
             echo "connected to EC2 instance"
             cd BISHELL
             git pull --no-edit
-          ssh_options: "-v"
