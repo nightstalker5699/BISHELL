@@ -19,5 +19,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ${{secrets.EC2_HOST}} << 'EOF'
           cd BISHELL
-          git pull 
+          git stash
+          git pull origin master
+          git stash pop 
           EOF
