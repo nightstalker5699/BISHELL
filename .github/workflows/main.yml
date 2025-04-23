@@ -18,6 +18,6 @@ jobs:
       - name: access it
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ${{secrets.EC2_HOST}} << 'EOF'
-          ls
-          echo "hello from github actions"
+          cd BISHELL
+          git pull 
           EOF
