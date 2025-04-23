@@ -19,6 +19,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ${{secrets.EC2_HOST}} << 'EOF'
             echo "Connected to EC2"
+            cd testing
             cd BISHELL
             git pull --no-edit
             pm2 restart BISHELL
