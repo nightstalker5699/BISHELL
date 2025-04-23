@@ -27,3 +27,5 @@ jobs:
             echo "connected to EC2 instance"
             cd BISHELL
             git pull --no-edit
+            npm install
+            pm2 restart BISHELL
