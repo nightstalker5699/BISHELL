@@ -16,7 +16,7 @@ jobs:
           echo "${{ secrets.EC2_KEY }}" > key.pem
           chmod 600 key.pem
       - name: access it
-        run:
+        run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ${{secrets.EC2_HOST}} << 'EOF'
           ls
           echo "hello from github actions"
