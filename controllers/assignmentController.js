@@ -18,8 +18,10 @@ const createAssignment = catchAsync(async (req, res, next) => {
   if (!course) {
     return next(new appError("Course not found", 404));
   }
-  console.log(req.user.role);
-  if (course.instructorId != instructorId && req.user.role == "instructor") {
+  if (
+    course.instructorId.toString() != instructorId.toString() &&
+    req.user.role == "instructor"
+  ) {
     return next(
       new appError(
         "You are not authorized to create assignments for this course",
