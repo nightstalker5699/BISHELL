@@ -2,9 +2,9 @@ const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
 const storeController = require("../controllers/storeController");
-
+const multiPartParser = require("multer");
 router.use(authController.protect);
-
+router.use(multiPartParser.any());
 router
   .route("/")
   .post(authController.restrictTo("admin"), storeController.addItem)
