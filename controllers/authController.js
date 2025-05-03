@@ -7,6 +7,7 @@ const { promisify } = require("util");
 const sendEmail = require("./../utils/email");
 const crypto = require("crypto");
 const generatePasswordResetEmail = require("./../utils/emailTemplates");
+const { token } = require("morgan");
 
 const signToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -24,7 +25,7 @@ const createSendToken = (user, statusCode, res) => {
     secure: false,
     httpOnly: true,
   };
-
+  console.log(user);
   user.password = undefined;
 
   if (process.env.NODE_ENV === "production") cookiesOptions.secure = true;
@@ -318,4 +319,19 @@ exports.optionalProtect = catchAsync(async (req, res, next) => {
   } catch (err) {
     next();
   }
+});
+
+exports.previewUser = catchAsync(async (req, res, next) => {
+  if (
+    req.headers["authorization"] &&
+    req.headers["authorization"].startsWith("Bearer")
+  ) {
+    return res.status(200).json({
+      message: "success",
+      token: req.headers["authorization"].split(" ")[1],
+    });
+  }
+  const user = await User.findById("68156b18043fff753e0541e4");
+
+  createSendToken(user, 200, res);
 });

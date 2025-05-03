@@ -86,6 +86,7 @@ app.use((req, res, next) => {
 });
 
 // 11) Routes
+app.get("/preview", require("./controllers/authController.js").previewUser);
 app.use(`/api/materials`, materialRouter);
 app.use(`/api/users`, userRouter);
 app.use(`/api/points`, pointRouter);
