@@ -42,6 +42,8 @@ const createAssignment = catchAsync(async (req, res, next) => {
 
   await newAssignment.save();
 
+  await newAssignment.populate("createdBy", "username photo");
+  console.log(newAssignment);
   // Notify students about the new assignment
   const usersToNotify = course.studentsId;
 
