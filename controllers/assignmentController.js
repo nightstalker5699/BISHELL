@@ -92,7 +92,12 @@ const getAssignmentsForCourse = catchAsync(async (req, res, next) => {
 
 // Controller to fetch a specific assignment by ID
 const getAssignmentById = catchAsync(async (req, res, next) => {
-  const assignment = await Assignment.findById(req.params.assignmentId);
+  const assignment = await Assignment.findById(
+    req.params.assignmentId
+  ).populate({
+    path: "createdBy",
+    select: "username photo",
+  });
   if (!assignment) {
     next(new appError("Assignment not found", 404));
   }
