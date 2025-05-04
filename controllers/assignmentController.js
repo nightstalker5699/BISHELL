@@ -35,15 +35,13 @@ const createAssignment = catchAsync(async (req, res, next) => {
     deadline,
     courseId: course._id,
     createdBy: req.user._id,
-    attachedFile: req.file
-      ? path.join("assignments", req.file.originalname)
-      : null,
+    attachedFile: req.file ? `assignments/${req.file.originalname}` : null,
   });
 
   await newAssignment.save();
 
   await newAssignment.populate("createdBy", "username photo");
-  console.log(newAssignment);
+
   // Notify students about the new assignment
   const usersToNotify = course.studentsId;
 
