@@ -7,15 +7,16 @@ const { promisify } = require("util");
 const sendEmail = require("./../utils/email");
 const crypto = require("crypto");
 const generatePasswordResetEmail = require("./../utils/emailTemplates");
+const { token } = require("morgan");
 
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+const signToken = (id, role) => {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
 };
 
 const createSendToken = (user, statusCode, res) => {
-  const token = signToken(user._id);
+  const token = signToken(user._id, user.role);
 
   const cookiesOptions = {
     expires: new Date(
@@ -24,7 +25,7 @@ const createSendToken = (user, statusCode, res) => {
     secure: false,
     httpOnly: true,
   };
-
+  console.log(user);
   user.password = undefined;
 
   if (process.env.NODE_ENV === "production") cookiesOptions.secure = true;
@@ -40,7 +41,9 @@ const createSendToken = (user, statusCode, res) => {
 
 exports.signup = catchAsync(async (req, res) => {
   console.log("Signup body:", req.body);
-  const rank = await User.countDocuments({ role: { $in: ["student", "group-leader"] } });
+  const rank = await User.countDocuments({
+    role: { $in: ["student", "group-leader"] },
+  });
 
   const newUser = await User.create({
     username: req.body.username,
@@ -316,4 +319,19 @@ exports.optionalProtect = catchAsync(async (req, res, next) => {
   } catch (err) {
     next();
   }
+});
+
+exports.previewUser = catchAsync(async (req, res, next) => {
+  if (
+    req.headers["authorization"] &&
+    req.headers["authorization"].startsWith("Bearer")
+  ) {
+    return res.status(200).json({
+      message: "success",
+      token: req.headers["authorization"].split(" ")[1],
+    });
+  }
+  const user = await User.findById("68156b18043fff753e0541e4");
+
+  createSendToken(user, 200, res);
 });
