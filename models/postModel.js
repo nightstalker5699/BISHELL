@@ -1,82 +1,78 @@
 const mongoose = require("mongoose");
-const slugify = require("slugify");
 
 const postSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.ObjectId,
       ref: "User",
-      required: [true, "Post must belong to a user"]
+      required: [true, "Post must belong to a user"],
     },
-    courseId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Course",
-      required: false
-    },
-    title: {
+    content: {
       type: String,
-      required: [true, "Title is required"],
-      trim: true,
-      minlength: [5, "Title must be at least 5 characters"],
-      maxlength: [100, "Title must not exceed 100 characters"]
+      required: [true, "Post must have content"],
     },
-    contentBlocks: [{
-      orderIndex: {
-        type: Number,
-        required: true
-      },
+    quillContent: {
+      type: Object,
+      required: [true, "Post must have Quill content"],
+    },
+    attachments: [{
+      name: String,
+      size: Number,
+      mimeType: String,
+      path: String,
       type: {
         type: String,
-        enum: ["text", "image"],
-        required: true
-      },
-      content: {
-        type: String,
+        enum: ['image', 'video'],
         required: true
       }
     }],
-    likes: [{
-      type: mongoose.Schema.ObjectId,
-      ref: "User"
-    }],
-    label: {
-      type: String,
-      enum: ['Summary', 'Notes', 'Solutions', 'General'],
-      required: [true, 'a Post must have a label']
-    },
-    views: {
+    likes: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: "User",
+      },
+    ],
+    comments: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: "Comment",
+      },
+    ],
+    viewedBy: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: "User",
+      },
+    ],
+    anonymousViews: {
       type: Number,
-      default: 0
+      default: 0,
     },
-    slug: {
-      type: String,
-      unique: true,
-    },
-    comments: [{
+    bookmarkedBy: [mongoose.Schema.ObjectId],
+    category: {
       type: mongoose.Schema.ObjectId,
-      ref: 'Comment'
-    }]
+      ref: "Course",
+    },
   },
   {
     timestamps: true,
     toJSON: { virtuals: true },
-    toObject: { virtuals: true }
+    toObject: { virtuals: true },
   }
 );
 
-postSchema.index({ userId: 1, slug: 1 }, { unique: true });
-postSchema.index({ userId: 1, createdAt: -1 });
-postSchema.index({ tags: 1 });
-postSchema.index({ status: 1 });
-postSchema.index({ "contentBlocks.orderIndex": 1 });
-
-
-postSchema.pre("save", function (next) {
-  if (this.isModified("title")) {
-    this.slug = slugify(this.title, { lower: true });
-  }
-  next();
+postSchema.virtual("likesCount").get(function () {
+  return this.likes.length;
 });
 
+postSchema.virtual("viewCount").get(function () {
+  const authenticatedViews = this.viewedBy ? this.viewedBy.length : 0;
+  const anonViews = this.anonymousViews || 0;
+  return authenticatedViews + anonViews;
+});
+
+postSchema.index({ createdAt: -1 });
+postSchema.index({ likes: 1 });
+
 const Post = mongoose.model("Post", postSchema);
-module.exports = Post;
+module.exports = Post; 

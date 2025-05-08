@@ -9,15 +9,16 @@ const courseRouter = require(`./routes/courseRoutes.js`);
 const todoRouter = require(`./routes/toDoListRoutes.js`);
 const scheduleRouter = require(`./routes/scheduleRoutes.js`);
 const materialRouter = require("./routes/materialRoutes");
-const postRouter = require("./routes/postRoutes");
+const noteRouter = require("./routes/noteRoutes");
 const questionRouter = require("./routes/questionRoutes");
 const notificationRouter = require("./routes/notificationRoutes");
 const badgesRouter = require("./routes/badgeRoutes");
 const storeRouter = require("./routes/storeRoutes.js");
+
 const assignmentRoutes = require("./routes/assignmentRoutes.js");
 const submissionRoutes = require("./routes/submissionRoutes.js");
 require("./cronJobs/deadlineReminder");
-
+const postRouter = require('./routes/postRoutes');
 const fs = require("fs");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
@@ -92,13 +93,14 @@ app.use(`/api/users`, userRouter);
 app.use(`/api/points`, pointRouter);
 app.use(`/api/courses`, courseRouter);
 app.use(`/api/todo`, todoRouter);
-app.use("/api/posts", postRouter);
+app.use("/api/notes", noteRouter);
 app.use(`/api/schedules`, scheduleRouter);
 app.use(`/api/questions`, questionRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/badges", badgesRouter);
 app.use("/api/store", storeRouter);
-
+app.use('/api/posts', postRouter);
+// 11) Error handling
 // 12) Error handling
 
 app.all("*", (req, res, next) => {

@@ -1,303 +1,352 @@
-const Course = require("../models/courseModel");
-const User = require("../models/userModel");
-const Post = require("../models/postModel");
-const AppError = require("../utils/appError");
-const catchAsync = require("../utils/catchAsync");
-const multer = require("multer");
-const sharp = require("sharp");
-const fsPromises = require("fs").promises;
+const fs = require("fs");
+const fsp = fs.promises;
 const path = require("path");
+const multer = require("multer");
+const Post = require("../models/postModel");
+const User = require("../models/userModel");
+const Comment = require("../models/commentModel");
+const catchAsync = require("../utils/catchAsync");
+const AppError = require("../utils/appError");
+const Point = require("../models/pointModel");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
+const { NotificationType } = require("../utils/notificationTypes");
+const { processMentions } = require("../utils/mentionUtil");
 
-// Image Upload Configuration
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024, files: 10 },
+// Create quillUploads directory if it doesn't exist
+const quillUploadsDir = path.join(__dirname, "..", "static", "quillUploads");
+if (!fs.existsSync(quillUploadsDir)) {
+  fs.mkdirSync(quillUploadsDir, { recursive: true });
+}
+
+// Create postAttachments directory if it doesn't exist
+const postAttachmentsDir = path.join(__dirname, "..", "static", "postAttachments");
+if (!fs.existsSync(postAttachmentsDir)) {
+  fs.mkdirSync(postAttachmentsDir, { recursive: true });
+}
+
+// Configure multer storage for post attachments
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, postAttachmentsDir);
+  },
+  filename: (req, file, cb) => {
+    const safeName = `${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`;
+    cb(null, safeName);
+  },
 });
 
-// Create uploads directory if it doesn't exist
+const upload = multer({ storage }).array("attachments", 5); // Allow up to 5 attachments
+exports.uploadAttachments = upload;
 
-const addPostMetadata = (post, req, userId = null) => {
-  const baseImageUrl = `${req.protocol}://${req.get("host")}/img/posts/`;
-  const baseProfileUrl = `${req.protocol}://${req.get("host")}/profilePics/`;
-
-  // Convert to object to allow modifications
-  const postObj = post.toObject();
-
-  // Add image URLs and process content blocks
-  postObj.contentBlocks = postObj.contentBlocks.map((block) => {
-    if (block.type === "image") {
-      return {
-        ...block,
-        imageUrl: `${baseImageUrl}${block.content}`,
-      };
-    }
-    return block;
-  });
-
-  // Add user photo URL if userId is populated
-  if (postObj.userId && postObj.userId.photo) {
-    postObj.userId.photo = `${baseProfileUrl}${postObj.userId.photo}`;
-  }
-
-  // Add like status if userId provided
-  if (userId) {
-    postObj.isLiked = post.likes.includes(userId);
-  }
-
-  // **Enrich comments' user photos if comments are populated**
-  if (postObj.comments && postObj.comments.length > 0) {
-    postObj.comments = postObj.comments.map((comment) => {
-      if (comment.userId && comment.userId.photo) {
-        comment.userId.photo = `${baseProfileUrl}${comment.userId.photo}`;
-      }
-      return comment;
-    });
-  }
-
-  return postObj;
+// Helper functions
+const formatUserObject = (user) => {
+  if (!user) return null;
+  return {
+    username: user.username,
+    fullName: user.fullName,
+    photo: user.photo,
+    role: user.role,
+    userFrame: user.userFrame,
+    badges: user.badges,
+  };
 };
 
-const createUploadDirs = async () => {
-  const uploadDir = path.join(__dirname, "..", "static", "img", "posts");
-  try {
-    await fsPromises.access(uploadDir);
-  } catch (err) {
-    await fsPromises.mkdir(uploadDir, { recursive: true });
-  }
-  return uploadDir;
+const formatAttachment = (req, attachment) => {
+  if (!attachment || !attachment.name) return null;
+
+  return {
+    name: attachment.name,
+    size: attachment.size,
+    mimeType: attachment.mimeType,
+    type: attachment.type,
+    url: `${req.protocol}://${req.get("host")}/static/postAttachments/${attachment.name}`,
+  };
 };
 
-exports.uploadPostImages = upload.array("images", 10);
-
-exports.processPostImages = catchAsync(async (req, res, next) => {
-  if (!req.files) return next();
-
-  // Ensure upload directory exists
-  const uploadDir = await createUploadDirs();
-
-  try {
-    req.processedImages = await Promise.all(
-      req.files.map(async (file, index) => {
-        const filename = `post-${req.user.id}-${Date.now()}-${index + 1}.jpeg`;
-        const filePath = path.join(uploadDir, filename);
-
-        await sharp(file.buffer)
-          .resize(1200, 1200, { fit: "inside" })
-          .toFormat("jpeg")
-          .jpeg({ quality: 90 })
-          .toFile(filePath);
-
-        return filename;
-      })
-    );
-    next();
-  } catch (error) {
-    return next(new AppError(`Error processing images: ${error.message}`, 500));
+// Quill upload handler
+exports.handleQuillUpload = catchAsync(async (req, res, next) => {
+  if (!req.file) {
+    return next(new AppError("No file uploaded", 400));
   }
-});
 
-exports.getAllPosts = catchAsync(async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const skip = (page - 1) * limit;
-
-  const query = Post.find()
-    .populate("userId", "username photo")
-    .sort("-createdAt")
-    .skip(skip)
-    .limit(limit);
-
-  const [posts, total] = await Promise.all([query, Post.countDocuments()]);
-
-  // Add metadata to each post
-  const enrichedPosts = posts.map((post) =>
-    addPostMetadata(post, req, req.user?._id)
-  );
+  const fileUrl = `${req.protocol}://${req.get("host")}/static/quillUploads/${req.file.filename}`;
 
   res.status(200).json({
     status: "success",
     data: {
-      posts: enrichedPosts,
-      currentPage: page,
-      totalPages: Math.ceil(total / limit),
-      total,
+      url: fileUrl,
     },
   });
 });
 
-exports.getPostByUsernameAndSlug = catchAsync(async (req, res, next) => {
-  const { username, slug } = req.params;
-
-  // Find the user by username
-  const user = await User.findOne({ username }).select("_id");
-  if (!user) {
-    return next(new AppError("User not found", 404));
-  }
-
-  // Find the post by userId and slug
-  const post = await Post.findOne({ userId: user._id, slug })
-    .populate("userId", "username photo")
-    .populate({
-      path: "comments",
-      populate: {
-        path: "userId",
-        select: "username photo",
-      },
-    });
-
-  if (!post) {
-    return next(
-      new AppError("No post found with that slug for this user", 404)
-    );
-  }
-
-  // Increment views and save
-  post.views += 1;
-  await post.save({ validateBeforeSave: false });
-
-  const enrichedPost = addPostMetadata(post, req, req.user?._id);
-
-  // Send the response with the enriched post
-  res.status(200).json({
-    status: "success",
-    data: { post: enrichedPost },
-  });
-});
-
-exports.getUserPosts = catchAsync(async (req, res, next) => {
-  const { userId } = req.params;
-  let { courseName } = req.params;
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const skip = (page - 1) * limit;
-
-  // Base query
-  let query = { userId };
-
-  // Handle courseName if provided
-  if (courseName) {
-    // Decode the URL-encoded courseName
-    courseName = decodeURIComponent(courseName);
-
-    const course = await Course.findOne({
-      courseName: new RegExp(`^${courseName}$`, "i"), // Case insensitive match
-    });
-
-    if (!course) {
-      return next(new AppError("Course not found", 404));
-    }
-
-    query.courseId = course._id;
-  }
-
-  const [posts, total] = await Promise.all([
-    Post.find(query)
-      .populate("userId", "username photo")
-      .populate("courseId", "courseName")
-      .sort("-createdAt")
-      .skip(skip)
-      .limit(limit),
-    Post.countDocuments({ userId }),
-  ]);
-
-  // Add metadata to each post
-  const enrichedPosts = posts.map((post) =>
-    addPostMetadata(post, req, req.user?._id)
-  );
-
-  res.status(200).json({
-    status: "success",
-    data: {
-      posts: enrichedPosts,
-      currentPage: page,
-      totalPages: Math.ceil(total / limit),
-      total,
-    },
-  });
-});
-
+// Create post
 exports.createPost = catchAsync(async (req, res, next) => {
-  // Validate required fields
-  if (!req.body.title) {
-    return next(new AppError("Title is required", 400));
+  const userId = req.user.id;
+  const { content, quillContent, category } = req.body;
+
+  const postData = {
+    userId,
+    content,
+    quillContent: JSON.parse(quillContent),
+    category,
+  };
+
+  // Handle attachments if any
+  if (req.files && req.files.length > 0) {
+    postData.attachments = req.files.map(file => ({
+      name: file.filename,
+      size: file.size,
+      mimeType: file.mimetype,
+      path: file.path,
+      type: file.mimetype.startsWith('image/') ? 'image' : 'video'
+    }));
   }
 
-  if (!req.body.content) {
-    return next(new AppError("Content is required", 400));
-  }
+  const newPost = await Post.create(postData);
 
-  let contentBlocks;
-  try {
-    contentBlocks = JSON.parse(req.body.content);
-  } catch (err) {
-    return next(
-      new AppError("Invalid content format - must be valid JSON", 400)
-    );
-  }
+  // Process mentions
+  await processMentions(content, userId, "post", newPost._id);
 
-  const processedBlocks = [];
-  let imageIndex = 0;
+  await newPost.populate({
+    path: "userId",
+    select: "username fullName photo role userFrame",
+  });
 
-  for (let index = 0; index < contentBlocks.length; index++) {
-    const block = contentBlocks[index];
-    if (block.type === "image") {
-      if (!req.processedImages || imageIndex >= req.processedImages.length) {
-        throw new AppError("Missing image file for image block", 400);
-      }
-      processedBlocks.push({
-        orderIndex: index,
-        type: "image",
-        content: req.processedImages[imageIndex++],
-      });
-    } else {
-      processedBlocks.push({
-        orderIndex: index,
-        type: "text",
-        content: block.content,
-      });
-    }
-  }
+  const response = {
+    id: newPost._id,
+    content: newPost.content,
+    quillContent: newPost.quillContent,
+    user: formatUserObject(newPost.userId),
+    attachments: newPost.attachments.map(attachment => formatAttachment(req, attachment)),
+    timestamps: {
+      created: newPost.createdAt,
+      formatted: new Date(newPost.createdAt).toLocaleString(),
+    },
+  };
 
-  const post = await Post.create({
-    title: req.body.title,
-    contentBlocks: processedBlocks,
-    userId: req.user.id,
-    label: req.body.label,
-    courseId: req.body.courseId,
+  await Point.create({
+    userId: userId,
+    point: 5,
+    description: "Created a new post",
   });
 
   res.status(201).json({
     status: "success",
-    data: { post },
+    data: {
+      post: response,
+    },
   });
 
-  const user = await User.findById(req.user.id).populate("followers");
+  // // Handle notifications in background
+  // const user = await User.findById(userId).populate("followers");
+  // const notificationPromises = user.followers.map((follower) => {
+  //   return sendNotificationToUser(
+  //     follower._id,
+  //     NotificationType.QUESTION_FOLLOWING, // Reuse this type for now
+  //     {
+  //       username: user.username,
+  //       postId: newPost._id,
+  //       actingUserId: user._id,
+  //       title: newPost.content.substring(0, 50) + "...",
+  //     }
+  //   );
+  // });
 
-  const notificationPromises = user.followers.map((follower) => {
-    const clickUrl = `/note/${user.username}/${post.slug}`;
-    const messageData = {
-      title: "New Note Posted",
-      body: `${user.username} has posted a new note: ${post.title}`,
-      click_action: clickUrl,
-    };
+  // Promise.all(notificationPromises).catch((err) => {
+  //   console.error("Error sending notifications:", err);
+  // });
+});
 
-    // Add additional data for Firebase
-    const additionalData = {
-      action_url: clickUrl,
-      type: "note_created",
-    };
+// Get all posts
+exports.getAllPosts = catchAsync(async (req, res, next) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const skip = (page - 1) * limit;
 
-    return sendNotificationToUser(follower._id, messageData, additionalData);
-  });
+  const filter = {};
+  if (req.query.category) {
+    filter.category = req.query.category === "General" ? null : req.query.category;
+  }
+  if (req.query.bookmark === "true") {
+    filter.bookmarkedBy = req.user._id;
+  }
 
-  // Process notifications in background
-  Promise.all(notificationPromises).catch((err) => {
-    console.error("Error sending notifications:", err);
+  const total = await Post.countDocuments(filter);
+
+  const posts = await Post.find(filter)
+    .populate({
+      path: "userId",
+      select: "username photo fullName role userFrame badges",
+    })
+    .populate({
+      path: "category",
+      select: "courseName",
+    })
+    .sort(req.query.sort ? req.query.sort.split(",").join(" ") : "-createdAt")
+    .skip(skip)
+    .limit(limit);
+
+  const formattedPosts = posts.map((post) => ({
+    id: post._id,
+    content: post.content,
+    quillContent: post.quillContent,
+    user: formatUserObject(post.userId),
+    category: post.category ? post.category.courseName : "General",
+    stats: {
+      likesCount: post.likes.length,
+      isLikedByCurrentUser: req.user ? post.likes.includes(req.user._id) : false,
+      bookmarksCount: post.bookmarkedBy.length,
+      isbookmarkedByCurrentUser: req.user
+        ? post.bookmarkedBy.includes(req.user._id)
+        : false,
+      commentsCount: post.comments.length,
+    },
+    attachments: post.attachments.map(attachment => formatAttachment(req, attachment)),
+    timestamps: {
+      created: post.createdAt,
+      formatted: new Date(post.createdAt).toLocaleString(),
+    },
+  }));
+
+  res.status(200).json({
+    status: "success",
+    results: posts.length,
+    pagination: {
+      currentPage: page,
+      pages: Math.ceil(total / limit),
+    },
+    data: {
+      posts: formattedPosts,
+    },
   });
 });
 
+// Get single post
+exports.getPost = catchAsync(async (req, res, next) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const skip = (page - 1) * limit;
+  const sort = req.query.sort || "-createdAt";
+
+  const post = await Post.findById(req.params.id)
+    .populate({
+      path: "userId",
+      select: "username fullName photo role userFrame badges",
+    })
+    .populate({
+      path: "category",
+      select: "courseName",
+    });
+
+  if (!post) {
+    return next(new AppError("Post not found", 404));
+  }
+
+  // Handle view tracking
+  if (req.user && req.user._id) {
+    const alreadyViewed = post.viewedBy.some(
+      (id) => id.toString() === req.user._id.toString()
+    );
+
+    if (!alreadyViewed) {
+      post.viewedBy.push(req.user._id);
+      await post.save({ validateBeforeSave: false });
+    }
+  } else {
+    post.anonymousViews = (post.anonymousViews || 0) + 1;
+    await post.save({ validateBeforeSave: false });
+  }
+
+  // Get total comments count
+  const totalComments = await Comment.countDocuments({
+    questionId: post._id
+  });
+
+  // Get paginated comments - no parentId filter since we don't have replies in posts
+  const comments = await Comment.find({
+    questionId: post._id
+  })
+    .populate({
+      path: "userId",
+      select: "username fullName photo role userFrame badges",
+    })
+    .sort(sort)
+    .skip(skip)
+    .limit(limit);
+
+  const formattedPost = {
+    id: post._id,
+    content: post.content,
+    quillContent: post.quillContent,
+    user: formatUserObject(post.userId),
+    category: post.category ? post.category.courseName : "General",
+    stats: {
+      likesCount: post.likes.length,
+      isLikedByCurrentUser: req.user ? post.likes.includes(req.user._id) : false,
+      bookmarksCount: post.bookmarkedBy.length,
+      isbookmarkedByCurrentUser: req.user
+        ? post.bookmarkedBy.includes(req.user._id)
+        : false,
+      commentsCount: totalComments,
+      authViews: post.viewedBy.length,
+      anonViews: post.anonymousViews || 0,
+      totalViews: post.viewedBy.length + (post.anonymousViews || 0),
+    },
+    attachments: post.attachments.map(attachment => formatAttachment(req, attachment)),
+    timestamps: {
+      created: post.createdAt,
+      formatted: new Date(post.createdAt).toLocaleString(),
+    },
+  };
+
+  // Format comments - no replies for posts
+  const formatCommentObject = (comment) => ({
+    id: comment._id,
+    content: comment.content,
+    user: {
+      id: comment.userId._id,
+      username: comment.userId.username,
+      fullName: comment.userId.fullName,
+      photo: comment.userId.photo,
+      userFrame: comment.userId.userFrame,
+      badges: comment.userId.badges
+    },
+    stats: {
+      likesCount: comment.likes ? comment.likes.length : 0,
+      isLikedByCurrentUser: req.user ? comment.likes.includes(req.user._id) : false
+    },
+    attachment: comment.attach_file && comment.attach_file.name ? {
+      name: comment.attach_file.name,
+      size: comment.attach_file.size,
+      mimeType: comment.attach_file.mimeType,
+      url: `${req.protocol}://${req.get('host')}/static/attachFile/${comment.attach_file.name}`
+    } : null,
+    timestamps: {
+      created: comment.createdAt,
+      formatted: new Date(comment.createdAt).toLocaleString()
+    }
+  });
+
+  formattedPost.comments = {
+    results: comments.length,
+    pagination: {
+      totalComments: totalComments,
+      currentPage: page,
+      totalPages: Math.ceil(totalComments / limit),
+      limit,
+    },
+    data: comments.map(comment => formatCommentObject(comment))
+  };
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      post: formattedPost,
+    },
+  });
+});
+
+// Update post
 exports.updatePost = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.id);
 
@@ -305,33 +354,63 @@ exports.updatePost = catchAsync(async (req, res, next) => {
     return next(new AppError("Post not found", 404));
   }
 
-  if (post.userId.toString() !== req.user.id && req.user.role !== "admin") {
-    return next(new AppError("Not authorized to update this post", 403));
+  if (post.userId.toString() !== req.user._id.toString()) {
+    return next(new AppError("You can only update your own posts", 403));
   }
 
-  if (req.files?.length) {
-    // Process new images if any
-    const updatedContent = JSON.parse(req.body.content);
-    let imageIndex = 0;
-    post.contentBlocks = updatedContent.map((block, index) => ({
-      orderIndex: index,
-      type: block.type,
-      content:
-        block.type === "image"
-          ? req.processedImages[imageIndex++]
-          : block.content,
+  // Update content
+  post.content = req.body.content || post.content;
+  post.quillContent = req.body.quillContent ? JSON.parse(req.body.quillContent) : post.quillContent;
+
+  // Handle attachments
+  if (req.files && req.files.length > 0) {
+    // Delete old attachments
+    for (const attachment of post.attachments) {
+      const filePath = path.join(__dirname, "..", "static", "postAttachments", attachment.name);
+      try {
+        await fsp.unlink(filePath);
+      } catch (err) {
+        console.log(`Could not delete file ${filePath}: ${err.message}`);
+      }
+    }
+
+    // Add new attachments
+    post.attachments = req.files.map(file => ({
+      name: file.filename,
+      size: file.size,
+      mimeType: file.mimetype,
+      path: file.path,
+      type: file.mimetype.startsWith('image/') ? 'image' : 'video'
     }));
   }
 
-  Object.assign(post, req.body);
   await post.save();
+  await post.populate({
+    path: "userId",
+    select: "username fullName photo role userFrame",
+  });
+
+  const formattedPost = {
+    id: post._id,
+    content: post.content,
+    quillContent: post.quillContent,
+    user: formatUserObject(post.userId),
+    attachments: post.attachments.map(attachment => formatAttachment(req, attachment)),
+    timestamps: {
+      created: post.createdAt,
+      updated: post.updatedAt,
+    },
+  };
 
   res.status(200).json({
     status: "success",
-    data: { post },
+    data: {
+      post: formattedPost,
+    },
   });
 });
 
+// Delete post
 exports.deletePost = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.id);
 
@@ -339,46 +418,187 @@ exports.deletePost = catchAsync(async (req, res, next) => {
     return next(new AppError("Post not found", 404));
   }
 
-  const uploadDir = path.join(__dirname, "..", "static", "img", "posts");
-
-  for (const block of post.contentBlocks) {
-    if (block.type === "image" && block.content) {
-      const imagePath = path.join(uploadDir, block.content);
-      try {
-        await fsPromises.unlink(imagePath);
-      } catch (err) {
-        console.error(`Failed to delete image ${imagePath}: ${err.message}`);
-      }
-    }
+  if (
+    post.userId.toString() !== req.user._id.toString() &&
+    req.user.role !== "admin" &&
+    req.user.role !== "group-leader"
+  ) {
+    return next(new AppError("You are not authorized to delete this post", 403));
   }
 
-  await Post.findByIdAndDelete(req.params.id);
+  try {
+    // Delete attachments
+    for (const attachment of post.attachments) {
+      const filePath = path.join(__dirname, "..", "static", "postAttachments", attachment.name);
+      try {
+        await fsp.unlink(filePath);
+      } catch (err) {
+        console.log(`Could not delete file ${filePath}: ${err.message}`);
+      }
+    }
 
-  res.status(204).json({
-    status: "success",
-    data: null,
-  });
+    // Delete comments
+    await Comment.deleteMany({ postId: post._id });
+
+    // Delete the post
+    await post.deleteOne();
+
+    res.status(204).json({
+      status: "success",
+      data: null,
+    });
+  } catch (error) {
+    return next(new AppError("Error deleting post and associated data", 500));
+  }
 });
 
-exports.toggleLike = catchAsync(async (req, res, next) => {
+// Like/Unlike post
+exports.likePost = catchAsync(async (req, res, next) => {
   const post = await Post.findById(req.params.id);
 
   if (!post) {
     return next(new AppError("Post not found", 404));
   }
 
-  const userLikeIndex = post.likes.indexOf(req.user.id);
-
-  if (userLikeIndex === -1) {
-    post.likes.push(req.user.id);
-  } else {
-    post.likes.splice(userLikeIndex, 1);
+  if (post.likes.includes(req.user._id)) {
+    return next(new AppError("You already liked this post", 400));
   }
 
-  await post.save();
+  post.likes.push(req.user._id);
+  await post.save({ validateBeforeSave: false });
+
+  if (post.userId.toString() !== req.user._id.toString()) {
+    await Point.create({
+      userId: post.userId,
+      point: 2,
+      description: "Your post received a like",
+    });
+
+    await sendNotificationToUser(
+      post.userId,
+      NotificationType.LIKE_QUESTION, // Reuse this type for now
+      {
+        username: req.user.username,
+        postId: post._id,
+        actingUserId: req.user._id,
+        title: post.content.substring(0, 50) + "...",
+      }
+    );
+  }
 
   res.status(200).json({
     status: "success",
-    data: { post },
+    data: {
+      likes: post.likes.length,
+    },
   });
 });
+
+exports.unlikePost = catchAsync(async (req, res, next) => {
+  const post = await Post.findById(req.params.id);
+
+  if (!post) {
+    return next(new AppError("Post not found", 404));
+  }
+
+  if (!post.likes.includes(req.user._id)) {
+    return next(new AppError("You have not liked this post", 400));
+  }
+
+  post.likes = post.likes.filter((id) => !id.equals(req.user._id));
+  await post.save({ validateBeforeSave: false });
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      likes: post.likes.length,
+    },
+  });
+});
+
+// Bookmark/Unbookmark post
+exports.bookmarkPost = catchAsync(async (req, res, next) => {
+  const post = await Post.findById(req.params.id);
+
+  if (!post) {
+    return next(new AppError("Post not found", 404));
+  }
+
+  if (post.bookmarkedBy.includes(req.user._id)) {
+    return next(new AppError("You already bookmarked this post", 400));
+  }
+
+  post.bookmarkedBy.push(req.user._id);
+  await post.save({ validateBeforeSave: false });
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      bookmarks: post.bookmarkedBy.length,
+    },
+  });
+});
+
+exports.unbookmarkPost = catchAsync(async (req, res, next) => {
+  const post = await Post.findByIdAndUpdate(
+    req.params.id,
+    {
+      $pull: { bookmarkedBy: req.user._id },
+    },
+    { new: true }
+  );
+
+  if (!post) {
+    return next(new AppError("Post not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      bookmarks: post.bookmarkedBy.length,
+    },
+  });
+});
+
+// Get post viewers
+exports.getPostViewers = catchAsync(async (req, res, next) => {
+  const post = await Post.findById(req.params.id);
+
+  if (!post) {
+    return next(new AppError("Post not found", 404));
+  }
+
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const skip = (page - 1) * limit;
+
+  const totalViewers = post.viewedBy.length;
+
+  const viewersData = await User.find(
+    { _id: { $in: post.viewedBy } },
+    "username fullName photo"
+  )
+    .skip(skip)
+    .limit(limit);
+
+  const formattedViewers = viewersData.map((user) => ({
+    username: user.username,
+    fullName: user.fullName,
+    photo: user.photo,
+  }));
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      authenticatedViewers: formattedViewers,
+      authenticatedViewsCount: totalViewers,
+      anonymousViewsCount: post.anonymousViews || 0,
+      totalViews: totalViewers + (post.anonymousViews || 0),
+    },
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalViewers / limit),
+      limit,
+    },
+  });
+}); 

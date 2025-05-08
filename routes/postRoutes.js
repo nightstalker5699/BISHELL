@@ -1,42 +1,100 @@
-
 const express = require("express");
-const router = express.Router();
 const postController = require("../controllers/postController");
+const commentController = require("../controllers/commentController");
 const authController = require("../controllers/authController");
-const posts = require('../models/postModel')
+const multer = require("multer");
+const path = require("path");
 
+const router = express.Router();
 
-router.get("/user/:userId/:courseName", authController.protect, postController.getUserPosts);
-router.get("/user/:userId", authController.protect, postController.getUserPosts);
-router.get("/:username/:slug", authController.optionalProtect, postController.getPostByUsernameAndSlug);
+// Configure multer for Quill uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "..", "static", "quillUploads"));
+  },
+  filename: (req, file, cb) => {
+    const safeName = `${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`;
+    cb(null, safeName);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    // Only allow images and videos
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image and video files are allowed!'), false);
+    }
+  }
+});
+
+// Quill direct upload endpoint
+router.post(
+  "/upload",
+  authController.protect,
+  upload.single("file"),
+  postController.handleQuillUpload
+);
+
+// Post routes
+router
+  .route("/:id/like")
+  .post(authController.protect, postController.likePost)
+  .delete(authController.protect, postController.unlikePost);
+
+router
+  .route("/:id/bookmark")
+  .post(authController.protect, postController.bookmarkPost)
+  .delete(authController.protect, postController.unbookmarkPost);
+
+router
+  .route("/:id/viewers")
+  .get(authController.protect, postController.getPostViewers);
 
 router
   .route("/:id")
+  .get(authController.optionalProtect, postController.getPost)
   .patch(
     authController.protect,
-    postController.uploadPostImages,
-    postController.processPostImages,
+    postController.uploadAttachments,
     postController.updatePost
   )
-  .delete(
+  .delete(authController.protect, postController.deletePost);
+
+// Comment routes
+router
+  .route("/:postId/comments")
+  .get(authController.protect, commentController.getAllPostComments)
+  .post(
     authController.protect,
-    authController.isOwner(posts),
-    postController.deletePost
+    postController.uploadAttachments,
+    commentController.addPostComment
   );
 
-router.post("/:id/toggle-like", authController.protect, postController.toggleLike);
+router
+  .route("/:postId/comments/:commentId")
+  .patch(
+    authController.protect,
+    postController.uploadAttachments,
+    commentController.updatePostComment
+  )
+  .delete(authController.protect, commentController.deletePostComment);
 
-router.use("/:questionId/comments", authController.protect, require("./commentRoutes"));
+router
+  .route("/:postId/comments/:commentId/like")
+  .post(authController.protect, commentController.likeComment)
+  .delete(authController.protect, commentController.unlikeComment);
 
 router
   .route("/")
+  .get(authController.protect, postController.getAllPosts)
   .post(
     authController.protect,
-    postController.uploadPostImages,    
-    postController.processPostImages,   
-    postController.createPost           
+    postController.uploadAttachments,
+    postController.createPost
   );
 
-router.get("/", authController.protect, authController.restrictTo("admin"), postController.getAllPosts);
-
-module.exports = router;
+module.exports = router; 

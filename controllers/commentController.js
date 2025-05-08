@@ -2,7 +2,7 @@ const fs = require('fs').promises;
 const catchAsync = require("./../utils/catchAsync");
 const AppError = require("./../utils/appError");
 const Comment = require("./../models/commentModel");
-const Post = require("./../models/postModel");
+const Note = require("./../models/noteModel");
 const factory = require("./handlerFactory");
 const Question = require('../models/questionModel')
 const path = require('path');
@@ -11,6 +11,7 @@ const { sendNotificationToUser } = require('../utils/notificationUtil');
 const { NotificationType } = require('../utils/notificationTypes');
 const { processMentions } = require('../utils/mentionUtil');
 const { getAIExplanation, getBotUserId } = require('../utils/aiAssistant');
+const Post = require('../models/postModel');
 
 // Helper function to check if comment contains an AI command
 const containsAICommand = (content) => {
@@ -59,7 +60,7 @@ const processAIRequest = async (comment, question, req) => {
 };
 
 exports.addComment = catchAsync(async (req, res, next) => {
-  const post = await Post.findById(req.params.questionId);
+  const post = await Note.findById(req.params.questionId);
   
   if (!post) return next(new AppError("there is no post with that ID", 404));
   
@@ -91,7 +92,7 @@ exports.addComment = catchAsync(async (req, res, next) => {
 
 exports.updateComment = factory.updateOne(Comment);
 exports.deleteComment = catchAsync(async (req, res, next) => {
-  const post = await Post.findById(req.params.questionId);
+  const post = await Note.findById(req.params.questionId);
   if (!post) return next(new appError("there is no post with that ID", 404));
   await Comment.findByIdAndDelete(req.params.id);
   post.comments = post.comments.filter(
@@ -582,6 +583,235 @@ exports.unlikeComment = catchAsync(async (req, res, next) => {
     data: {
       likes: comment.likes.length
     }
+  });
+});
+
+exports.addPostComment = catchAsync(async (req, res, next) => {
+  const post = await Post.findById(req.params.postId);
+  if (!post) {
+    return next(new AppError('Post not found', 404));
+  }
+
+  // Ensure no parentId is provided for post comments (no replies allowed for posts)
+  if (req.body.parentId) {
+    return next(new AppError('Replies are not supported for post comments', 400));
+  }
+
+  // Create comment
+  const comment = await Comment.create({
+    userId: req.user._id,
+    questionId: req.params.postId, // Use postId here
+    content: req.body.content,
+    attach_file: req.file ? {
+      name: req.file.filename,
+      size: req.file.size,
+      mimeType: req.file.mimetype,
+      path: req.file.path,
+    } : undefined,
+    likes: []
+  });
+
+  // Process mentions
+  await processMentions(
+    req.body.content,
+    req.user._id,
+    'post-comment',
+    comment._id,
+    req.params.postId
+  );
+
+  // Add comment to post's comments array
+  post.comments.push(comment._id);
+  await post.save({ validateBeforeSave: false });
+
+  await comment.populate('userId', 'username fullName photo userFrame badges');
+
+  const response = {
+    _id: comment._id,
+    content: comment.content,
+    user: {
+      _id: comment.userId._id,
+      username: comment.userId.username,
+      fullName: comment.userId.fullName,
+      userFrame: comment.userId.userFrame,
+      badges: comment.userId.badges
+    },
+    attachment: comment.attach_file && comment.attach_file.name ? {
+      name: comment.attach_file.name,
+      size: comment.attach_file.size,
+      mimeType: comment.attach_file.mimeType,
+      url: `${req.protocol}://${req.get('host')}/static/attachFile/${comment.attach_file.name}`
+    } : null,
+    timestamps: {
+      created: comment.createdAt,
+      formatted: new Date(comment.createdAt).toLocaleString()
+    }
+  };
+
+  await Point.create({
+    userId: req.user._id,
+    point: 1,
+    description: "Posted a comment on a post"
+  });
+
+  if (post.userId.toString() !== req.user._id.toString()) {
+    await sendNotificationToUser(
+      post.userId,
+      NotificationType.COMMENT_ON_POST,
+      {
+        username: req.user.username,
+        postId: post._id,
+        commentId: comment._id,
+        actingUserId: req.user._id,
+        title: post.content.substring(0, 50) + '...'
+      }
+    );
+  }
+
+  res.status(201).json({
+    status: 'success',
+    data: { comment: response }
+  });
+});
+
+// Function to update post comment
+exports.updatePostComment = catchAsync(async (req, res, next) => {
+  const comment = await Comment.findOne({
+    _id: req.params.commentId,
+    questionId: req.params.postId // Use postId here
+  });
+
+  if (!comment) {
+    return next(new AppError('Comment not found', 404));
+  }
+
+  // Check if user owns the comment
+  if (comment.userId.toString() !== req.user._id.toString()) {
+    return next(new AppError('You can only edit your own comments', 403));
+  }
+
+  // Update only the content
+  comment.content = req.body.content;
+  await comment.save();
+  await comment.populate('userId', 'username fullName photo userFrame badges');
+
+  // Process mentions for updated content
+  await processMentions(
+    req.body.content,
+    req.user._id,
+    'post-comment',
+    comment._id,
+    req.params.postId
+  );
+
+  const response = {
+    id: comment._id,
+    content: comment.content,
+    user: {
+      username: comment.userId.username,
+      fullName: comment.userId.fullName,
+      photo: comment.userId.photo,
+      userFrame: comment.userId.userFrame,
+      badges: comment.userId.badges
+    },
+    attachment: comment.attach_file && comment.attach_file.name ? {
+      name: comment.attach_file.name,
+      size: comment.attach_file.size,
+      mimeType: comment.attach_file.mimeType,
+      url: `${req.protocol}://${req.get('host')}/static/attachFile/${comment.attach_file.name}`
+    } : null,
+    timestamps: {
+      created: comment.createdAt,
+      updated: comment.updatedAt
+    }
+  };
+
+  res.status(200).json({
+    status: 'success',
+    data: { comment: response }
+  });
+});
+
+// Function to delete post comment
+exports.deletePostComment = catchAsync(async (req, res, next) => {
+  const post = await Post.findById(req.params.postId);
+  if (!post) {
+    return next(new AppError('Post not found', 404));
+  }
+
+  const comment = await Comment.findOne({
+    _id: req.params.commentId,
+    questionId: req.params.postId // Use postId here
+  });
+
+  if (!comment) {
+    return next(new AppError('Comment not found', 404));
+  }
+
+  if (comment.userId.toString() !== req.user._id.toString()) {
+    return next(new AppError('You can only delete your own comments', 403));
+  }
+
+  const replies = await Comment.find({ parentId: comment._id });
+  
+  const deleteAttachment = async (comment) => {
+    if (comment.attach_file && comment.attach_file.name) {
+      const filePath = path.join(__dirname, '..', 'static', 'attachFile', comment.attach_file.name);
+      try {
+        await fs.access(filePath);
+        await fs.unlink(filePath);
+      } catch (err) {
+        console.log(`Could not delete file ${filePath}: ${err.message}`);
+      }
+    }
+  };
+
+  try {
+    // Deduct points for main comment deletion
+    await Point.create({
+      userId: comment.userId,
+      point: -1,
+      description: "Comment deleted"
+    });
+
+    await deleteAttachment(comment);
+
+    for (const reply of replies) {
+      await deleteAttachment(reply);
+      await reply.deleteOne();
+    }
+
+    // Update post's comments array
+    await Post.findByIdAndUpdate(req.params.postId, {
+      $pull: { comments: comment._id }
+    });
+
+    await comment.deleteOne();
+
+    res.status(204).json({
+      status: 'success',
+      data: null
+    });
+  } catch (error) {
+    return next(new AppError('Error deleting comment and associated data', 500));
+  }
+});
+
+// Function to get all post comments
+exports.getAllPostComments = catchAsync(async (req, res, next) => {
+  const post = await Post.findById(req.params.postId);
+  if (!post) {
+    return next(new AppError('Post not found', 404));
+  }
+
+  const comments = await Comment.find({ questionId: req.params.postId })
+    .populate('userId', 'username fullName photo userFrame badges')
+    .sort('-createdAt');
+
+  res.status(200).json({
+    status: 'success',
+    results: comments.length,
+    data: { comments }
   });
 });
 
