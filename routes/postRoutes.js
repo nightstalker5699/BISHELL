@@ -70,7 +70,7 @@ router
   .get(authController.protect, commentController.getAllPostComments)
   .post(
     authController.protect,
-    postController.uploadAttachments,
+    postController.uploadCommentAttachment,
     commentController.addPostComment
   );
 
@@ -78,15 +78,15 @@ router
   .route("/:postId/comments/:commentId")
   .patch(
     authController.protect,
-    postController.uploadAttachments,
+    postController.uploadCommentAttachment,
     commentController.updatePostComment
   )
   .delete(authController.protect, commentController.deletePostComment);
 
 router
   .route("/:postId/comments/:commentId/like")
-  .post(authController.protect, commentController.likeComment)
-  .delete(authController.protect, commentController.unlikeComment);
+  .post(authController.protect, commentController.likePostComment)
+  .delete(authController.protect, commentController.unlikePostComment);
 
 router
   .route("/")

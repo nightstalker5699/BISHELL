@@ -815,4 +815,107 @@ exports.getAllPostComments = catchAsync(async (req, res, next) => {
   });
 });
 
+// Function to like a post comment
+exports.likePostComment = catchAsync(async (req, res, next) => {
+  const comment = await Comment.findOne({
+    _id: req.params.commentId,
+    questionId: req.params.postId // Use postId instead of questionId
+  });
+
+  if (!comment) {
+    return next(new AppError('Comment not found', 404));
+  }
+
+  // Check if already liked
+  if (comment.likes.includes(req.user._id)) {
+    return next(new AppError('You already liked this comment', 400));
+  }
+
+  // Add like
+  comment.likes.push(req.user._id);
+  await comment.save({ validateBeforeSave: false });
+
+  // Check if user is liking their own content
+  const isOwnContent = comment.userId.toString() === req.user._id.toString();
+  
+  if (!isOwnContent) {
+    // Liked someone else's comment
+    await Point.create({
+      userId: comment.userId,
+      point: 2,
+      description: "Your comment received a like"
+    });
+    
+    // Points to the liker
+    await Point.create({
+      userId: req.user._id,
+      point: 1, 
+      description: "You liked someone's comment"
+    });
+  }
+
+  // Send response
+  res.status(200).json({
+    status: 'success',
+    data: {
+      likes: comment.likes.length
+    }
+  });
+
+  // Send notification to the comment owner if it's not their own comment
+  if (!isOwnContent) {
+    await sendNotificationToUser(
+      comment.userId,
+      NotificationType.COMMENT_LIKED,
+      {
+        username: req.user.username,
+        postId: req.params.postId,
+        commentId: comment._id,
+        actingUserId: req.user._id,
+        title: comment.content.substring(0, 50) + '...'
+      }
+    );
+  }
+});
+
+// Function to unlike a post comment
+exports.unlikePostComment = catchAsync(async (req, res, next) => {
+  const comment = await Comment.findOne({
+    _id: req.params.commentId,
+    questionId: req.params.postId // Use postId instead of questionId
+  });
+
+  if (!comment) {
+    return next(new AppError('Comment not found', 404));
+  }
+
+  // Check if not liked
+  if (!comment.likes.includes(req.user._id)) {
+    return next(new AppError('You have not liked this comment', 400));
+  }
+
+  // Remove like
+  comment.likes = comment.likes.filter(id => !id.equals(req.user._id));
+  await comment.save({ validateBeforeSave: false });
+
+  await Point.create({
+    userId: comment.userId,
+    point: -2, // Deduct points from comment owner
+    description: "Comment lost a like"
+  });
+
+  await Point.create({
+    userId: req.user._id,
+    point: -1, // Deduct point from user who unliked
+    description: "Unliked a comment"
+  });
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      likes: comment.likes.length
+    }
+  });
+});
+
 // protection on comments and likes

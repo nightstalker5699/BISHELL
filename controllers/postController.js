@@ -12,22 +12,47 @@ const { sendNotificationToUser } = require("../utils/notificationUtil");
 const { NotificationType } = require("../utils/notificationTypes");
 const { processMentions } = require("../utils/mentionUtil");
 
-// Create quillUploads directory if it doesn't exist
-const quillUploadsDir = path.join(__dirname, "..", "static", "quillUploads");
-if (!fs.existsSync(quillUploadsDir)) {
-  fs.mkdirSync(quillUploadsDir, { recursive: true });
-}
+// Create all necessary upload directories
+const createUploadDirectories = () => {
+  // Directory for quill uploads
+  const quillUploadsDir = path.join(__dirname, "..", "static", "quillUploads");
+  if (!fs.existsSync(quillUploadsDir)) {
+    fs.mkdirSync(quillUploadsDir, { recursive: true });
+  }
 
-// Create postAttachments directory if it doesn't exist
-const postAttachmentsDir = path.join(__dirname, "..", "static", "postAttachments");
-if (!fs.existsSync(postAttachmentsDir)) {
-  fs.mkdirSync(postAttachmentsDir, { recursive: true });
-}
+  // Directory for post attachments
+  const postAttachmentsDir = path.join(__dirname, "..", "static", "postAttachments");
+  if (!fs.existsSync(postAttachmentsDir)) {
+    fs.mkdirSync(postAttachmentsDir, { recursive: true });
+  }
+
+  // Directory for comment attachments (shared with questions)
+  const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
+  if (!fs.existsSync(attachFileDir)) {
+    fs.mkdirSync(attachFileDir, { recursive: true });
+  }
+};
+
+// Create directories on module load
+createUploadDirectories();
 
 // Configure multer storage for post attachments
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
+    const postAttachmentsDir = path.join(__dirname, "..", "static", "postAttachments");
     cb(null, postAttachmentsDir);
+  },
+  filename: (req, file, cb) => {
+    const safeName = `${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`;
+    cb(null, safeName);
+  },
+});
+
+// Configure multer storage for comment attachments
+const commentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
+    cb(null, attachFileDir);
   },
   filename: (req, file, cb) => {
     const safeName = `${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`;
@@ -37,6 +62,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage }).array("attachments", 5); // Allow up to 5 attachments
 exports.uploadAttachments = upload;
+
+// Upload middleware for post comment attachments (uses attachFile directory)
+const commentUpload = multer({ storage: commentStorage }).single("attach_file");
+exports.uploadCommentAttachment = commentUpload;
 
 // Helper functions
 const formatUserObject = (user) => {
