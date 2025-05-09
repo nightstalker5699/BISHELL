@@ -72,18 +72,7 @@ app.use(mongoSanitize());
 // app.use(hpp());
 
 // 7) Static files
-const staticPath = path.join(__dirname, "static");
-console.log(`Setting up static file serving from: ${staticPath}`);
-app.use('/static', express.static(staticPath));
-
-// Additional middleware to log static file requests
-app.use('/static', (req, res, next) => {
-  const requestedFile = path.join(staticPath, req.path);
-  if (!fs.existsSync(requestedFile)) {
-    console.log(`File not found: ${requestedFile}`);
-  }
-  next();
-});
+app.use(express.static(path.join(__dirname, "static")));
 
 // 8) Custom headers
 app.use((req, res, next) => {

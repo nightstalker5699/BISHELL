@@ -77,9 +77,9 @@ const storage = multer.diskStorage({
 // Configure multer storage for comment attachments
 const commentStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
-    console.log(`Storing comment attachment in: ${attachFileDir}`);
-    cb(null, attachFileDir);
+    const postAttachmentsDir = path.join(__dirname, "..", "static", "postAttachments");
+    console.log(`Storing comment attachment in: ${postAttachmentsDir}`);
+    cb(null, postAttachmentsDir);
   },
   filename: (req, file, cb) => {
     const safeName = `${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`;
@@ -139,7 +139,7 @@ const formatAttachment = (req, attachment) => {
     size: attachment.size,
     mimeType: attachment.mimeType,
     type: attachment.type,
-    url: `${req.protocol}://${req.get("host")}/static/postAttachments/${attachment.name}`,
+    url: `${req.protocol}://${req.get("host")}/postAttachments/${attachment.name}`,
   };
 };
 
@@ -158,7 +158,7 @@ exports.handleQuillUpload = catchAsync(async (req, res, next) => {
     console.log(`File exists on disk: ${req.file.path}`);
   }
 
-  const fileUrl = `${req.protocol}://${req.get("host")}/static/quillUploads/${req.file.filename}`;
+  const fileUrl = `${req.protocol}://${req.get("host")}/quillUploads/${req.file.filename}`;
   console.log(`Generated URL: ${fileUrl}`);
 
   res.status(200).json({
@@ -479,7 +479,7 @@ exports.getPost = catchAsync(async (req, res, next) => {
       name: comment.attach_file.name,
       size: comment.attach_file.size,
       mimeType: comment.attach_file.mimeType,
-      url: `${req.protocol}://${req.get('host')}/static/attachFile/${comment.attach_file.name}`
+      url: `${req.protocol}://${req.get('host')}/postAttachments/${comment.attach_file.name}`
     } : null,
     timestamps: {
       created: comment.createdAt,
