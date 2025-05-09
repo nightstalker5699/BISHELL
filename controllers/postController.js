@@ -17,19 +17,43 @@ const createUploadDirectories = () => {
   // Directory for quill uploads
   const quillUploadsDir = path.join(__dirname, "..", "static", "quillUploads");
   if (!fs.existsSync(quillUploadsDir)) {
-    fs.mkdirSync(quillUploadsDir, { recursive: true });
+    console.log(`Creating directory: ${quillUploadsDir}`);
+    try {
+      fs.mkdirSync(quillUploadsDir, { recursive: true, mode: 0o775 });
+      console.log(`Successfully created directory: ${quillUploadsDir}`);
+    } catch (error) {
+      console.error(`Failed to create directory ${quillUploadsDir}:`, error);
+    }
+  } else {
+    console.log(`Directory already exists: ${quillUploadsDir}`);
   }
 
   // Directory for post attachments
   const postAttachmentsDir = path.join(__dirname, "..", "static", "postAttachments");
   if (!fs.existsSync(postAttachmentsDir)) {
-    fs.mkdirSync(postAttachmentsDir, { recursive: true });
+    console.log(`Creating directory: ${postAttachmentsDir}`);
+    try {
+      fs.mkdirSync(postAttachmentsDir, { recursive: true, mode: 0o775 });
+      console.log(`Successfully created directory: ${postAttachmentsDir}`);
+    } catch (error) {
+      console.error(`Failed to create directory ${postAttachmentsDir}:`, error);
+    }
+  } else {
+    console.log(`Directory already exists: ${postAttachmentsDir}`);
   }
 
   // Directory for comment attachments (shared with questions)
   const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
   if (!fs.existsSync(attachFileDir)) {
-    fs.mkdirSync(attachFileDir, { recursive: true });
+    console.log(`Creating directory: ${attachFileDir}`);
+    try {
+      fs.mkdirSync(attachFileDir, { recursive: true, mode: 0o775 });
+      console.log(`Successfully created directory: ${attachFileDir}`);
+    } catch (error) {
+      console.error(`Failed to create directory ${attachFileDir}:`, error);
+    }
+  } else {
+    console.log(`Directory already exists: ${attachFileDir}`);
   }
 };
 
@@ -40,10 +64,12 @@ createUploadDirectories();
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const postAttachmentsDir = path.join(__dirname, "..", "static", "postAttachments");
+    console.log(`Storing attachment in: ${postAttachmentsDir}`);
     cb(null, postAttachmentsDir);
   },
   filename: (req, file, cb) => {
     const safeName = `${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`;
+    console.log(`Generated filename: ${safeName}`);
     cb(null, safeName);
   },
 });
@@ -52,20 +78,45 @@ const storage = multer.diskStorage({
 const commentStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const attachFileDir = path.join(__dirname, "..", "static", "attachFile");
+    console.log(`Storing comment attachment in: ${attachFileDir}`);
     cb(null, attachFileDir);
   },
   filename: (req, file, cb) => {
     const safeName = `${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`;
+    console.log(`Generated filename: ${safeName}`);
     cb(null, safeName);
   },
 });
 
-const upload = multer({ storage }).array("attachments", 5); // Allow up to 5 attachments
+// Quill upload storage configuration
+const quillStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const quillUploadsDir = path.join(__dirname, "..", "static", "quillUploads");
+    console.log(`Storing quill upload in: ${quillUploadsDir}`);
+    cb(null, quillUploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const safeName = `${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`;
+    console.log(`Generated filename: ${safeName}`);
+    cb(null, safeName);
+  },
+});
+
+// Configure multer for post attachments
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+}).array("attachments", 5); // Allow up to 5 attachments
+
 exports.uploadAttachments = upload;
 
 // Upload middleware for post comment attachments (uses attachFile directory)
-const commentUpload = multer({ storage: commentStorage }).single("attach_file");
+const commentUpload = multer({ storage: commentStorage }).single("attachments");
 exports.uploadCommentAttachment = commentUpload;
+
+// Upload middleware for quill editor uploads
+const quillUpload = multer({ storage: quillStorage }).single("file");
+exports.uploadQuillImage = quillUpload;
 
 // Helper functions
 const formatUserObject = (user) => {
@@ -98,43 +149,120 @@ exports.handleQuillUpload = catchAsync(async (req, res, next) => {
     return next(new AppError("No file uploaded", 400));
   }
 
+  console.log(`File uploaded: ${req.file.path}`);
+  
+  // Check if file exists on disk
+  if (!fs.existsSync(req.file.path)) {
+    console.error(`File not found after upload: ${req.file.path}`);
+  } else {
+    console.log(`File exists on disk: ${req.file.path}`);
+  }
+
   const fileUrl = `${req.protocol}://${req.get("host")}/static/quillUploads/${req.file.filename}`;
+  console.log(`Generated URL: ${fileUrl}`);
 
   res.status(200).json({
     status: "success",
     data: {
       url: fileUrl,
+      filename: req.file.filename
     },
   });
+});
+
+// Delete uploaded photo handler
+exports.deleteUploadedPhoto = catchAsync(async (req, res, next) => {
+  const filename = req.params.filename;
+  
+  // Validate filename to prevent directory traversal attacks
+  if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    return next(new AppError("Invalid filename", 400));
+  }
+
+  const filePath = path.join(__dirname, "..", "static", "quillUploads", filename);
+  
+  console.log(`Attempting to delete file: ${filePath}`);
+  
+  try {
+    // Check if file exists
+    await fsp.access(filePath);
+    
+    // Delete file
+    await fsp.unlink(filePath);
+    console.log(`Successfully deleted file: ${filePath}`);
+    
+    res.status(200).json({
+      status: "success",
+      message: "File deleted successfully"
+    });
+  } catch (error) {
+    console.error(`Error deleting file ${filePath}:`, error);
+    
+    if (error.code === 'ENOENT') {
+      return next(new AppError("File not found", 404));
+    }
+    
+    return next(new AppError("Could not delete file", 500));
+  }
 });
 
 // Create post
 exports.createPost = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
-  const { content, quillContent, category } = req.body;
+  const { content, quillContent, category, title } = req.body;
+
+  if (!title) {
+    return next(new AppError("Post title is required", 400));
+  }
 
   const postData = {
     userId,
-    content,
+    title,
     quillContent: JSON.parse(quillContent),
     category,
   };
 
+  // Only add content if it exists
+  if (content) {
+    postData.content = content;
+  }
+
   // Handle attachments if any
   if (req.files && req.files.length > 0) {
-    postData.attachments = req.files.map(file => ({
-      name: file.filename,
-      size: file.size,
-      mimeType: file.mimetype,
-      path: file.path,
-      type: file.mimetype.startsWith('image/') ? 'image' : 'video'
-    }));
+    postData.attachments = req.files.map(file => {
+      let fileType = 'other';
+      
+      if (file.mimetype.startsWith('image/')) {
+        fileType = 'image';
+      } else if (file.mimetype.startsWith('video/')) {
+        fileType = 'video';
+      } else if (file.mimetype === 'application/pdf' || 
+                file.mimetype === 'application/msword' || 
+                file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                file.mimetype === 'application/vnd.ms-excel' ||
+                file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                file.mimetype === 'application/vnd.ms-powerpoint' ||
+                file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+                file.mimetype === 'text/plain') {
+        fileType = 'document';
+      }
+      
+      return {
+        name: file.filename,
+        size: file.size,
+        mimeType: file.mimetype,
+        path: file.path,
+        type: fileType
+      };
+    });
   }
 
   const newPost = await Post.create(postData);
 
-  // Process mentions
-  await processMentions(content, userId, "post", newPost._id);
+  // Process mentions only if content exists
+  if (content) {
+    await processMentions(content, userId, "post", newPost._id);
+  }
 
   await newPost.populate({
     path: "userId",
@@ -143,7 +271,8 @@ exports.createPost = catchAsync(async (req, res, next) => {
 
   const response = {
     id: newPost._id,
-    content: newPost.content,
+    title: newPost.title,
+    content: newPost.content || "",
     quillContent: newPost.quillContent,
     user: formatUserObject(newPost.userId),
     attachments: newPost.attachments.map(attachment => formatAttachment(req, attachment)),
@@ -217,7 +346,8 @@ exports.getAllPosts = catchAsync(async (req, res, next) => {
 
   const formattedPosts = posts.map((post) => ({
     id: post._id,
-    content: post.content,
+    title: post.title,
+    content: post.content || "",
     quillContent: post.quillContent,
     user: formatUserObject(post.userId),
     category: post.category ? post.category.courseName : "General",
@@ -305,7 +435,8 @@ exports.getPost = catchAsync(async (req, res, next) => {
 
   const formattedPost = {
     id: post._id,
-    content: post.content,
+    title: post.title,
+    content: post.content || "",
     quillContent: post.quillContent,
     user: formatUserObject(post.userId),
     category: post.category ? post.category.courseName : "General",
@@ -387,8 +518,16 @@ exports.updatePost = catchAsync(async (req, res, next) => {
     return next(new AppError("You can only update your own posts", 403));
   }
 
-  // Update content
-  post.content = req.body.content || post.content;
+  // Update fields
+  if (req.body.title) {
+    post.title = req.body.title;
+  }
+  
+  // Only update content if provided
+  if (req.body.content !== undefined) {
+    post.content = req.body.content;
+  }
+  
   post.quillContent = req.body.quillContent ? JSON.parse(req.body.quillContent) : post.quillContent;
 
   // Handle attachments
@@ -404,13 +543,32 @@ exports.updatePost = catchAsync(async (req, res, next) => {
     }
 
     // Add new attachments
-    post.attachments = req.files.map(file => ({
-      name: file.filename,
-      size: file.size,
-      mimeType: file.mimetype,
-      path: file.path,
-      type: file.mimetype.startsWith('image/') ? 'image' : 'video'
-    }));
+    post.attachments = req.files.map(file => {
+      let fileType = 'other';
+      
+      if (file.mimetype.startsWith('image/')) {
+        fileType = 'image';
+      } else if (file.mimetype.startsWith('video/')) {
+        fileType = 'video';
+      } else if (file.mimetype === 'application/pdf' || 
+                file.mimetype === 'application/msword' || 
+                file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                file.mimetype === 'application/vnd.ms-excel' ||
+                file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                file.mimetype === 'application/vnd.ms-powerpoint' ||
+                file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+                file.mimetype === 'text/plain') {
+        fileType = 'document';
+      }
+      
+      return {
+        name: file.filename,
+        size: file.size,
+        mimeType: file.mimetype,
+        path: file.path,
+        type: fileType
+      };
+    });
   }
 
   await post.save();
@@ -421,6 +579,7 @@ exports.updatePost = catchAsync(async (req, res, next) => {
 
   const formattedPost = {
     id: post._id,
+    title: post.title,
     content: post.content,
     quillContent: post.quillContent,
     user: formatUserObject(post.userId),
@@ -510,7 +669,7 @@ exports.likePost = catchAsync(async (req, res, next) => {
         username: req.user.username,
         postId: post._id,
         actingUserId: req.user._id,
-        title: post.content.substring(0, 50) + "...",
+        title: post.title || post.content.substring(0, 50) + "...",
       }
     );
   }
