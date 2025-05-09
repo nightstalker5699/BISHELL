@@ -35,8 +35,15 @@ const upload = multer({
 router.post(
   "/upload",
   authController.protect,
-  upload.single("file"),
+  postController.uploadQuillImage,
   postController.handleQuillUpload
+);
+
+// Delete uploaded photo endpoint
+router.delete(
+  "/upload/:filename",
+  authController.protect,
+  postController.deleteUploadedPhoto
 );
 
 // Post routes
