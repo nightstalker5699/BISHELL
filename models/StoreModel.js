@@ -23,6 +23,8 @@ const StoreSchema = new mongoose.Schema({
   },
 });
 
+StoreSchema.index({ URL: 1 }, { unique: true });
+
 StoreSchema.pre(/^findOneAnd/, async function (next) {
   const doc = await this.model.findOne().select("URL");
   this.oldURL = doc.URL;
