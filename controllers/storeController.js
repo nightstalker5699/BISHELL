@@ -21,45 +21,44 @@ exports.getAllItem = catchAsync(async (req, res, next) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const skip = (page - 1) * limit;
-  
+
   // Query for items not owned by user (Buy items only)
   let query = Store.find({ owners: { $ne: req.user._id } });
   let countQuery = Store.find({ owners: { $ne: req.user._id } });
-  
+
   // Get total count for pagination
   const total = await countQuery.countDocuments();
-  
+
   // Apply consistent sorting by _id to ensure no duplicates across pages
-  query = query.sort({ _id: 1 });
-  
+  query = query.sort(req.query.sort || "_id");
+
   // Apply pagination
   query = query.skip(skip).limit(limit);
-  
+
   // Execute query
   const items = await query;
-  
+
   // Process items
-  const buyItems = items.map(item => ({
+  const buyItems = items.map((item) => ({
     id: item._id,
     name: item.name,
     price: item.price,
     URL: item.URL,
     currency: item.currency,
-    canAfford: req.user.stats[item.currency] >= item.price
+    canAfford: req.user.stats[item.currency] >= item.price,
   }));
-  
+
   res.status(200).json({
     status: "success",
     results: items.length,
     pagination: {
       currentPage: page,
       totalPages: Math.ceil(total / limit),
-      limit
+      limit,
     },
-    data: buyItems
+    data: buyItems,
   });
 });
-
 
 exports.buyItem = catchAsync(async (req, res, next) => {
   const item = await Store.findById(req.params.id);
@@ -100,23 +99,23 @@ exports.getEquippedFrame = catchAsync(async (req, res, next) => {
   // Find the currently equipped frame
   const equippedFrame = await Store.findOne({
     URL: req.user.userFrame,
-    owners: req.user._id
+    owners: req.user._id,
   });
-  
+
   if (!equippedFrame) {
     return res.status(200).json({
       status: "success",
-      data: null
+      data: null,
     });
   }
-  
+
   res.status(200).json({
     status: "success",
     data: {
       id: equippedFrame._id,
       name: equippedFrame.name,
-      URL: equippedFrame.URL
-    }
+      URL: equippedFrame.URL,
+    },
   });
 });
 
@@ -125,44 +124,42 @@ exports.getOwnedFrames = catchAsync(async (req, res, next) => {
   // Parse parameters
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
-  
+
   // Query for items owned by user but not equipped
-  const query = Store.find({ 
+  const query = Store.find({
     owners: req.user._id,
-    URL: { $ne: req.user.userFrame }
+    URL: { $ne: req.user.userFrame },
   });
-  
-  const countQuery = Store.find({ 
+
+  const countQuery = Store.find({
     owners: req.user._id,
-    URL: { $ne: req.user.userFrame }
+    URL: { $ne: req.user.userFrame },
   });
-  
+
   // Get total count for pagination
   const total = await countQuery.countDocuments();
-  
+
   // Apply APIFeatures for sorting and pagination
-  const features = new APIFeatures(query, req.query)
-    .sort()
-    .paginate();
-  
+  const features = new APIFeatures(query, req.query).sort().paginate();
+
   // Execute query
   const items = await features.query;
-  
+
   // Process items
-  const ownedFrames = items.map(item => ({
+  const ownedFrames = items.map((item) => ({
     id: item._id,
     name: item.name,
-    URL: item.URL
+    URL: item.URL,
   }));
-  
+
   res.status(200).json({
     status: "success",
     results: items.length,
     pagination: {
       currentPage: page,
       totalPages: Math.ceil(total / limit),
-      limit
+      limit,
     },
-    data: ownedFrames
+    data: ownedFrames,
   });
 });
