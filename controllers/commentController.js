@@ -663,7 +663,7 @@ exports.addPostComment = catchAsync(async (req, res, next) => {
         postId: post._id,
         commentId: comment._id,
         actingUserId: req.user._id,
-        title: post.content.substring(0, 50) + '...'
+        title: post.title.substring(0, 50) + '...'
       }
     );
   }
