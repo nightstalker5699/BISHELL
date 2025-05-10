@@ -111,7 +111,7 @@ const upload = multer({
 exports.uploadAttachments = upload;
 
 // Upload middleware for post comment attachments (uses attachFile directory)
-const commentUpload = multer({ storage: commentStorage }).single("attachments");
+const commentUpload = multer({ storage: commentStorage }).single("attach_file");
 exports.uploadCommentAttachment = commentUpload;
 
 // Upload middleware for quill editor uploads
