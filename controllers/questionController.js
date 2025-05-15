@@ -5,6 +5,7 @@ const multer = require("multer");
 const Question = require("../models/questionModel");
 const User = require("../models/userModel");
 const Comment = require("../models/commentModel");
+const Course = require("../models/courseModel");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const mime = require("mime-types");
@@ -115,6 +116,12 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
   const skip = (page - 1) * limit;
 
   const filter = {};
+  if (req.user.role === "instructor") {
+    let courses = (
+      await Course.find({ instructorId: req.user._id }).select("_id")
+    ).map((course) => course._id);
+    filter.category = { $in: courses };
+  }
   if (req.query.answered === "true") {
     filter.verifiedComment = { $exists: true };
   } else if (req.query.answered === "false") {
@@ -127,13 +134,21 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
   if (req.query.bookmark === "true") {
     filter.bookmarkedBy = req.user._id;
   }
+  if (req.query.userId) {
+    filter.userId = req.query.userId;
+  }
   const total = await Question.countDocuments(filter);
 
   let questions;
   if (req.query.sort === "-likes") {
     // Convert user ID to MongoDB ObjectId when passing to aggregation
     const userIdObj = req.user ? req.user._id : null;
-    questions = await Question.findAllSortedByLikes(filter, skip, limit, userIdObj);
+    questions = await Question.findAllSortedByLikes(
+      filter,
+      skip,
+      limit,
+      userIdObj
+    );
     questions = await Question.populate(questions, [
       {
         path: "userId",
@@ -239,13 +254,16 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         stats: {
           likesCount: question.likes?.length || 0,
           // Use the precomputed field if available, otherwise check the likes array
-          isLikedByCurrentUser: question.isLikedByCurrentUser !== undefined
-            ? question.isLikedByCurrentUser
-            : (req.user ? question.likes?.includes(req.user._id) : false),
+          isLikedByCurrentUser:
+            question.isLikedByCurrentUser !== undefined
+              ? question.isLikedByCurrentUser
+              : req.user
+              ? question.likes?.includes(req.user._id)
+              : false,
           bookmarksCount: question.bookmarkedBy?.length || 0,
           isbookmarkedByCurrentUser: req.user
             ? question.bookmarkedBy?.includes(req.user._id) || false
-            : false, 
+            : false,
           commentsCount: question.comments?.length || 0,
         },
         timestamps: {

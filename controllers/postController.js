@@ -29,7 +29,12 @@ const createUploadDirectories = () => {
   }
 
   // Directory for post attachments
-  const postAttachmentsDir = path.join(__dirname, "..", "static", "postAttachments");
+  const postAttachmentsDir = path.join(
+    __dirname,
+    "..",
+    "static",
+    "postAttachments"
+  );
   if (!fs.existsSync(postAttachmentsDir)) {
     console.log(`Creating directory: ${postAttachmentsDir}`);
     try {
@@ -63,7 +68,12 @@ createUploadDirectories();
 // Configure multer storage for post attachments
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const postAttachmentsDir = path.join(__dirname, "..", "static", "postAttachments");
+    const postAttachmentsDir = path.join(
+      __dirname,
+      "..",
+      "static",
+      "postAttachments"
+    );
     console.log(`Storing attachment in: ${postAttachmentsDir}`);
     cb(null, postAttachmentsDir);
   },
@@ -77,7 +87,12 @@ const storage = multer.diskStorage({
 // Configure multer storage for comment attachments
 const commentStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const postAttachmentsDir = path.join(__dirname, "..", "static", "postAttachments");
+    const postAttachmentsDir = path.join(
+      __dirname,
+      "..",
+      "static",
+      "postAttachments"
+    );
     console.log(`Storing comment attachment in: ${postAttachmentsDir}`);
     cb(null, postAttachmentsDir);
   },
@@ -91,7 +106,12 @@ const commentStorage = multer.diskStorage({
 // Quill upload storage configuration
 const quillStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const quillUploadsDir = path.join(__dirname, "..", "static", "quillUploads");
+    const quillUploadsDir = path.join(
+      __dirname,
+      "..",
+      "static",
+      "quillUploads"
+    );
     console.log(`Storing quill upload in: ${quillUploadsDir}`);
     cb(null, quillUploadsDir);
   },
@@ -139,7 +159,9 @@ const formatAttachment = (req, attachment) => {
     size: attachment.size,
     mimeType: attachment.mimeType,
     type: attachment.type,
-    url: `${req.protocol}://${req.get("host")}/postAttachments/${attachment.name}`,
+    url: `${req.protocol}://${req.get("host")}/postAttachments/${
+      attachment.name
+    }`,
   };
 };
 
@@ -150,7 +172,7 @@ exports.handleQuillUpload = catchAsync(async (req, res, next) => {
   }
 
   console.log(`File uploaded: ${req.file.path}`);
-  
+
   // Check if file exists on disk
   if (!fs.existsSync(req.file.path)) {
     console.error(`File not found after upload: ${req.file.path}`);
@@ -158,14 +180,16 @@ exports.handleQuillUpload = catchAsync(async (req, res, next) => {
     console.log(`File exists on disk: ${req.file.path}`);
   }
 
-  const fileUrl = `${req.protocol}://${req.get("host")}/quillUploads/${req.file.filename}`;
+  const fileUrl = `${req.protocol}://${req.get("host")}/quillUploads/${
+    req.file.filename
+  }`;
   console.log(`Generated URL: ${fileUrl}`);
 
   res.status(200).json({
     status: "success",
     data: {
       url: fileUrl,
-      filename: req.file.filename
+      filename: req.file.filename,
     },
   });
 });
@@ -173,35 +197,46 @@ exports.handleQuillUpload = catchAsync(async (req, res, next) => {
 // Delete uploaded photo handler
 exports.deleteUploadedPhoto = catchAsync(async (req, res, next) => {
   const filename = req.params.filename;
-  
+
   // Validate filename to prevent directory traversal attacks
-  if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+  if (
+    !filename ||
+    filename.includes("..") ||
+    filename.includes("/") ||
+    filename.includes("\\")
+  ) {
     return next(new AppError("Invalid filename", 400));
   }
 
-  const filePath = path.join(__dirname, "..", "static", "quillUploads", filename);
-  
+  const filePath = path.join(
+    __dirname,
+    "..",
+    "static",
+    "quillUploads",
+    filename
+  );
+
   console.log(`Attempting to delete file: ${filePath}`);
-  
+
   try {
     // Check if file exists
     await fsp.access(filePath);
-    
+
     // Delete file
     await fsp.unlink(filePath);
     console.log(`Successfully deleted file: ${filePath}`);
-    
+
     res.status(200).json({
       status: "success",
-      message: "File deleted successfully"
+      message: "File deleted successfully",
     });
   } catch (error) {
     console.error(`Error deleting file ${filePath}:`, error);
-    
-    if (error.code === 'ENOENT') {
+
+    if (error.code === "ENOENT") {
       return next(new AppError("File not found", 404));
     }
-    
+
     return next(new AppError("Could not delete file", 500));
   }
 });
@@ -229,30 +264,35 @@ exports.createPost = catchAsync(async (req, res, next) => {
 
   // Handle attachments if any
   if (req.files && req.files.length > 0) {
-    postData.attachments = req.files.map(file => {
-      let fileType = 'other';
-      
-      if (file.mimetype.startsWith('image/')) {
-        fileType = 'image';
-      } else if (file.mimetype.startsWith('video/')) {
-        fileType = 'video';
-      } else if (file.mimetype === 'application/pdf' || 
-                file.mimetype === 'application/msword' || 
-                file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-                file.mimetype === 'application/vnd.ms-excel' ||
-                file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-                file.mimetype === 'application/vnd.ms-powerpoint' ||
-                file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
-                file.mimetype === 'text/plain') {
-        fileType = 'document';
+    postData.attachments = req.files.map((file) => {
+      let fileType = "other";
+
+      if (file.mimetype.startsWith("image/")) {
+        fileType = "image";
+      } else if (file.mimetype.startsWith("video/")) {
+        fileType = "video";
+      } else if (
+        file.mimetype === "application/pdf" ||
+        file.mimetype === "application/msword" ||
+        file.mimetype ===
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        file.mimetype === "application/vnd.ms-excel" ||
+        file.mimetype ===
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        file.mimetype === "application/vnd.ms-powerpoint" ||
+        file.mimetype ===
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+        file.mimetype === "text/plain"
+      ) {
+        fileType = "document";
       }
-      
+
       return {
         name: file.filename,
         size: file.size,
         mimeType: file.mimetype,
         path: file.path,
-        type: fileType
+        type: fileType,
       };
     });
   }
@@ -275,7 +315,9 @@ exports.createPost = catchAsync(async (req, res, next) => {
     content: newPost.content || "",
     quillContent: newPost.quillContent,
     user: formatUserObject(newPost.userId),
-    attachments: newPost.attachments.map(attachment => formatAttachment(req, attachment)),
+    attachments: newPost.attachments.map((attachment) =>
+      formatAttachment(req, attachment)
+    ),
     timestamps: {
       created: newPost.createdAt,
       formatted: new Date(newPost.createdAt).toLocaleString(),
@@ -323,12 +365,15 @@ exports.getAllPosts = catchAsync(async (req, res, next) => {
 
   const filter = {};
   if (req.query.category) {
-    filter.category = req.query.category === "General" ? null : req.query.category;
+    filter.category =
+      req.query.category === "General" ? null : req.query.category;
   }
   if (req.query.bookmark === "true") {
     filter.bookmarkedBy = req.user._id;
   }
-
+  if (req.query.userId) {
+    filter.userId = req.query.userId;
+  }
   const total = await Post.countDocuments(filter);
 
   const posts = await Post.find(filter)
@@ -353,14 +398,18 @@ exports.getAllPosts = catchAsync(async (req, res, next) => {
     category: post.category ? post.category.courseName : "General",
     stats: {
       likesCount: post.likes.length,
-      isLikedByCurrentUser: req.user ? post.likes.includes(req.user._id) : false,
+      isLikedByCurrentUser: req.user
+        ? post.likes.includes(req.user._id)
+        : false,
       bookmarksCount: post.bookmarkedBy.length,
       isbookmarkedByCurrentUser: req.user
         ? post.bookmarkedBy.includes(req.user._id)
         : false,
       commentsCount: post.comments.length,
     },
-    attachments: post.attachments.map(attachment => formatAttachment(req, attachment)),
+    attachments: post.attachments.map((attachment) =>
+      formatAttachment(req, attachment)
+    ),
     timestamps: {
       created: post.createdAt,
       formatted: new Date(post.createdAt).toLocaleString(),
@@ -418,12 +467,12 @@ exports.getPost = catchAsync(async (req, res, next) => {
 
   // Get total comments count
   const totalComments = await Comment.countDocuments({
-    questionId: post._id
+    questionId: post._id,
   });
 
   // Get paginated comments - no parentId filter since we don't have replies in posts
   const comments = await Comment.find({
-    questionId: post._id
+    questionId: post._id,
   })
     .populate({
       path: "userId",
@@ -442,7 +491,9 @@ exports.getPost = catchAsync(async (req, res, next) => {
     category: post.category ? post.category.courseName : "General",
     stats: {
       likesCount: post.likes.length,
-      isLikedByCurrentUser: req.user ? post.likes.includes(req.user._id) : false,
+      isLikedByCurrentUser: req.user
+        ? post.likes.includes(req.user._id)
+        : false,
       bookmarksCount: post.bookmarkedBy.length,
       isbookmarkedByCurrentUser: req.user
         ? post.bookmarkedBy.includes(req.user._id)
@@ -452,7 +503,9 @@ exports.getPost = catchAsync(async (req, res, next) => {
       anonViews: post.anonymousViews || 0,
       totalViews: post.viewedBy.length + (post.anonymousViews || 0),
     },
-    attachments: post.attachments.map(attachment => formatAttachment(req, attachment)),
+    attachments: post.attachments.map((attachment) =>
+      formatAttachment(req, attachment)
+    ),
     timestamps: {
       created: post.createdAt,
       formatted: new Date(post.createdAt).toLocaleString(),
@@ -469,22 +522,29 @@ exports.getPost = catchAsync(async (req, res, next) => {
       fullName: comment.userId.fullName,
       photo: comment.userId.photo,
       userFrame: comment.userId.userFrame,
-      badges: comment.userId.badges
+      badges: comment.userId.badges,
     },
     stats: {
       likesCount: comment.likes ? comment.likes.length : 0,
-      isLikedByCurrentUser: req.user ? comment.likes.includes(req.user._id) : false
+      isLikedByCurrentUser: req.user
+        ? comment.likes.includes(req.user._id)
+        : false,
     },
-    attachment: comment.attach_file && comment.attach_file.name ? {
-      name: comment.attach_file.name,
-      size: comment.attach_file.size,
-      mimeType: comment.attach_file.mimeType,
-      url: `${req.protocol}://${req.get('host')}/postAttachments/${comment.attach_file.name}`
-    } : null,
+    attachment:
+      comment.attach_file && comment.attach_file.name
+        ? {
+            name: comment.attach_file.name,
+            size: comment.attach_file.size,
+            mimeType: comment.attach_file.mimeType,
+            url: `${req.protocol}://${req.get("host")}/postAttachments/${
+              comment.attach_file.name
+            }`,
+          }
+        : null,
     timestamps: {
       created: comment.createdAt,
-      formatted: new Date(comment.createdAt).toLocaleString()
-    }
+      formatted: new Date(comment.createdAt).toLocaleString(),
+    },
   });
 
   formattedPost.comments = {
@@ -495,7 +555,7 @@ exports.getPost = catchAsync(async (req, res, next) => {
       totalPages: Math.ceil(totalComments / limit),
       limit,
     },
-    data: comments.map(comment => formatCommentObject(comment))
+    data: comments.map((comment) => formatCommentObject(comment)),
   };
 
   res.status(200).json({
@@ -522,19 +582,27 @@ exports.updatePost = catchAsync(async (req, res, next) => {
   if (req.body.title) {
     post.title = req.body.title;
   }
-  
+
   // Only update content if provided
   if (req.body.content !== undefined) {
     post.content = req.body.content;
   }
-  
-  post.quillContent = req.body.quillContent ? JSON.parse(req.body.quillContent) : post.quillContent;
+
+  post.quillContent = req.body.quillContent
+    ? JSON.parse(req.body.quillContent)
+    : post.quillContent;
 
   // Handle attachments
   if (req.files && req.files.length > 0) {
     // Delete old attachments
     for (const attachment of post.attachments) {
-      const filePath = path.join(__dirname, "..", "static", "postAttachments", attachment.name);
+      const filePath = path.join(
+        __dirname,
+        "..",
+        "static",
+        "postAttachments",
+        attachment.name
+      );
       try {
         await fsp.unlink(filePath);
       } catch (err) {
@@ -543,30 +611,35 @@ exports.updatePost = catchAsync(async (req, res, next) => {
     }
 
     // Add new attachments
-    post.attachments = req.files.map(file => {
-      let fileType = 'other';
-      
-      if (file.mimetype.startsWith('image/')) {
-        fileType = 'image';
-      } else if (file.mimetype.startsWith('video/')) {
-        fileType = 'video';
-      } else if (file.mimetype === 'application/pdf' || 
-                file.mimetype === 'application/msword' || 
-                file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-                file.mimetype === 'application/vnd.ms-excel' ||
-                file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-                file.mimetype === 'application/vnd.ms-powerpoint' ||
-                file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
-                file.mimetype === 'text/plain') {
-        fileType = 'document';
+    post.attachments = req.files.map((file) => {
+      let fileType = "other";
+
+      if (file.mimetype.startsWith("image/")) {
+        fileType = "image";
+      } else if (file.mimetype.startsWith("video/")) {
+        fileType = "video";
+      } else if (
+        file.mimetype === "application/pdf" ||
+        file.mimetype === "application/msword" ||
+        file.mimetype ===
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        file.mimetype === "application/vnd.ms-excel" ||
+        file.mimetype ===
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        file.mimetype === "application/vnd.ms-powerpoint" ||
+        file.mimetype ===
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+        file.mimetype === "text/plain"
+      ) {
+        fileType = "document";
       }
-      
+
       return {
         name: file.filename,
         size: file.size,
         mimeType: file.mimetype,
         path: file.path,
-        type: fileType
+        type: fileType,
       };
     });
   }
@@ -583,7 +656,9 @@ exports.updatePost = catchAsync(async (req, res, next) => {
     content: post.content,
     quillContent: post.quillContent,
     user: formatUserObject(post.userId),
-    attachments: post.attachments.map(attachment => formatAttachment(req, attachment)),
+    attachments: post.attachments.map((attachment) =>
+      formatAttachment(req, attachment)
+    ),
     timestamps: {
       created: post.createdAt,
       updated: post.updatedAt,
@@ -611,13 +686,21 @@ exports.deletePost = catchAsync(async (req, res, next) => {
     req.user.role !== "admin" &&
     req.user.role !== "group-leader"
   ) {
-    return next(new AppError("You are not authorized to delete this post", 403));
+    return next(
+      new AppError("You are not authorized to delete this post", 403)
+    );
   }
 
   try {
     // Delete attachments
     for (const attachment of post.attachments) {
-      const filePath = path.join(__dirname, "..", "static", "postAttachments", attachment.name);
+      const filePath = path.join(
+        __dirname,
+        "..",
+        "static",
+        "postAttachments",
+        attachment.name
+      );
       try {
         await fsp.unlink(filePath);
       } catch (err) {
@@ -789,4 +872,4 @@ exports.getPostViewers = catchAsync(async (req, res, next) => {
       limit,
     },
   });
-}); 
+});

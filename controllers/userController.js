@@ -12,7 +12,7 @@ const appError = require("../utils/appError");
 const { sendNotificationToUser } = require("../utils/notificationUtil");
 const { NotificationType } = require("../utils/notificationTypes");
 const { getSecureProfilePicUrl } = require("../utils/urlUtils");
-
+const Course = require("../models/courseModel");
 const storage = multer.memoryStorage({});
 
 const fileFilter = (req, file, cb) => {
@@ -88,12 +88,18 @@ exports.getUser = catchAsync(async (req, res, next) => {
   if (!isOwnProfile) {
     isFollowed = user.following.some((id) => id.equals(targetUser._id));
   }
-
+  let courses;
+  if (targetUser.role === "instructor") {
+    courses = await Course.find({ instructorId: targetUser._id }).select(
+      "courseName slug"
+    );
+  }
   res.status(200).json({
     status: "success",
     data: {
       user: targetUser,
       isFollowed,
+      courses,
     },
   });
 });
