@@ -17,7 +17,6 @@ const signToken = (id, role) => {
 
 const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id, user.role);
-
   const cookiesOptions = {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
@@ -331,7 +330,7 @@ exports.previewUser = catchAsync(async (req, res, next) => {
       token: req.headers["authorization"].split(" ")[1],
     });
   }
-  const user = await User.findById("68156b18043fff753e0541e4");
+  const user = await User.findById("674a452c39b679b96d5ef8f7");
 
   createSendToken(user, 200, res);
 });
