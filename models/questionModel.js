@@ -33,6 +33,10 @@ const questionSchema = new mongoose.Schema(
       type: mongoose.Schema.ObjectId,
       ref: "Comment",
     },
+    verifiedBy: {
+      type: String,
+      enum: ["group-leader", "author", "instructor"],
+    },
     viewedBy: [
       {
         type: mongoose.Schema.ObjectId,
@@ -82,9 +86,11 @@ questionSchema.statics.findAllSortedByLikes = async function (
         likesCount: { $size: "$likes" },
         bookmarkedBy: { $ifNull: ["$bookmarkedBy", []] },
         // Add a field to check if current user has liked the question
-        isLikedByCurrentUser: userId ? {
-          $in: [userId, "$likes"]
-        } : false
+        isLikedByCurrentUser: userId
+          ? {
+              $in: [userId, "$likes"],
+            }
+          : false,
       },
     },
 

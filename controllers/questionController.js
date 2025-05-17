@@ -401,16 +401,18 @@ exports.verifyComment = catchAsync(async (req, res, next) => {
   if (!question) {
     return next(new AppError("Question not found", 404));
   }
-
+  const course = question.category
+    ? await Course.findById(question.category)
+    : { instructorId: null };
   // Check if already has verified answer
-  if (question.verifiedComment) {
+  if (question.verifiedComment && req.user.role !== "instructor") {
     return next(new AppError("Question already has a verified answer", 400));
   }
 
   // Check if user is question owner or doctor
   if (
     question.userId.toString() !== req.user._id.toString() &&
-    req.user.role !== "instructor" &&
+    req.user._id.toString() !== course.instructorId.toString() &&
     req.user.role !== "group-leader"
   ) {
     return next(new AppError("You are not authorized to verify answers", 403));
@@ -426,6 +428,7 @@ exports.verifyComment = catchAsync(async (req, res, next) => {
   }
 
   question.verifiedComment = comment._id;
+  question.verifiedBy = req.user.role === "student" ? "author" : req.user.role;
   await question.save({ validateBeforeSave: false });
 
   await Point.create({
@@ -457,18 +460,25 @@ exports.unverifyComment = catchAsync(async (req, res, next) => {
   if (!question) {
     return next(new AppError("Question not found", 404));
   }
-
+  const course = question.category
+    ? await Course.findById(question.category)
+    : { instructorId: null };
   // Check if user is question owner or doctor
+
   if (
     question.userId.toString() !== req.user._id.toString() &&
-    req.user.role !== "instructor" &&
+    req.user._id.toString() !== course.instructorId.toString() &&
     req.user.role !== "group-leader"
   ) {
     return next(
       new AppError("You are not authorized to unverify answers", 403)
     );
   }
-
+  if (question.verifiedBy === "instructor" && req.user.role !== "instructor") {
+    return next(
+      new AppError("You are not authorized to unverify doctor's answers", 403)
+    );
+  }
   // Check if question has verified answer
   if (!question.verifiedComment) {
     return next(new AppError("Question does not have a verified answer", 400));
@@ -482,6 +492,7 @@ exports.unverifyComment = catchAsync(async (req, res, next) => {
     });
   }
   question.verifiedComment = null;
+  question.verifiedBy = null;
   await question.save({ validateBeforeSave: false });
 
   res.status(200).json({
