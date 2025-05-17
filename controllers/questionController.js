@@ -193,7 +193,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
   } else {
     questions = await Question.find(filter)
       .select(
-        "content userId likes comments createdAt verifiedComment attach_file bookmarkedBy "
+        "content userId likes comments createdAt verifiedComment attach_file bookmarkedBy  verifiedBy"
       )
       .populate({
         path: "userId",
@@ -248,10 +248,10 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
       const questionObj = {
         id: question._id,
         content: question.content,
+        verifiedBy: question.verifiedBy,
         user: formatUserObject(question.userId),
         bookmarkedBy: question.bookmarkedBy || [],
         category: question.category ? question.category.courseName : "General",
-        verifiedBy: question.verifiedBy,
         stats: {
           likesCount: question.likes?.length || 0,
           // Use the precomputed field if available, otherwise check the likes array
