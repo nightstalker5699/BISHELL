@@ -251,6 +251,7 @@ exports.getAllQuestions = catchAsync(async (req, res, next) => {
         user: formatUserObject(question.userId),
         bookmarkedBy: question.bookmarkedBy || [],
         category: question.category ? question.category.courseName : "General",
+        verifiedBy: question.verifiedBy,
         stats: {
           likesCount: question.likes?.length || 0,
           // Use the precomputed field if available, otherwise check the likes array
@@ -593,6 +594,7 @@ exports.getQuestion = catchAsync(async (req, res, next) => {
     content: question.content,
     user: formatUserObject(question.userId),
     category: question.category ? question.category.courseName : "General",
+    verifiedBy: question.verifiedBy,
     stats: {
       likesCount: question.likes.length,
       isLikedByCurrentUser: req.user
