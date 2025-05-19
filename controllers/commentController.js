@@ -125,7 +125,7 @@ exports.addQuestionComment = catchAsync(async (req, res, next) => {
   const comment = await Comment.create({
     userId: req.user._id,
     questionId: req.params.questionId,
-    content: !req.body.content && req.file ? " " : req.body.content,
+    content: !req.body.content && req.file ? "\n" : req.body.content,
     attach_file: req.file
       ? {
           name: req.file.filename,
@@ -308,7 +308,7 @@ exports.addReply = catchAsync(async (req, res, next) => {
   const reply = await Comment.create({
     userId: req.user._id,
     questionId: req.params.questionId, // This is the question ID
-    content: !req.body.content && req.file ? " " : req.body.content,
+    content: !req.body.content && req.file ? "\n" : req.body.content,
     parentId: parentComment._id,
     attach_file: req.file
       ? {
