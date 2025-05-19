@@ -18,7 +18,7 @@ const commentSchema = new mongoose.Schema(
       required: [true, "A comment cannot be empty"],
       validate: {
         validator: function (val) {
-          if (this.content.length === 0 && this.attach_file) {
+          if (this.content.length === 0 && this.attach_file.name) {
             return true; // Allow empty content if there's an attachment
           }
           return this.content.length > 0;
