@@ -15,7 +15,6 @@ const commentSchema = new mongoose.Schema(
     },
     content: {
       type: String,
-      required: [true, "A comment cannot be empty"],
       validate: {
         validator: function (val) {
           console.log(val, this.attach_file.name);
