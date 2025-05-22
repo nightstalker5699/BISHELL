@@ -190,9 +190,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   await user.save({ validateBeforeSave: false });
 
   // 3) Send it to user's email
-  const resetURL = `${req.protocol}://${req.get(
-    "host"
-  )}/api/users/resetPassword/${resetToken}`;
+  const resetURL = `bishell.online/reset-password/${resetToken}`;
   const html = generatePasswordResetEmail(resetURL);
   try {
     await sendEmail({
